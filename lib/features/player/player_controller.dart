@@ -34,6 +34,16 @@ class QueueNotifier extends Notifier<List<Song>> {
   void remove(String songId) =>
       state = state.where((s) => s.id != songId).toList();
 
+  /// 拖动排序（onReorderItem 语义：newIndex 已完成移除位修正，直接插入）
+  void reorder(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= state.length) return;
+    if (newIndex < 0 || newIndex > state.length) return;
+    final queue = [...state];
+    final song = queue.removeAt(oldIndex);
+    queue.insert(newIndex.clamp(0, queue.length), song);
+    state = queue;
+  }
+
   /// 下一首播放：插到当前曲目之后（去重）；无当前曲目则插到队首
   void insertAfterCurrent(List<Song> songs) {
     final current = ref.read(currentSongProvider);
@@ -288,6 +298,10 @@ class PlayerActions {
 
   void removeFromQueue(String songId) =>
       _ref.read(queueProvider.notifier).remove(songId);
+
+  /// 拖动排序（队列弹窗）
+  void reorderQueue(int oldIndex, int newIndex) =>
+      _ref.read(queueProvider.notifier).reorder(oldIndex, newIndex);
 
   void clearQueue() => _ref.read(queueProvider.notifier).clear();
 
