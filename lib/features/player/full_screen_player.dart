@@ -84,8 +84,11 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
         child: Column(
           children: [
             // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
+            // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
+            // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
             SizedBox(
               height: 48,
+              width: double.infinity,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -540,9 +543,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     if (idx == _currentIndex.value) return;
     _currentIndex.value = idx;
     if (idx < 0 || !_controller.hasClients) return;
-    final target = (idx * _rowHeight +
-            _rowHeight / 2 -
-            _controller.position.viewportDimension / 2)
+    // 列表上下 padding 各为半个视口（见 build），行中心对齐视口中心
+    // 只需滚到 idx*行高 + 半行高，首尾行同样可居中
+    final target = (idx * _rowHeight + _rowHeight / 2)
         .clamp(0.0, _controller.position.maxScrollExtent);
     if (drag != null) {
       // 拖动进度条时无动画立即跟随（对齐 1.x handleSliderChange）

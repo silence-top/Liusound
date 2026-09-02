@@ -36,7 +36,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _usernameController.text.trim(),
             _passwordController.text,
           );
-      // 登录成功后由根组件按 authControllerProvider 分流，无需手动导航
+      // 登录成功：根路由已按 authControllerProvider 分流为 AppShell，
+      // 但登录页仍压在导航栈顶，需主动弹出露出新根路由
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
