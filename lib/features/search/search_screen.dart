@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
 import '../player/player_controller.dart';
@@ -70,7 +71,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, size: 24, color: Color(0xFF666666)),
+                  const Icon(Icons.search, size: 24, color: AppTheme.textDim),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -83,7 +84,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       decoration: const InputDecoration(
                         hintText: '搜索音乐、专辑、艺人',
                         hintStyle:
-                            TextStyle(color: Color(0xFF666666), fontSize: 16),
+                            TextStyle(color: AppTheme.textDim, fontSize: 16),
                         border: InputBorder.none,
                         filled: false,
                         contentPadding:
@@ -96,7 +97,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       onPressed: _clear,
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.cancel,
-                          size: 20, color: Color(0xFF666666)),
+                          size: 20, color: AppTheme.textDim),
                     ),
                 ],
               ),
@@ -132,11 +133,11 @@ class _Results extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.music_off,
-                        size: 48, color: Color(0xFF444444)),
+                        size: 48, color: AppTheme.textFaint),
                     const SizedBox(height: 12),
                     Text('未找到与"$query"相关的内容',
                         style: const TextStyle(
-                            color: Color(0xFF888888), fontSize: 15)),
+                            color: AppTheme.textDim, fontSize: 15)),
                   ],
                 ),
               );
@@ -215,8 +216,8 @@ class _ArtistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ArtistDetailScreen(
+        fadeRoute<void>(
+          ArtistDetailScreen(
             artistId: artist.id,
             artistName: artist.name,
           ),
@@ -242,7 +243,7 @@ class _ArtistRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: Color(0xFF888888), fontSize: 13)),
+                          color: AppTheme.textDim, fontSize: 13)),
                 ],
               ),
             ),
@@ -281,7 +282,7 @@ class _AlbumRowCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: Color(0xFF888888), fontSize: 13)),
+                        color: AppTheme.textDim, fontSize: 13)),
               ],
             ),
           ),
@@ -321,7 +322,7 @@ class _SongRow extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: Color(0xFF888888), fontSize: 13)),
+                          color: AppTheme.textDim, fontSize: 13)),
                 ],
               ),
             ),

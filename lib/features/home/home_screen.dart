@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/motion.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
 import 'detail_screen.dart';
@@ -78,26 +79,26 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
+        fadeRoute<void>(const SearchScreen()),
       ),
       child: Container(
         height: 38,
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF13304A),
+          color: AppTheme.searchbar,
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Row(
           children: [
             SizedBox(width: 4),
-            Icon(Icons.search, size: 20, color: Color(0xFF888888)),
+            Icon(Icons.search, size: 20, color: AppTheme.textDim),
             SizedBox(width: 8),
             Expanded(
               child: Text('搜索',
                   style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
             ),
-            Icon(Icons.qr_code, size: 20, color: Color(0xFF888888)),
+            Icon(Icons.qr_code, size: 20, color: AppTheme.textDim),
             SizedBox(width: 4),
           ],
         ),
@@ -195,10 +196,10 @@ class _AlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: GestureDetector(
+      child: PressableScale(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => AlbumDetailScreen(
+          fadeRoute<void>(
+            AlbumDetailScreen(
               albumId: album.id,
               title: album.name,
               subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
@@ -243,8 +244,8 @@ class _DailySection extends ConsumerWidget {
 
   void _openDetail(BuildContext context, List<Song> songs) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlaylistDetailScreen(
+      fadeRoute<void>(
+        PlaylistDetailScreen(
           title: '每日推荐',
           songs: songs,
           coverAlbumId: songs.first.albumId,

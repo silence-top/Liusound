@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/subsonic/subsonic.dart';
+import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/mini_player.dart';
@@ -11,14 +14,22 @@ import '../player/player_controller.dart';
 import '../player/widgets/star_rating.dart';
 import 'home_providers.dart';
 
-// 配色（对齐设计图「歌单和专辑点击后进入的页面」与 1.x 样式表）
-const _bg = Color(0xFF0A1A2A);
-const _bar = Color(0xFF222B3A);
-const _indexGreen = Color(0xFF3EC06C);
-const _formatBorder = Color(0xFF7ECFFF);
-const _formatBg = Color(0x593C5078); // rgba(60,80,120,0.35)
-const _formatText = Color(0xFFE0F6FF);
-const _actionBlue = Color(0xFFB2D7F7);
+// 配色统一收敛到 AppTheme（对齐设计图「歌单和专辑点击后进入的页面」与 1.x 样式表）
+
+/// 数据态列表（过滤空态 + 歌曲行入场动画 + 到底标记），两个详情页共用。
+List<Widget> _songSlivers(List<Song> songs) {
+  if (songs.isEmpty) {
+    return [SliverToBoxAdapter(child: noMatchBox())];
+  }
+  return [
+    SliverList.builder(
+      itemCount: songs.length,
+      itemBuilder: (context, index) =>
+          FadeSlideIn(child: SongRow(song: songs[index], index: index, songs: songs)),
+    ),
+    const SliverToBoxAdapter(child: _EndMark()),
+  ];
+}
 
 /// 专辑详情页（设计图「歌单和专辑点击后进入的页面」）：
 /// 静态头部（封面 90 + 标题 + 年份/歌手 + 五星评分 setRating）
@@ -68,7 +79,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final all = songsAsync.value ?? const <Song>[];
     final songs = _filterSongs(all, _search);
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppTheme.detailBg,
       bottomNavigationBar: const MiniPlayer(),
       body: CustomScrollView(
         slivers: [
@@ -91,55 +102,12 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               onChanged: (v) => setState(() => _search = v),
             ),
           ),
-          if (songsAsync.isLoading && all.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (songsAsync.hasError && all.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(48),
-                child: Center(
-                  child: TextButton(
-                    onPressed: () =>
-                        ref.invalidate(albumSongsProvider(widget.albumId)),
-                    child: const Text('加载失败，点击重试',
-                        style: TextStyle(color: Colors.white38)),
-                  ),
-                ),
-              ),
-            )
-          else if (all.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(
-                  child: Text('专辑暂无歌曲',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
-              ),
-            )
-          else if (songs.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(28),
-                child: Center(
-                  child: Text('没有匹配的歌曲',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
-              ),
-            )
-          else ...[
-            SliverList.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) =>
-                  SongRow(song: songs[index], index: index, songs: songs),
-            ),
-            const SliverToBoxAdapter(child: _EndMark()),
-          ],
+          ...sliverAsyncGuard<Song>(
+            async: songsAsync,
+            emptyText: '专辑暂无歌曲',
+            onRetry: () => ref.invalidate(albumSongsProvider(widget.albumId)),
+            onData: (_) => _songSlivers(songs),
+          ),
         ],
       ),
     );
@@ -149,13 +117,10 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     return SliverAppBar(
       pinned: true,
       toolbarHeight: 56,
-      backgroundColor: _bg,
+      backgroundColor: AppTheme.detailBg,
       leading: const BackButton(),
       title: Text(widget.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-              fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+          maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题 titleTextStyle
     );
   }
 
@@ -215,11 +180,6 @@ class PlaylistDetailScreen extends ConsumerStatefulWidget {
 class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
   String _search = '';
 
-  bool get _loading =>
-      widget.songs == null &&
-      widget.playlistId != null &&
-      ref.watch(playlistSongsProvider(widget.playlistId!)).isLoading;
-
   @override
   Widget build(BuildContext context) {
     final async = widget.playlistId == null
@@ -230,22 +190,17 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
     final subtitle =
         widget.subtitle ?? (all.isEmpty ? '' : '共 ${all.length} 首歌曲');
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppTheme.detailBg,
       bottomNavigationBar: const MiniPlayer(),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             toolbarHeight: 56,
-            backgroundColor: _bg,
+            backgroundColor: AppTheme.detailBg,
             leading: const BackButton(),
             title: Text(widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
+                maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -265,55 +220,13 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               onChanged: (v) => setState(() => _search = v),
             ),
           ),
-          if (_loading && all.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (async?.hasError == true && all.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(48),
-                child: Center(
-                  child: TextButton(
-                    onPressed: () => ref
-                        .invalidate(playlistSongsProvider(widget.playlistId!)),
-                    child: const Text('加载失败，点击重试',
-                        style: TextStyle(color: Colors.white38)),
-                  ),
-                ),
-              ),
-            )
-          else if (all.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(
-                  child: Text('歌单暂无歌曲',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
-              ),
-            )
-          else if (songs.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(28),
-                child: Center(
-                  child: Text('没有匹配的歌曲',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
-              ),
-            )
-          else ...[
-            SliverList.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) =>
-                  SongRow(song: songs[index], index: index, songs: songs),
-            ),
-            const SliverToBoxAdapter(child: _EndMark()),
-          ],
+          ...sliverAsyncGuard<Song>(
+            async: async ?? AsyncValue.data(all),
+            emptyText: '歌单暂无歌曲',
+            onRetry: () =>
+                ref.invalidate(playlistSongsProvider(widget.playlistId!)),
+            onData: (_) => _songSlivers(songs),
+          ),
         ],
       ),
     );
@@ -457,7 +370,7 @@ class _ListTop extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: _bar,
+        color: AppTheme.bar,
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       child: Column(
@@ -579,21 +492,21 @@ class _PlayAllBar extends StatelessWidget {
           const Spacer(),
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.shuffle, size: 22, color: _actionBlue),
+            icon: const Icon(Icons.shuffle, size: 22, color: AppTheme.actionBlue),
             tooltip: '随机播放',
             onPressed: onShuffle,
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon:
-                const Icon(Icons.playlist_add, size: 22, color: _actionBlue),
+                const Icon(Icons.playlist_add, size: 22, color: AppTheme.actionBlue),
             tooltip: '加入队列',
             onPressed: onQueue,
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.play_circle_outline,
-                size: 22, color: _actionBlue),
+                size: 22, color: AppTheme.actionBlue),
             tooltip: '顺序播放',
             onPressed: onPlayAll,
           ),
@@ -641,7 +554,7 @@ class SongRow extends ConsumerWidget {
                 '${index + 1}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: _indexGreen,
+                    color: AppTheme.indexGreen,
                     fontSize: 17,
                     fontWeight: FontWeight.bold),
               ),
@@ -669,13 +582,13 @@ class SongRow extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: _formatBg,
+                            color: AppTheme.formatBg,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _formatBorder),
+                            border: Border.all(color: AppTheme.formatBorder),
                           ),
                           child: Text('flac ${kbps}K',
                               style: const TextStyle(
-                                  color: _formatText,
+                                  color: AppTheme.formatText,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold)),
                         ),

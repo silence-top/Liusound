@@ -9,15 +9,13 @@ import '../../core/download/download_service.dart';
 import '../../core/models/models.dart';
 import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
 import 'player_controller.dart';
 import 'widgets/star_rating.dart';
-
-const _sheetBg = Color(0xFF23272E);
-const _gridBlue = Color(0xFF9EC1F0);
 
 // ---------- 歌曲操作弹窗 ----------
 
@@ -26,7 +24,7 @@ const _gridBlue = Color(0xFF9EC1F0);
 void showSongActionSheet(BuildContext context, Song song) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: _sheetBg,
+    backgroundColor: AppTheme.queuePanel,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
@@ -124,7 +122,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   icon: Icon(
                     song.starred ? Icons.favorite : Icons.favorite_border,
                     color: song.starred
-                        ? const Color(0xFFE57373)
+                        ? AppTheme.heartRed
                         : Colors.white70,
                   ),
                   onPressed: _toggleStar,
@@ -160,7 +158,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0x14FFFFFF)),
+          const Divider(height: 1), // 颜色走 dividerTheme
           // 底部信息行：歌手 / 专辑 / 歌曲信息
           _infoRow('歌手', song.artist, () => _openArtist(context, song)),
           _infoRow('专辑', song.album, () => _openAlbum(context, song)),
@@ -182,7 +180,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 28, color: _gridBlue),
+          Icon(icon, size: 28, color: AppTheme.accentSoft),
           const SizedBox(height: 6),
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
@@ -220,8 +218,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     }
     Navigator.of(context).pop();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ArtistDetailScreen(
+      fadeRoute<void>(
+        ArtistDetailScreen(
           artistId: song.artistId,
           artistName: song.artist,
         ),
@@ -244,7 +242,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
       builder: (_) => ValueListenableBuilder<double?>(
         valueListenable: progress,
         builder: (_, value, _) => AlertDialog(
-          backgroundColor: _sheetBg,
+          backgroundColor: AppTheme.queuePanel,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,8 +289,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     }
     Navigator.of(context).pop();
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AlbumDetailScreen(
+      fadeRoute<void>(
+        AlbumDetailScreen(
           albumId: song.albumId,
           title: song.album,
           subtitle: song.artist,
@@ -305,7 +303,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     Navigator.of(context).pop();
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: _sheetBg,
+      backgroundColor: AppTheme.queuePanel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -318,7 +316,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: _sheetBg,
+        backgroundColor: AppTheme.queuePanel,
         title: const Text('歌曲信息'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -385,7 +383,7 @@ class _Cover extends StatelessWidget {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2C3A),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
@@ -402,7 +400,7 @@ class _Cover extends StatelessWidget {
         errorWidget: (_, _, _) => Container(
           width: 52,
           height: 52,
-          color: const Color(0xFF1A2C3A),
+          color: AppTheme.surface,
           child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
         ),
       ),
@@ -417,7 +415,7 @@ class _Cover extends StatelessWidget {
 Future<void> showSleepTimerPicker(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: _sheetBg,
+    backgroundColor: AppTheme.queuePanel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
@@ -467,7 +465,7 @@ class _SleepTimerSheet extends ConsumerWidget {
             ListTile(
               title: Text(
                   '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
-                  style: const TextStyle(color: Color(0xFFE57373), fontSize: 15)),
+                  style: const TextStyle(color: AppTheme.heartRed, fontSize: 15)),
               onTap: () {
                 ref.read(sleepTimerProvider.notifier).cancel();
                 Navigator.of(context).pop();
@@ -486,7 +484,7 @@ class _SleepTimerSheet extends ConsumerWidget {
 Future<void> showSpeedPicker(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: _sheetBg,
+    backgroundColor: AppTheme.queuePanel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
