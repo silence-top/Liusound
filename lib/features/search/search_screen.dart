@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
+import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../auth/auth_controller.dart';
 import '../player/player_controller.dart';
@@ -18,7 +19,8 @@ final searchResultProvider = FutureProvider<SearchResult>((ref) async {
   return ref.watch(navidromeClientProvider).search(query);
 });
 
-/// 搜索页（对标 1.x SearchScreen：歌曲/专辑/歌手三类结果）
+/// 搜索页（对标 1.x SearchScreen）：
+/// 搜索框（可清除）→ 结果分区：艺人（前 3）→ 专辑（前 5）→ 歌曲。
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -37,186 +39,172 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  // 防抖搜索：停止输入 300ms 后请求（对齐 1.x）
+  /// 300ms 防抖后触发搜索（避免逐字符请求）
   void _onChanged(String text) {
     _debounce?.cancel();
-    if (text.trim().isEmpty) {
-      ref.read(searchQueryProvider.notifier).state = '';
-      return;
-    }
     _debounce = Timer(const Duration(milliseconds: 300), () {
       ref.read(searchQueryProvider.notifier).state = text;
     });
   }
 
+  void _clear() {
+    _controller.clear();
+    _debounce?.cancel();
+    ref.read(searchQueryProvider.notifier).state = '';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final query = ref.watch(searchQueryProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _controller,
-          onChanged: _onChanged,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: '搜索歌曲 / 专辑 / 歌手',
-            border: InputBorder.none,
-            isDense: true,
-            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _controller,
-              builder: (_, value, _) => value.text.isEmpty
-                  ? const SizedBox.shrink()
-                  : IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () {
-                        _controller.clear();
-                        ref.read(searchQueryProvider.notifier).state = '';
-                      },
-                    ),
-            ),
-          ),
-        ),
-      ),
-      body: ref.watch(searchResultProvider).when(
-            // 重载（新关键词）期间保留上次结果，避免结果区闪烁 loading
-            skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
                 children: [
-                  const Text('搜索失败', style: TextStyle(color: Colors.white38)),
-                  TextButton(
-                    onPressed: () => ref.invalidate(searchResultProvider),
-                    child: const Text('重试'),
+                  const Icon(Icons.search, size: 24, color: Color(0xFF666666)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      onChanged: _onChanged,
+                      autocorrect: false,
+                      textInputAction: TextInputAction.search,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 16),
+                      decoration: const InputDecoration(
+                        hintText: '搜索音乐、专辑、艺人',
+                        hintStyle:
+                            TextStyle(color: Color(0xFF666666), fontSize: 16),
+                        border: InputBorder.none,
+                        filled: false,
+                        contentPadding:
+                            EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
                   ),
+                  if (query.isNotEmpty)
+                    IconButton(
+                      onPressed: _clear,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.cancel,
+                          size: 20, color: Color(0xFF666666)),
+                    ),
                 ],
               ),
             ),
-            data: (results) {
-              final hasQuery = _controller.text.trim().isNotEmpty;
-              if (!hasQuery || results.isEmpty) {
-                return Center(
-                  child: Text(
-                    hasQuery ? '未找到相关内容' : '输入关键词开始搜索',
-                    style: const TextStyle(color: Colors.white38),
-                  ),
-                );
-              }
-              return _ResultList(results: results);
-            },
-          ),
+            Expanded(child: _Results(query: query)),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _ResultList extends StatelessWidget {
+/// 结果区：区分「未输入」/「无结果」/「有结果」三种状态
+class _Results extends ConsumerWidget {
+  const _Results({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(searchResultProvider).when(
+          // 新关键词请求期间保留上次结果，避免结果区闪烁 loading
+          skipLoadingOnReload: true,
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text('$e', style: const TextStyle(color: Colors.white38)),
+          ),
+          data: (results) {
+            if (query.trim().isEmpty) return const SizedBox.shrink();
+            if (results.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.music_off,
+                        size: 48, color: Color(0xFF444444)),
+                    const SizedBox(height: 12),
+                    Text('未找到与"$query"相关的内容',
+                        style: const TextStyle(
+                            color: Color(0xFF888888), fontSize: 15)),
+                  ],
+                ),
+              );
+            }
+            return _ResultList(results: results);
+          },
+        );
+  }
+}
+
+/// 结果列表：艺人（前 3）→ 专辑（前 5）→ 歌曲（全部）
+class _ResultList extends ConsumerWidget {
   const _ResultList({required this.results});
 
   final SearchResult results;
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        if (results.songs.isNotEmpty)
-          _Section(header: '歌曲 (${results.songs.length})', children: [
-            for (final song in results.songs)
-              _SongRow(song: song),
-          ]),
-        if (results.albums.isNotEmpty)
-          _Section(header: '专辑 (${results.albums.length})', children: [
-            for (final album in results.albums) _AlbumRow(album: album),
-          ]),
-        if (results.artists.isNotEmpty)
-          _Section(header: '歌手 (${results.artists.length})', children: [
-            for (final artist in results.artists) _ArtistRow(artist: artist),
-          ]),
-      ],
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.header, required this.children});
-
-  final String header;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(
-            header,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ...children,
-      ],
-    );
-  }
-}
-
-/// 歌曲行：点击直接播放（对标 1.x SongRow）
-class _SongRow extends ConsumerWidget {
-  const _SongRow({required this.song});
-
-  final Song song;
-
-  @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListTile(
-      dense: true,
-      leading: CoverArt(albumId: song.albumId, size: 48, radius: 8),
-      title: Text(
-        song.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14),
-      ),
-      subtitle: Text(
-        '${song.artist} - ${song.album}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: Colors.white38),
-      ),
-      trailing: const Icon(Icons.play_circle_outline, size: 26),
-      onTap: () => ref.read(playerActionsProvider).play(song),
+    final artists = results.artists.take(3).toList();
+    final albums = results.albums.take(5).toList();
+
+    return CustomScrollView(
+      slivers: [
+        if (artists.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: _SectionTitle('艺人')),
+          SliverList.builder(
+            itemCount: artists.length,
+            itemBuilder: (context, i) => _ArtistRow(artist: artists[i]),
+          ),
+        ],
+        if (albums.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: _SectionTitle('专辑')),
+          SliverList.builder(
+            itemCount: albums.length,
+            itemBuilder: (context, i) => _AlbumRowCard(album: albums[i]),
+          ),
+        ],
+        if (results.songs.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: _SectionTitle('歌曲')),
+          SliverList.builder(
+            itemCount: results.songs.length,
+            itemBuilder: (context, i) => _SongRow(song: results.songs[i]),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+      ],
     );
   }
 }
 
-/// 专辑行（对标 1.x AlbumRow，纯展示）
-class _AlbumRow extends StatelessWidget {
-  const _AlbumRow({required this.album});
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
 
-  final Album album;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: CoverArt(albumId: album.id, size: 48, radius: 8),
-      title: Text(
-        album.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14),
-      ),
-      subtitle: Text(
-        album.artist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: Colors.white38),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(title,
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold)),
     );
   }
 }
 
-/// 歌手行（对标 1.x ArtistRow，纯展示）
+/// 艺人行：圆形封面 + 名称 + 「N 张专辑 · N 首」
 class _ArtistRow extends StatelessWidget {
   const _ArtistRow({required this.artist});
 
@@ -224,20 +212,113 @@ class _ArtistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: CoverArt(albumId: artist.id, size: 48, radius: 24),
-      title: Text(
-        artist.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          CoverArt(albumId: artist.id, size: 48, radius: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(artist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 15)),
+                const SizedBox(height: 2),
+                Text('${artist.albumCount} 张专辑 · ${artist.songCount} 首',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF888888), fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
       ),
-      subtitle: Text(
-        '${artist.albumCount} 张专辑 · ${artist.songCount} 首',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: Colors.white38),
+    );
+  }
+}
+
+/// 专辑行：48 封面 + 名称 + 歌手
+class _AlbumRowCard extends StatelessWidget {
+  const _AlbumRowCard({required this.album});
+
+  final Album album;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          CoverArt(albumId: album.id, size: 48, radius: 6),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(album.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 15)),
+                const SizedBox(height: 2),
+                Text(album.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Color(0xFF888888), fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 歌曲行：48 封面 + 标题/副标题 + 播放按钮（点击即播放）
+class _SongRow extends ConsumerWidget {
+  const _SongRow({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      onTap: () => ref.read(playerActionsProvider).play(song),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            CoverArt(albumId: song.albumId, size: 48, radius: 6),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text('${song.artist} - ${song.album}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Color(0xFF888888), fontSize: 13)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.play_circle_outline,
+                size: 28, color: Colors.white),
+          ],
+        ),
       ),
     );
   }
