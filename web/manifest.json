@@ -1,0 +1,35 @@
+{
+    "name": "流声",
+    "short_name": "流声",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#121212",
+    "theme_color": "#121212",
+    "description": "流声 (Liu Sound) —— Navidrome 自建音乐服务器客户端",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
