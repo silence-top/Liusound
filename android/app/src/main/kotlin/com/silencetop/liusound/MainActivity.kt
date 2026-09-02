@@ -1,4 +1,4 @@
-package com.silencetop.music_app
+package com.silencetop.liusound
 
 import com.ryanheise.audioservice.AudioServiceActivity
 

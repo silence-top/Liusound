@@ -125,8 +125,12 @@ class PlayerActions {
         final resumeMs = _resumePositionMs;
         _resumePositionMs = 0;
         await play(song);
-        if (resumeMs > 0) {
-          await player.seek(Duration(milliseconds: resumeMs));
+        try {
+          if (resumeMs > 0) {
+            await player.seek(Duration(milliseconds: resumeMs));
+          }
+        } catch (_) {
+          // 流加载失败时 seek 会抛错，静默保持可重试
         }
         return;
       }
