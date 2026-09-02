@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/motion.dart';
 import 'login_screen.dart';
 
 /// 服务器选择页（对标 1.x ServerSelectScreen：
@@ -33,9 +34,7 @@ class ServerSelectScreen extends ConsumerWidget {
               InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const LoginScreen(),
-                  ),
+                  fadeRoute<void>(const LoginScreen()),
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(16),

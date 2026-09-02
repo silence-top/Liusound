@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
-
-const _bg = Color(0xFF0A1A2A);
 
 /// 负一屏音乐库（设计图「负一屏」）：
 /// 服务器卡片（Navidrome / 主线路 / 歌曲总数）
@@ -46,17 +46,16 @@ class MusicLibraryScreen extends ConsumerWidget {
   void _openSongs(
       BuildContext context, String title, FutureProvider<List<Song>> provider) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SongListPage(title: title, provider: provider),
+      fadeRoute<void>(
+        SongListPage(title: title, provider: provider),
       ),
     );
   }
 
   void _openAlbums(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            AlbumListPage(title: '专辑', provider: libraryAlbumsProvider),
+      fadeRoute<void>(
+        AlbumListPage(title: '专辑', provider: libraryAlbumsProvider),
       ),
     );
   }
@@ -250,8 +249,8 @@ class _PlaylistRow extends StatelessWidget {
         playlist.coverArt != null && playlist.coverArt!.isNotEmpty && auth.isValid;
     return InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => PlaylistDetailScreen(
+        fadeRoute<void>(
+          PlaylistDetailScreen(
             playlistId: playlist.id,
             title: playlist.name,
             coverAlbumId: playlist.coverArt,
@@ -349,54 +348,33 @@ class SongListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
-    final songs = async.value ?? const <Song>[];
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        title: Text(title,
-            style: const TextStyle(
-                fontSize: 17, fontWeight: FontWeight.bold)),
-      ),
+      backgroundColor: AppTheme.detailBg,
+      appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
       bottomNavigationBar: const MiniPlayer(),
-      body: _SongListBody(async: async, songs: songs, provider: provider),
+      body: _SongListBody(async: async, provider: provider),
     );
   }
 }
 
 class _SongListBody extends ConsumerWidget {
-  const _SongListBody({
-    required this.async,
-    required this.songs,
-    required this.provider,
-  });
+  const _SongListBody({required this.async, required this.provider});
 
   final AsyncValue<List<Song>> async;
-  final List<Song> songs;
   final FutureProvider<List<Song>> provider;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (async.isLoading && songs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (async.hasError && songs.isEmpty) {
-      return Center(
-        child: TextButton(
-          onPressed: () => ref.invalidate(provider),
-          child: const Text('加载失败，点击重试',
-              style: TextStyle(color: Colors.white38)),
+    return asyncStateBox<Song>(
+      async: async,
+      emptyText: '暂无歌曲',
+      onRetry: () => ref.invalidate(provider),
+      onData: (songs) => ListView.builder(
+        itemCount: songs.length,
+        itemBuilder: (context, index) => FadeSlideIn(
+          child: SongRow(song: songs[index], index: index, songs: songs),
         ),
-      );
-    }
-    if (songs.isEmpty) {
-      return const Center(
-        child: Text('暂无歌曲', style: TextStyle(color: Colors.white38)),
-      );
-    }
-    return ListView.builder(
-      itemCount: songs.length,
-      itemBuilder: (context, index) =>
-          SongRow(song: songs[index], index: index, songs: songs),
+      ),
     );
   }
 }
@@ -411,94 +389,73 @@ class AlbumListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
-    final albums = async.value ?? const <Album>[];
     return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        title: Text(title,
-            style: const TextStyle(
-                fontSize: 17, fontWeight: FontWeight.bold)),
-      ),
-      body: _AlbumGridBody(async: async, albums: albums, provider: provider),
+      backgroundColor: AppTheme.detailBg,
+      appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
+      body: _AlbumGridBody(async: async, provider: provider),
     );
   }
 }
 
 class _AlbumGridBody extends ConsumerWidget {
-  const _AlbumGridBody({
-    required this.async,
-    required this.albums,
-    required this.provider,
-  });
+  const _AlbumGridBody({required this.async, required this.provider});
 
   final AsyncValue<List<Album>> async;
-  final List<Album> albums;
   final FutureProvider<List<Album>> provider;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (async.isLoading && albums.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (async.hasError && albums.isEmpty) {
-      return Center(
-        child: TextButton(
-          onPressed: () => ref.invalidate(provider),
-          child: const Text('加载失败，点击重试',
-              style: TextStyle(color: Colors.white38)),
+    return asyncStateBox<Album>(
+      async: async,
+      emptyText: '暂无专辑',
+      onRetry: () => ref.invalidate(provider),
+      onData: (albums) => GridView.builder(
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.92,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
         ),
-      );
-    }
-    if (albums.isEmpty) {
-      return const Center(
-        child: Text('暂无专辑', style: TextStyle(color: Colors.white38)),
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.92,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: albums.length,
-      itemBuilder: (context, index) {
-        final album = albums[index];
-        return InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => AlbumDetailScreen(
-                albumId: album.id,
-                title: album.name,
-                subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-                rating: album.rating,
+        itemCount: albums.length,
+        itemBuilder: (context, index) {
+          final album = albums[index];
+          return FadeSlideIn(
+            child: PressableScale(
+              onTap: () => Navigator.of(context).push(
+                fadeRoute<void>(
+                  AlbumDetailScreen(
+                    albumId: album.id,
+                    title: album.name,
+                    subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+                    rating: album.rating,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CoverArt(albumId: album.id, size: 170, radius: 10),
+                  const SizedBox(height: 6),
+                  Text(album.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(album.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 12)),
+                ],
               ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CoverArt(albumId: album.id, size: 170, radius: 10),
-              const SizedBox(height: 6),
-              Text(album.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(album.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: Colors.white38, fontSize: 12)),
-            ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

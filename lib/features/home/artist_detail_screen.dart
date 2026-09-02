@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
+import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/motion.dart';
 import '../player/mini_player.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
-
-const _bg = Color(0xFF0A1A2A);
 
 /// 艺人详情页：圆形头像 + 歌手名/统计 → 专辑横向卡片区（跳专辑页）
 /// → 热门歌曲列表（复用 SongRow，整表播放）。
@@ -30,22 +31,17 @@ class ArtistDetailScreen extends ConsumerWidget {
     final songs = songsAsync.value ?? const <Song>[];
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppTheme.detailBg,
       bottomNavigationBar: const MiniPlayer(),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             toolbarHeight: 56,
-            backgroundColor: _bg,
+            backgroundColor: AppTheme.detailBg,
             leading: const BackButton(),
             title: Text(artistName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
+                maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -55,54 +51,27 @@ class ArtistDetailScreen extends ConsumerWidget {
               songCount: songs.length,
             ),
           ),
-          if (albumsAsync.isLoading && albums.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (albums.isNotEmpty)
-            SliverToBoxAdapter(child: _AlbumSection(albums: albums)),
-          if (songsAsync.isLoading && songs.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (songsAsync.hasError && songs.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(48),
-                child: Center(
-                  child: TextButton(
-                    onPressed: () =>
-                        ref.invalidate(artistSongsProvider(artistId)),
-                    child: const Text('加载失败，点击重试',
-                        style: TextStyle(color: Colors.white38)),
-                  ),
+          ...sliverAsyncGuard<Album>(
+            async: albumsAsync,
+            emptyText: '暂无专辑',
+            onRetry: () => ref.invalidate(artistAlbumsProvider(artistId)),
+            onData: (albums) =>
+                [SliverToBoxAdapter(child: _AlbumSection(albums: albums))],
+          ),
+          ...sliverAsyncGuard<Song>(
+            async: songsAsync,
+            emptyText: '暂无歌曲',
+            onRetry: () => ref.invalidate(artistSongsProvider(artistId)),
+            onData: (songs) => [
+              SliverList.builder(
+                itemCount: songs.length,
+                itemBuilder: (context, index) => FadeSlideIn(
+                  child: SongRow(song: songs[index], index: index, songs: songs),
                 ),
               ),
-            )
-          else if (songs.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(
-                  child: Text('暂无歌曲',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
-              ),
-            )
-          else ...[
-            SliverList.builder(
-              itemCount: songs.length,
-              itemBuilder: (context, index) =>
-                  SongRow(song: songs[index], index: index, songs: songs),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            ],
+          ),
         ],
       ),
     );
@@ -144,8 +113,7 @@ class _Header extends StatelessWidget {
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('$albumCount 张专辑 · $songCount 首歌曲',
-                    style:
-                        const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13)),
+                    style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -172,10 +140,10 @@ class _AlbumSection extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final album = albums[i];
-          return GestureDetector(
+          return PressableScale(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AlbumDetailScreen(
+              fadeRoute<void>(
+                AlbumDetailScreen(
                   albumId: album.id,
                   title: album.name,
                   subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
