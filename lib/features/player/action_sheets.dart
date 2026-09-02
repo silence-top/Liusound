@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/download/download_service.dart';
 import '../../core/models/models.dart';
 import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/auth_controller.dart';
+import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
 import 'player_controller.dart';
@@ -145,7 +150,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                 _gridItem(Icons.playlist_add, '添加到', () =>
                     _addToPlaylist(context, song)),
                 _gridItem(Icons.download_outlined, '下载', () =>
-                    _toast('暂不支持离线下载')),
+                    _downloadSong(context, song)),
                 _gridItem(Icons.delete_outline, '删除文件', () =>
                     _toast('请到 Navidrome 网页端管理文件')),
                 _gridItem(Icons.timer_outlined, '定时停止', () =>
@@ -157,9 +162,13 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
           ),
           const Divider(height: 1, color: Color(0x14FFFFFF)),
           // 底部信息行：歌手 / 专辑 / 歌曲信息
-          _infoRow('歌手', song.artist, () => Navigator.of(context).pop()),
+          _infoRow('歌手', song.artist, () => _openArtist(context, song)),
           _infoRow('专辑', song.album, () => _openAlbum(context, song)),
-          _infoRow('歌曲信息', song.album, () => _showSongInfo(context, song)),
+          _infoRow(
+              '歌曲信息',
+              '${_fmtDuration(song.duration)}'
+              '${song.size > 0 ? ' · ${_fmtSize(song.size)} MB' : ''}',
+              () => _showSongInfo(context, song)),
           const SizedBox(height: 10),
         ],
       ),
@@ -202,6 +211,77 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
         ),
       ),
     );
+  }
+
+  void _openArtist(BuildContext context, Song song) {
+    if (song.artistId.isEmpty) {
+      _toast('缺少歌手信息');
+      return;
+    }
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ArtistDetailScreen(
+          artistId: song.artistId,
+          artistName: song.artist,
+        ),
+      ),
+    );
+  }
+
+  /// 离线下载：进度对话框 → 保存到应用文档目录 Music/ → 提示结果
+  Future<void> _downloadSong(BuildContext context, Song song) async {
+    final auth = ref.read(subsonicAuthProvider);
+    if (!auth.isValid) {
+      _toast('未登录，无法下载');
+      return;
+    }
+    final progress = ValueNotifier<double?>(null); // null = 未知总量
+    var dialogOpen = true;
+    unawaited(showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ValueListenableBuilder<double?>(
+        valueListenable: progress,
+        builder: (_, value, _) => AlertDialog(
+          backgroundColor: _sheetBg,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('正在下载「${song.title}」',
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: value,
+                backgroundColor: Colors.white12,
+                color: AppTheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => dialogOpen = false));
+    try {
+      final path = await downloadSongFile(
+        auth: auth,
+        song: song,
+        onProgress: (received, total) {
+          if (total > 0) progress.value = received / total;
+        },
+      );
+      progress.dispose();
+      if (dialogOpen && context.mounted) Navigator.of(context).pop();
+      _toast('已下载到：${Uri.file(path).pathSegments.last}');
+    } on DioException {
+      progress.dispose();
+      if (dialogOpen && context.mounted) Navigator.of(context).pop();
+      _toast('下载失败，请检查网络');
+    } catch (_) {
+      progress.dispose();
+      if (dialogOpen && context.mounted) Navigator.of(context).pop();
+      _toast('下载失败');
+    }
   }
 
   void _openAlbum(BuildContext context, Song song) {

@@ -26,6 +26,10 @@ abstract final class Subsonic {
   static String streamUrl(SubsonicAuth auth, String songId) =>
       '${auth.serverUrl}/rest/stream?${_query(params(auth, {'id': songId}))}';
 
+  /// 歌曲原始文件下载直链（Subsonic download，返回无损原始音质）
+  static String downloadUrl(SubsonicAuth auth, String songId) =>
+      '${auth.serverUrl}/rest/download?${_query(params(auth, {'id': songId}))}';
+
   static String _query(Map<String, String> p) => p.entries
       .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
       .join('&');
