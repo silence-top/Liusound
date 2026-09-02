@@ -11,6 +11,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../auth/auth_controller.dart';
+import 'action_sheets.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
 
@@ -261,11 +262,20 @@ class _SongRow extends ConsumerWidget {
                 ],
               ),
             ),
-            // 对齐 1.x：加入列表按钮（无绑定动作）
-            Padding(
-              padding: const EdgeInsets.all(6),
-              child: Icon(Icons.playlist_add,
+            // 下一首播放（设计图行尾 ☰+ 按钮）
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.playlist_add,
                   size: 22, color: Colors.white.withValues(alpha: 0.9)),
+              tooltip: '下一首播放',
+              onPressed: () {
+                ref.read(playerActionsProvider).playNextInQueue([song]);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('已设为下一首播放'),
+                      duration: Duration(seconds: 1)),
+                );
+              },
             ),
           ],
         ),
@@ -284,9 +294,43 @@ class _NowPlayingTab extends ConsumerStatefulWidget {
 }
 
 class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  // 黑胶唱片匀速旋转（18s/圈）；暂停时停在当前位置
+  late final AnimationController _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 18),
+  );
+
   @override
   bool get wantKeepAlive => true;
+
+  StreamSubscription<bool>? _playingSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (ref.read(audioPlayerProvider).playing) _spin.repeat();
+    _playingSub = ref
+        .read(audioPlayerProvider)
+        .playerStateStream
+        .map((s) => s.playing)
+        .distinct()
+        .listen((playing) {
+      if (!mounted) return;
+      if (playing) {
+        _spin.repeat();
+      } else {
+        _spin.stop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _playingSub?.cancel();
+    _spin.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -299,11 +343,62 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: CoverArt(albumId: song.albumId, size: 600, radius: 8),
+            // 黑胶唱片：外圈黑胶纹理 + 中央方形封面，播放时旋转
+            SizedBox(
+              width: 280,
+              height: 280,
+              child: AnimatedBuilder(
+                animation: _spin,
+                builder: (_, child) => Transform.rotate(
+                  angle: _spin.value * 6.283185307179586,
+                  child: child,
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Color(0xFF2A2A2A),
+                            Color(0xFF161616),
+                            Color(0xFF060606),
+                          ],
+                          stops: [0.0, 0.72, 1.0],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black45,
+                            blurRadius: 24,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 唱片纹路（两圈高光环）
+                    Container(
+                      width: 224,
+                      height: 224,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.05)),
+                      ),
+                    ),
+                    Container(
+                      width: 196,
+                      height: 196,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.04)),
+                      ),
+                    ),
+                    // 中央封面（黑胶圆孔位）
+                    CoverArt(albumId: song.albumId, size: 120, radius: 8),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -354,6 +449,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   bool _showLyricAdjust = false;
   bool _showVolume = false;
   double _volume = 1;
+  // 音轨切换（「切换歌词」）：全部音轨缓存 + 当前选中索引 + 弹层开关
+  List<(String, List<LyricLine>)> _tracks = const [];
+  int _currentTrackIndex = 0;
+  bool _showTrackPicker = false;
   // 当前行索引：值变化仅触发对应行的 ValueListenableBuilder 重建（行级更新）
   final ValueNotifier<int> _currentIndex = ValueNotifier(-2);
   Timer? _manualScrollTimer;
@@ -398,6 +497,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       _translations = translations;
       _hasTranslation = translations.any((t) => t != null);
       _rowHeight = _hasTranslation ? _lyricDualHeight : _lyricRowHeight;
+      _tracks = parseLyricsTracks(widget.song.lyrics);
+      _currentTrackIndex = 0;
+      _showTrackPicker = false;
     });
   }
 
@@ -613,10 +715,68 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                         _showLyricAdjust = true;
                       });
                     }),
-                    _menuItem(Icons.translate, '生成翻译',
-                        () => setState(() => _showLrcMenu = false)),
-                    _menuItem(Icons.search, '切换歌词',
-                        () => setState(() => _showLrcMenu = false)),
+                    _menuItem(Icons.translate, '生成翻译', () {
+                      setState(() => _showLrcMenu = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('暂不支持在线生成翻译'),
+                            duration: Duration(seconds: 2)),
+                      );
+                    }),
+                    _menuItem(Icons.search, '切换歌词', () {
+                      setState(() {
+                        _showLrcMenu = false;
+                        _showTrackPicker = true;
+                      });
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+        // 音轨选择菜单（「切换歌词」）
+        if (_showTrackPicker) ...[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _showTrackPicker = false),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            bottom: 58,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 140),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xF51E1E1E),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_tracks.length <= 1)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        child: Text('没有其他音轨',
+                            style: TextStyle(
+                                color: Colors.white38, fontSize: 14)),
+                      )
+                    else
+                      for (var i = 0; i < _tracks.length; i++)
+                        _menuItem(
+                          i == _currentTrackIndex
+                              ? Icons.check
+                              : Icons.music_note,
+                          _trackLabel(_tracks[i].$1, i),
+                          () => _selectTrack(i),
+                        ),
                   ],
                 ),
               ),
@@ -726,6 +886,23 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     );
   }
 
+  /// 切换主轨歌词（选中的轨替换原文，双语对齐重置）
+  void _selectTrack(int index) {
+    final (_, lines) = _tracks[index];
+    setState(() {
+      _currentTrackIndex = index;
+      _showTrackPicker = false;
+      _lyrics = LyricsData(lines: lines);
+      _translations = const [];
+      _hasTranslation = false;
+      _rowHeight = _lyricRowHeight;
+      _currentIndex.value = -2;
+    });
+  }
+
+  String _trackLabel(String lang, int index) =>
+      lang.isEmpty ? '音轨 ${index + 1}' : lang.toUpperCase();
+
   void _applyVolume(double dx) {
     final v = (dx / 180).clamp(0.0, 1.0);
     setState(() => _volume = v);
@@ -825,6 +1002,23 @@ class _LyricRowTile extends StatelessWidget {
 class _BottomArea extends ConsumerWidget {
   const _BottomArea();
 
+  /// 收藏/取消收藏：乐观更新当前歌曲（❤ 即时变色），失败回滚
+  Future<void> _toggleStar(
+      BuildContext context, WidgetRef ref, Song song) async {
+    final newStarred = !song.starred;
+    ref.read(currentSongProvider.notifier).state =
+        song.copyWith(starred: newStarred);
+    final ok =
+        await ref.read(navidromeClientProvider).setStar(song.id, newStarred);
+    if (!ok && context.mounted) {
+      ref.read(currentSongProvider.notifier).state = song;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
@@ -864,14 +1058,25 @@ class _BottomArea extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.favorite_border,
-                      size: 22, color: Colors.white),
-                  onPressed: () {},
+                  icon: Icon(
+                    (song?.starred ?? false)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    size: 22,
+                    color: (song?.starred ?? false)
+                        ? const Color(0xFFE57373)
+                        : Colors.white,
+                  ),
+                  onPressed: song == null
+                      ? null
+                      : () => _toggleStar(context, ref, song),
                 ),
                 IconButton(
                   icon: const Icon(Icons.more_vert,
                       size: 22, color: Colors.white),
-                  onPressed: () {},
+                  onPressed: song == null
+                      ? null
+                      : () => showSongActionSheet(context, song),
                 ),
               ],
             ),

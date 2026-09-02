@@ -1,0 +1,557 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/models/models.dart';
+import '../../core/subsonic/subsonic.dart';
+import '../../core/theme/app_theme.dart';
+import '../auth/auth_controller.dart';
+import '../home/detail_screen.dart';
+import '../home/home_providers.dart';
+import 'player_controller.dart';
+import 'widgets/star_rating.dart';
+
+const _sheetBg = Color(0xFF23272E);
+const _gridBlue = Color(0xFF9EC1F0);
+
+// ---------- 歌曲操作弹窗 ----------
+
+/// 歌曲操作弹窗（对标设计图「播放页面的更多的按钮」）：
+/// 头部（封面 + 标题/歌手 + 五星评分 + 收藏）→ 操作网格 → 歌手/专辑/歌曲信息行。
+void showSongActionSheet(BuildContext context, Song song) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: _sheetBg,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (_) => _SongActionSheet(song: song),
+  );
+}
+
+class _SongActionSheet extends ConsumerStatefulWidget {
+  const _SongActionSheet({required this.song});
+
+  final Song song;
+
+  @override
+  ConsumerState<_SongActionSheet> createState() => _SongActionSheetState();
+}
+
+class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
+  late Song _song = widget.song;
+
+  /// 展示目标：当前播放曲目实时跟随乐观更新，否则用本地副本
+  Song get _view {
+    final current = ref.watch(currentSongProvider);
+    return current?.id == widget.song.id ? current! : _song;
+  }
+
+  void _syncLocal(Song song) {
+    setState(() => _song = song);
+    if (ref.read(currentSongProvider)?.id == song.id) {
+      ref.read(currentSongProvider.notifier).state = song;
+    }
+  }
+
+  Future<void> _rate(int rating) async {
+    final before = _view;
+    _syncLocal(before.copyWith(rating: rating));
+    final ok =
+        await ref.read(navidromeClientProvider).setRating(before.id, rating);
+    if (!ok && mounted) {
+      _syncLocal(before);
+      _toast('评分提交失败');
+    }
+  }
+
+  Future<void> _toggleStar() async {
+    final before = _view;
+    _syncLocal(before.copyWith(starred: !before.starred));
+    final ok = await ref
+        .read(navidromeClientProvider)
+        .setStar(before.id, !before.starred);
+    if (!ok && mounted) {
+      _syncLocal(before);
+      _toast('收藏操作失败');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final song = _view;
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 头部：封面 + 标题/歌手 + 收藏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 12, 4),
+            child: Row(
+              children: [
+                _Cover(song: song),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(song.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      StarRating(rating: song.rating, onRating: _rate),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    song.starred ? Icons.favorite : Icons.favorite_border,
+                    color: song.starred
+                        ? const Color(0xFFE57373)
+                        : Colors.white70,
+                  ),
+                  onPressed: _toggleStar,
+                ),
+              ],
+            ),
+          ),
+          // 操作网格（2 行 × 3 列）
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1.15,
+              padding: EdgeInsets.zero,
+              children: [
+                _gridItem(Icons.low_priority, '下一首播放', () {
+                  ref.read(playerActionsProvider).playNextInQueue([song]);
+                  Navigator.of(context).pop();
+                  _toast('已设为下一首播放');
+                }),
+                _gridItem(Icons.playlist_add, '添加到', () =>
+                    _addToPlaylist(context, song)),
+                _gridItem(Icons.download_outlined, '下载', () =>
+                    _toast('暂不支持离线下载')),
+                _gridItem(Icons.delete_outline, '删除文件', () =>
+                    _toast('请到 Navidrome 网页端管理文件')),
+                _gridItem(Icons.timer_outlined, '定时停止', () =>
+                    showSleepTimerPicker(context)),
+                _gridItem(Icons.speed, '播放速度', () =>
+                    showSpeedPicker(context)),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0x14FFFFFF)),
+          // 底部信息行：歌手 / 专辑 / 歌曲信息
+          _infoRow('歌手', song.artist, () => Navigator.of(context).pop()),
+          _infoRow('专辑', song.album, () => _openAlbum(context, song)),
+          _infoRow('歌曲信息', song.album, () => _showSongInfo(context, song)),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _gridItem(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 28, color: _gridBlue),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Row(
+          children: [
+            Text(label,
+                style: const TextStyle(color: Colors.white38, fontSize: 14)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openAlbum(BuildContext context, Song song) {
+    if (song.albumId.isEmpty) {
+      _toast('缺少专辑信息');
+      return;
+    }
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AlbumDetailScreen(
+          albumId: song.albumId,
+          title: song.album,
+          subtitle: song.artist,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addToPlaylist(BuildContext context, Song song) async {
+    Navigator.of(context).pop();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _sheetBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => _PlaylistPickerSheet(song: song),
+    );
+  }
+
+  void _showSongInfo(BuildContext context, Song song) {
+    Navigator.of(context).pop();
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _sheetBg,
+        title: const Text('歌曲信息'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _infoLine('标题', song.title),
+            _infoLine('歌手', song.artist),
+            _infoLine('专辑', song.album),
+            _infoLine('时长', _fmtDuration(song.duration)),
+            if (song.size > 0) _infoLine('大小', '${_fmtSize(song.size)} MB'),
+            if (song.size > 0 && song.duration > 0)
+              _infoLine('码率',
+                  '${((song.size * 8) / song.duration / 1000).round()} Kbps'),
+            _infoLine('播放次数', '${song.playCount}'),
+            _infoLine('收藏', song.starred ? '是' : '否'),
+            _infoLine('评分', '${song.rating} / 5'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoLine(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 70,
+              child: Text(label,
+                  style: const TextStyle(color: Colors.white38, fontSize: 14)),
+            ),
+            Expanded(
+              child: Text(value,
+                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ),
+          ],
+        ),
+      );
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+}
+
+class _Cover extends StatelessWidget {
+  const _Cover({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ProviderScope.containerOf(context).read(subsonicAuthProvider);
+    if (song.albumId.isEmpty || !auth.isValid) {
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2C3A),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CachedNetworkImage(
+        imageUrl: Subsonic.coverArtUrl(auth, song.albumId),
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        memCacheWidth: 104,
+        errorWidget: (_, _, _) => Container(
+          width: 52,
+          height: 52,
+          color: const Color(0xFF1A2C3A),
+          child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- 定时停止选择 ----------
+
+/// 定时停止播放选择弹窗（歌曲操作弹窗 / 设置页共用）：
+/// 选择后倒计时展示在设置页；到点自动暂停。
+Future<void> showSleepTimerPicker(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: _sheetBg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (_) => const _SleepTimerSheet(),
+  );
+}
+
+class _SleepTimerSheet extends ConsumerWidget {
+  const _SleepTimerSheet();
+
+  static const _minutes = [15, 30, 45, 60, 90];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remain = ref.watch(sleepTimerProvider);
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Text('定时停止播放',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ),
+          for (final m in _minutes)
+            ListTile(
+              title: Text('$m 分钟',
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+              onTap: () {
+                ref
+                    .read(sleepTimerProvider.notifier)
+                    .start(Duration(minutes: m));
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('将在 $m 分钟后停止播放'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          if (remain != null)
+            ListTile(
+              title: Text(
+                  '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
+                  style: const TextStyle(color: Color(0xFFE57373), fontSize: 15)),
+              onTap: () {
+                ref.read(sleepTimerProvider.notifier).cancel();
+                Navigator.of(context).pop();
+              },
+            ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- 播放速度选择 ----------
+
+/// 播放速度选择弹窗（歌曲操作弹窗 / 设置页共用），选择后立即生效并持久化。
+Future<void> showSpeedPicker(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: _sheetBg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (_) => const _SpeedSheet(),
+  );
+}
+
+class _SpeedSheet extends ConsumerWidget {
+  const _SpeedSheet();
+
+  static const _speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final speed = ref.watch(playbackSpeedProvider);
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Text('播放速度',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ),
+          for (final s in _speeds)
+            ListTile(
+              leading: s == speed
+                  ? const Icon(Icons.check, color: AppTheme.primary)
+                  : const SizedBox(width: 24),
+              title: Text(
+                  s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
+                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+              onTap: () {
+                ref.read(playbackSpeedProvider.notifier).state = s;
+                Navigator.of(context).pop();
+              },
+            ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------- 添加到歌单 ----------
+
+class _PlaylistPickerSheet extends ConsumerWidget {
+  const _PlaylistPickerSheet({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlists = ref.watch(playlistsProvider);
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.55,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Text('添加到歌单',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+            ),
+            Flexible(
+              child: playlists.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text('加载失败: $e',
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 13)),
+                ),
+                data: (list) {
+                  if (list.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('还没有歌单',
+                          style:
+                              TextStyle(color: Colors.white38, fontSize: 14)),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: list.length,
+                    itemBuilder: (_, i) => ListTile(
+                      leading: const Icon(Icons.queue_music,
+                          color: Colors.white54),
+                      title: Text(list[i].name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 15)),
+                      subtitle: Text('${list[i].songCount} 首歌曲',
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12)),
+                      onTap: () async {
+                        final navigator = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
+                        final ok = await ref
+                            .read(navidromeClientProvider)
+                            .addToPlaylist(list[i].id, song.id);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content:
+                                Text(ok ? '已添加到「${list[i].name}」' : '添加失败'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        navigator.pop();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- 工具 ----------
+
+String _fmtDuration(double seconds) {
+  final d = Duration(seconds: seconds.round());
+  final m = d.inMinutes;
+  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$m:$s';
+}
+
+String _fmtSize(int bytes) => (bytes / 1024 / 1024).toStringAsFixed(1);
