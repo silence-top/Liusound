@@ -67,3 +67,55 @@ final dailySongsProvider = FutureProvider<List<Song>>((ref) async {
     '_order': 'ASC',
   });
 });
+
+/// 我的歌单列表（负一屏 + 添加到歌单弹窗共用）
+final playlistsProvider = FutureProvider<List<Playlist>>((ref) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getPlaylists();
+});
+
+/// 专辑内歌曲（详情页按 albumId 异步加载）
+final albumSongsProvider =
+    FutureProvider.family<List<Song>, String>((ref, albumId) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getAlbumSongs(albumId);
+});
+
+/// 歌单内歌曲（详情页按 playlistId 异步加载）
+final playlistSongsProvider =
+    FutureProvider.family<List<Song>, String>((ref, playlistId) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getPlaylistSongs(playlistId);
+});
+
+/// 曲库歌曲总数（负一屏服务器卡片展示）
+final songTotalProvider = FutureProvider<int>((ref) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getSongTotal();
+});
+
+/// 我喜欢的歌曲（负一屏入口）
+final likedSongsProvider = FutureProvider<List<Song>>((ref) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getLikedSongs();
+});
+
+/// 曲库歌曲列表（负一屏「歌曲」/「本地音乐」入口）
+final librarySongsProvider = FutureProvider<List<Song>>((ref) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getSongs(const {
+    '_start': 0,
+    '_end': 200,
+    '_sort': 'title',
+  });
+});
+
+/// 专辑列表（负一屏「专辑」入口）
+final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
+  final client = ref.watch(navidromeClientProvider);
+  return client.getAlbums(const {
+    '_start': 0,
+    '_end': 100,
+    '_sort': 'name',
+  });
+});

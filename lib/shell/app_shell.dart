@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 import '../features/home/home_screen.dart';
+import '../features/home/music_library_screen.dart';
 import '../features/player/mini_player.dart';
-import '../features/search/search_screen.dart';
 import '../features/settings/settings_screen.dart';
 
-/// 主框架（对齐 1.x TabNavigator）：
-/// 顶部图标式 Tab 栏（激活 #2196F3 + 圆角块），中间 IndexedStack 保活三页，
+/// 主框架（对齐设计图首屏/负一屏）：
+/// 顶部图标式 Tab 栏（搜索=首页 / 音乐库 / 设置），中间 IndexedStack 保活三页，
 /// 底部 MiniPlayer。播放期间页面零重建（MiniPlayer 内部自管高频订阅）。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -17,8 +17,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  // 对标 1.x：搜索 / 主页 / 设置（默认主页）
-  int _index = 1;
+  // 对齐设计图首屏：搜索（首页内容）/ 音乐库（负一屏）/ 设置，默认搜索
+  int _index = 0;
 
   static const _icons = [
     Icons.search,
@@ -86,8 +86,8 @@ class _AppShellState extends State<AppShell> {
               child: IndexedStack(
                 index: _index,
                 children: const [
-                  SearchScreen(),
                   HomeScreen(),
+                  MusicLibraryScreen(),
                   SettingsScreen(),
                 ],
               ),

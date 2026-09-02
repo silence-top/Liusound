@@ -26,6 +26,7 @@ class Song {
     required this.playCount,
     required this.starred,
     required this.size,
+    required this.rating,
     this.lyrics,
   });
 
@@ -39,6 +40,7 @@ class Song {
   final int playCount;
   final bool starred;
   final int size; // 文件字节数（详情页计算码率展示用，对齐 1.x SongResponse.size）
+  final int rating; // 评分 0-5（Subsonic setRating）
   final String? lyrics; // Navidrome JSON 歌词原文
 
   factory Song.fromJson(Map<String, dynamic> j) => Song(
@@ -52,7 +54,23 @@ class Song {
         playCount: _Json.intOf(j, 'playCount'),
         starred: _Json.boolOf(j, 'starred'),
         size: _Json.intOf(j, 'size'),
+        rating: _Json.intOf(j, 'rating'),
         lyrics: j['lyrics'] as String?,
+      );
+
+  Song copyWith({bool? starred, int? rating}) => Song(
+        id: id,
+        title: title,
+        artist: artist,
+        album: album,
+        albumId: albumId,
+        artistId: artistId,
+        duration: duration,
+        playCount: playCount,
+        starred: starred ?? this.starred,
+        size: size,
+        rating: rating ?? this.rating,
+        lyrics: lyrics,
       );
 
   static List<Song> listFromJson(dynamic json) => (json as List<dynamic>)
@@ -71,6 +89,7 @@ class Song {
         'playCount': playCount,
         'starred': starred,
         'size': size,
+        'rating': rating,
       };
 }
 
@@ -84,6 +103,7 @@ class Album {
     required this.duration,
     required this.playCount,
     required this.starred,
+    required this.rating,
     this.year,
   });
 
@@ -95,6 +115,7 @@ class Album {
   final double duration;
   final int playCount;
   final bool starred;
+  final int rating; // 评分 0-5
   final int? year;
 
   factory Album.fromJson(Map<String, dynamic> j) => Album(
@@ -106,6 +127,7 @@ class Album {
         duration: _Json.doubleOf(j, 'duration'),
         playCount: _Json.intOf(j, 'playCount'),
         starred: _Json.boolOf(j, 'starred'),
+        rating: _Json.intOf(j, 'rating'),
         year: (j['maxYear'] as num?)?.toInt(),
       );
 
@@ -136,6 +158,32 @@ class Artist {
 
   static List<Artist> listFromJson(dynamic json) => (json as List<dynamic>)
       .map((e) => Artist.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+/// 歌单（Navidrome /api/playlist 列表项）
+class Playlist {
+  const Playlist({
+    required this.id,
+    required this.name,
+    required this.songCount,
+    this.coverArt,
+  });
+
+  final String id;
+  final String name;
+  final int songCount;
+  final String? coverArt; // 封面 id（getCoverArt 用）
+
+  factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
+        id: _Json.str(j, 'id'),
+        name: _Json.str(j, 'name', '未命名歌单'),
+        songCount: _Json.intOf(j, 'songCount'),
+        coverArt: j['coverArt']?.toString(),
+      );
+
+  static List<Playlist> listFromJson(dynamic json) => (json as List<dynamic>)
+      .map((e) => Playlist.fromJson(e as Map<String, dynamic>))
       .toList();
 }
 

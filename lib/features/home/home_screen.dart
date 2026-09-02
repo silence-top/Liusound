@@ -5,8 +5,9 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../player/player_controller.dart';
+import '../search/search_screen.dart';
+import 'detail_screen.dart';
 import 'home_providers.dart';
-import 'playlist_detail.dart';
 
 /// 首页（对标 1.x HomeScreen）：
 /// 装饰搜索栏 + 分区顺序：最新专辑 / 每日推荐 / 最近播放 / 最常播放 / 随机专辑。
@@ -69,32 +70,37 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// 装饰搜索栏（1.x 原版为不可输入的占位，保持一致；搜索走顶部 Tab）
+/// 装饰搜索栏（点击进入全屏搜索页，对齐设计图首屏）
 class _SearchBar extends StatelessWidget {
   const _SearchBar();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 38,
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13304A),
-        borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
       ),
-      child: const Row(
-        children: [
-          SizedBox(width: 4),
-          Icon(Icons.search, size: 20, color: Color(0xFF888888)),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text('搜索',
-                style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
-          ),
-          Icon(Icons.qr_code, size: 20, color: Color(0xFF888888)),
-          SizedBox(width: 4),
-        ],
+      child: Container(
+        height: 38,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF13304A),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(width: 4),
+            Icon(Icons.search, size: 20, color: Color(0xFF888888)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('搜索',
+                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
+            ),
+            Icon(Icons.qr_code, size: 20, color: Color(0xFF888888)),
+            SizedBox(width: 4),
+          ],
+        ),
       ),
     );
   }
@@ -179,7 +185,7 @@ class _AlbumRow extends ConsumerWidget {
   }
 }
 
-/// 专辑卡（140 封面 + 名称 + 歌手，1.x 原版无点击行为，保持一致）
+/// 专辑卡（140 封面 + 名称 + 歌手，点击进入专辑详情）
 class _AlbumCard extends StatelessWidget {
   const _AlbumCard({required this.album});
 
@@ -189,28 +195,42 @@ class _AlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: SizedBox(
-        width: _AlbumRow._cardWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CoverArt(albumId: album.id, size: _AlbumRow._cardWidth, radius: 8),
-            const SizedBox(height: 8),
-            Text(
-              album.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AlbumDetailScreen(
+              albumId: album.id,
+              title: album.name,
+              subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+              rating: album.rating,
             ),
-            const SizedBox(height: 4),
-            Text(
-              album.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
-            ),
-          ],
+          ),
+        ),
+        child: SizedBox(
+          width: _AlbumRow._cardWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CoverArt(albumId: album.id, size: _AlbumRow._cardWidth, radius: 8),
+              const SizedBox(height: 8),
+              Text(
+                album.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                album.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -24,10 +24,29 @@ class LyricsData {
 /// - 译轨取第一条 lang 不同的音轨（双语歌词两轨时间戳一致）
 /// 解析失败返回空数据。
 LyricsData parseLyricsData(String? lyricsText) {
-  if (lyricsText == null || lyricsText.isEmpty) return const LyricsData();
+  final tracks = parseLyricsTracks(lyricsText);
+  if (tracks.isEmpty) return const LyricsData();
+  final (mainLang, mainLines) = tracks.first;
+  List<LyricLine>? translation;
+  for (final (lang, lines) in tracks) {
+    if (lang != mainLang) {
+      translation = lines;
+      break;
+    }
+  }
+  return LyricsData(
+    lines: mainLines,
+    translations: translation ?? const [],
+  );
+}
+
+/// 解析全部音轨（「切换歌词」弹窗用）：返回 (lang, lines) 列表。
+/// 解析失败或无音轨返回空列表。
+List<(String, List<LyricLine>)> parseLyricsTracks(String? lyricsText) {
+  if (lyricsText == null || lyricsText.isEmpty) return const [];
   try {
     final dynamic decoded = jsonDecode(lyricsText);
-    if (decoded is! List || decoded.isEmpty) return const LyricsData();
+    if (decoded is! List || decoded.isEmpty) return const [];
 
     // 逐轨解析（lang, lines）
     final tracks = <(String, List<LyricLine>)>[];
@@ -48,22 +67,9 @@ LyricsData parseLyricsData(String? lyricsText) {
       parsed.sort((a, b) => a.time.compareTo(b.time));
       tracks.add((track['lang']?.toString() ?? '', parsed));
     }
-
-    if (tracks.isEmpty) return const LyricsData();
-    final (mainLang, mainLines) = tracks.first;
-    List<LyricLine>? translation;
-    for (final (lang, lines) in tracks) {
-      if (lang != mainLang) {
-        translation = lines;
-        break;
-      }
-    }
-    return LyricsData(
-      lines: mainLines,
-      translations: translation ?? const [],
-    );
+    return tracks;
   } catch (_) {
-    return const LyricsData();
+    return const [];
   }
 }
 
