@@ -7,6 +7,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../auth/auth_controller.dart';
+import '../home/artist_detail_screen.dart';
 import '../player/player_controller.dart';
 
 /// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）
@@ -212,31 +213,41 @@ class _ArtistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          CoverArt(albumId: artist.id, size: 48, radius: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(artist.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 15)),
-                const SizedBox(height: 2),
-                Text('${artist.albumCount} 张专辑 · ${artist.songCount} 首',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xFF888888), fontSize: 13)),
-              ],
-            ),
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ArtistDetailScreen(
+            artistId: artist.id,
+            artistName: artist.name,
           ),
-        ],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            CoverArt(albumId: artist.id, size: 48, radius: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(artist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text('${artist.albumCount} 张专辑 · ${artist.songCount} 首',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Color(0xFF888888), fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

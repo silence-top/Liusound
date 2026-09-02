@@ -119,3 +119,23 @@ final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
     '_sort': 'name',
   });
 });
+
+/// 艺人专辑（艺人详情页，按发行年降序）
+final artistAlbumsProvider =
+    FutureProvider.autoDispose.family<List<Album>, String>((ref, artistId) {
+  return ref.watch(navidromeClientProvider).getAlbums({
+    'artist_id': artistId,
+    '_order': 'DESC',
+    '_sort': 'year',
+  });
+});
+
+/// 艺人歌曲（艺人详情页，热门优先）
+final artistSongsProvider =
+    FutureProvider.autoDispose.family<List<Song>, String>((ref, artistId) {
+  return ref.watch(navidromeClientProvider).getSongs({
+    'artist_id': artistId,
+    '_order': 'DESC',
+    '_sort': 'rating',
+  });
+});
