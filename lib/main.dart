@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,11 +19,14 @@ Future<void> main() async {
   await AudioService.init(
     builder: () => container.read(audioHandlerProvider),
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.silencetop.music_app.audio',
+      androidNotificationChannelId: 'com.silencetop.liusound.audio',
       androidNotificationChannelName: '流声播放',
       androidNotificationOngoing: true,
     ),
   );
+  // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）
+  final session = await AudioSession.instance;
+  await session.configure(const AudioSessionConfiguration.music());
   runApp(UncontrolledProviderScope(container: container, child: const MusicApp()));
 }
 

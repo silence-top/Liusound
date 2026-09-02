@@ -77,6 +77,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: ref.watch(searchResultProvider).when(
+            // 重载（新关键词）期间保留上次结果，避免结果区闪烁 loading
+            skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, _) => Center(
               child: Column(

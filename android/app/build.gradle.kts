@@ -5,8 +5,9 @@ plugins {
 }
 
 android {
-    namespace = "com.silencetop.music_app"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.silencetop.liusound"
+    // flutter_secure_storage 11 要求 compileSdk >= 37（覆盖 Flutter 默认值）
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -16,7 +17,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.silencetop.music_app"
+        applicationId = "com.silencetop.liusound"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

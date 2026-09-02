@@ -1,4 +1,4 @@
-name: music_app
+name: liusound
 description: "Navidrome 音乐客户端 —— Flutter 2.0 重构版（iOS / Android / Web）"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -42,6 +42,7 @@ dependencies:
   cached_network_image: ^4.0.0
   shared_preferences: ^2.5.5
   flutter_cache_manager: ^3.4.2
+  audio_session: ^0.2.4
 
 dev_dependencies:
   flutter_test:

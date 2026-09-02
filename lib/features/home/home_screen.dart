@@ -81,7 +81,7 @@ class _Header extends StatelessWidget {
         children: [
           Image.asset('assets/app/logo.png', width: 36, height: 36),
           const SizedBox(width: 10),
-          Text('音乐', style: Theme.of(context).textTheme.headlineMedium),
+          Text('流声', style: Theme.of(context).textTheme.headlineMedium),
         ],
       ),
     );
@@ -244,16 +244,7 @@ class _DailySongCard extends ConsumerWidget {
       padding: const EdgeInsets.only(right: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () async {
-          try {
-            await ref.read(playerActionsProvider).play(song);
-          } catch (error) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('播放失败：$error')),
-            );
-          }
-        },
+        onTap: () => ref.read(playerActionsProvider).play(song),
         child: SizedBox(
           width: 128,
           child: Column(

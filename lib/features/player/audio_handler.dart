@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -16,6 +17,10 @@ class AppAudioHandler extends BaseAudioHandler {
     _player = player;
     // 播放事件 → 系统播放状态广播（通知栏进度/按钮态）
     player.playbackEventStream.listen(_broadcastState);
+    // 拔出耳机/断开蓝牙 → 自动暂停（避免突然外放）
+    AudioSession.instance.then((session) {
+      session.becomingNoisyEventStream.listen((_) => _player.pause());
+    });
     // 当前歌曲 → 通知栏元数据（切歌即刷新）
     _ref.listen<Song?>(currentSongProvider, (_, song) => _syncMediaItem(song));
     _syncMediaItem(_ref.read(currentSongProvider));

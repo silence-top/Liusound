@@ -8,31 +8,91 @@ class LyricLine {
   final String text;
 }
 
-/// 解析 Navidrome JSON 格式歌词（对标 1.x PlayerContext.parseLyrics）：
-/// 取第一音轨、毫秒转秒、过滤空行并按时间排序；解析失败返回空列表。
-List<LyricLine> parseLyrics(String? lyricsText) {
-  if (lyricsText == null || lyricsText.isEmpty) return const [];
+/// 歌词解析结果：主轨（原文）+ 可选译轨（双语歌词）
+class LyricsData {
+  const LyricsData({this.lines = const [], this.translations = const []});
+
+  /// 主轨歌词行（按时间升序）
+  final List<LyricLine> lines;
+
+  /// 译轨歌词行（按时间升序；无译轨时为空）
+  final List<LyricLine> translations;
+}
+
+/// 解析 Navidrome JSON 格式歌词（对标 1.x parseLyrics 并扩展双语）：
+/// - 主轨取第一音轨（毫秒转秒、过滤空行、按时间排序）
+/// - 译轨取第一条 lang 不同的音轨（双语歌词两轨时间戳一致）
+/// 解析失败返回空数据。
+LyricsData parseLyricsData(String? lyricsText) {
+  if (lyricsText == null || lyricsText.isEmpty) return const LyricsData();
   try {
     final dynamic decoded = jsonDecode(lyricsText);
-    if (decoded is! List || decoded.isEmpty) return const [];
-    final dynamic track = decoded.first;
-    if (track is! Map<String, dynamic>) return const [];
-    final dynamic lines = track['line'];
-    if (lines is! List) return const [];
+    if (decoded is! List || decoded.isEmpty) return const LyricsData();
 
-    final result = <LyricLine>[];
-    for (final dynamic line in lines) {
-      if (line is! Map<String, dynamic>) continue;
-      final String text = line['value']?.toString().trim() ?? '';
-      if (text.isEmpty) continue;
-      final double timeSec = ((line['start'] as num?)?.toDouble() ?? 0) / 1000;
-      result.add(LyricLine(time: timeSec, text: text));
+    // 逐轨解析（lang, lines）
+    final tracks = <(String, List<LyricLine>)>[];
+    for (final dynamic track in decoded) {
+      if (track is! Map<String, dynamic>) continue;
+      final dynamic lines = track['line'];
+      if (lines is! List) continue;
+
+      final parsed = <LyricLine>[];
+      for (final dynamic line in lines) {
+        if (line is! Map<String, dynamic>) continue;
+        final String text = line['value']?.toString().trim() ?? '';
+        if (text.isEmpty) continue;
+        final double timeSec = ((line['start'] as num?)?.toDouble() ?? 0) / 1000;
+        parsed.add(LyricLine(time: timeSec, text: text));
+      }
+      if (parsed.isEmpty) continue;
+      parsed.sort((a, b) => a.time.compareTo(b.time));
+      tracks.add((track['lang']?.toString() ?? '', parsed));
     }
-    result.sort((a, b) => a.time.compareTo(b.time));
-    return result;
+
+    if (tracks.isEmpty) return const LyricsData();
+    final (mainLang, mainLines) = tracks.first;
+    List<LyricLine>? translation;
+    for (final (lang, lines) in tracks) {
+      if (lang != mainLang) {
+        translation = lines;
+        break;
+      }
+    }
+    return LyricsData(
+      lines: mainLines,
+      translations: translation ?? const [],
+    );
   } catch (_) {
-    return const [];
+    return const LyricsData();
   }
+}
+
+/// 单轨便捷封装：仅返回主轨歌词行
+List<LyricLine> parseLyrics(String? lyricsText) =>
+    parseLyricsData(lyricsText).lines;
+
+/// 将译轨按时间戳对齐到主轨行（时间差 < 0.5s 视为同一行）。
+/// 返回与 [lines] 等长的列表：每项为该行译文或 null（无匹配译文）。
+List<String?> alignTranslations(
+  List<LyricLine> lines,
+  List<LyricLine> translations,
+) {
+  final result = List<String?>.filled(lines.length, null);
+  if (translations.isEmpty) return result;
+  var j = 0;
+  for (var i = 0; i < lines.length; i++) {
+    final t = lines[i].time;
+    // 双指针推进到时间上最接近的译文行
+    while (j < translations.length - 1 &&
+        (translations[j].time - t).abs() >
+            (translations[j + 1].time - t).abs()) {
+      j++;
+    }
+    if ((translations[j].time - t).abs() < 0.5) {
+      result[i] = translations[j].text;
+    }
+  }
+  return result;
 }
 
 /// 二分查找：返回 time 所处歌词行索引（时间在首句之前返回 -1）

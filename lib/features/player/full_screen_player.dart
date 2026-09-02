@@ -12,13 +12,15 @@ import '../../shared/cover_art.dart';
 import '../auth/auth_controller.dart';
 import 'player_controller.dart';
 
-/// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）
+/// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
+/// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
 final similarSongsProvider =
-    FutureProvider.family<List<Song>, String>((ref, songId) {
+    FutureProvider.autoDispose.family<List<Song>, String>((ref, songId) {
   return ref.watch(navidromeClientProvider).getSimilarSongs(songId);
 });
 
-const double _lyricItemExtent = 48; // 每行歌词高度（对齐 1.x LYRIC_HEIGHT）
+const double _lyricItemExtent = 48; // 单语歌词行高
+const double _lyricDualHeight = 72; // 双语歌词行高（原文 + 译文）
 
 /// 全屏播放器（对标 1.x FullScreenPlayer + QueueModal）：
 /// 三 Tab —— 相似推荐 / 播放队列 / 歌词同步。
@@ -412,10 +414,15 @@ class _LyricsTab extends ConsumerStatefulWidget {
 }
 
 class _LyricsTabState extends ConsumerState<_LyricsTab> {
-  List<LyricLine> _lyrics = const [];
+  LyricsData _lyrics = const LyricsData();
+  List<String?> _translations = const []; // 与主轨逐行对齐的译文（无则 null）
+  double _rowHeight = _lyricItemExtent;
+  bool _hasTranslation = false;
   double _offset = 0;
   bool _manualScrolling = false;
-  int _lastIndex = -2;
+  // 当前行索引：值变化仅触发对应行的 ValueListenableBuilder 重建（行级更新，
+  // 避免 setState 重建整个歌词列表）
+  final ValueNotifier<int> _currentIndex = ValueNotifier(-2);
   Timer? _manualScrollTimer;
   final ScrollController _controller = ScrollController();
 
@@ -432,7 +439,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
     if (widget.song.id != oldWidget.song.id) {
       _parseLyrics();
       _offset = 0;
-      _lastIndex = -2;
+      _currentIndex.value = -2;
       _loadOffset();
     }
   }
@@ -440,12 +447,22 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
   @override
   void dispose() {
     _manualScrollTimer?.cancel();
+    _currentIndex.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  void _parseLyrics() =>
-      setState(() => _lyrics = parseLyrics(widget.song.lyrics));
+  /// 解析歌词（含双语译轨）并按时间戳对齐译文
+  void _parseLyrics() {
+    final data = parseLyricsData(widget.song.lyrics);
+    final translations = alignTranslations(data.lines, data.translations);
+    setState(() {
+      _lyrics = data;
+      _translations = translations;
+      _hasTranslation = translations.any((t) => t != null);
+      _rowHeight = _hasTranslation ? _lyricDualHeight : _lyricItemExtent;
+    });
+  }
 
   Future<void> _loadOffset() async {
     final prefs = await SharedPreferences.getInstance();
@@ -473,17 +490,16 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
 
     // 播放进度 → 当前行计算 + 自动滚动（仅本 Tab 订阅高频进度流）
     ref.listen(positionProvider, (_, snapshot) {
-      if (_lyrics.isEmpty) return;
+      if (_lyrics.lines.isEmpty) return;
       final position = snapshot.valueOrNull ?? Duration.zero;
       final idx = findLyricIndex(
-          _lyrics, position.inMilliseconds / 1000.0 + _offset);
-      if (idx == _lastIndex) return;
-      _lastIndex = idx;
-      setState(() {}); // 仅当前行变化时重绘歌词列表
+          _lyrics.lines, position.inMilliseconds / 1000.0 + _offset);
+      if (idx == _currentIndex.value) return;
+      _currentIndex.value = idx; // 仅通知当前行/上一行重建
       if (idx >= 0 && _controller.hasClients && !_manualScrolling) {
-        final target = (idx * _lyricItemExtent -
+        final target = (idx * _rowHeight -
                 _controller.position.viewportDimension / 2 +
-                _lyricItemExtent / 2)
+                _rowHeight / 2)
             .clamp(0.0, _controller.position.maxScrollExtent);
         _controller.animateTo(
           target,
@@ -493,7 +509,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
       }
     });
 
-    if (_lyrics.isEmpty) {
+    if (_lyrics.lines.isEmpty) {
       return const Center(
         child: Text('暂无歌词', style: TextStyle(color: Colors.white38)),
       );
@@ -516,25 +532,51 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
             },
             child: ListView.builder(
               controller: _controller,
-              itemExtent: _lyricItemExtent,
+              itemExtent: _rowHeight,
               padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 32),
-              itemCount: _lyrics.length,
-              itemBuilder: (_, i) {
-                final isCurrent = i == _lastIndex;
-                return Center(
-                  child: Text(
-                    _lyrics[i].text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: isCurrent ? 18 : 15,
-                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                      color: isCurrent ? primary : Colors.white54,
+              itemCount: _lyrics.lines.length,
+              itemBuilder: (_, i) => ValueListenableBuilder<int>(
+                valueListenable: _currentIndex,
+                builder: (_, current, _) {
+                  final isCurrent = i == current;
+                  final translation = _translations[i];
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _lyrics.lines[i].text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: isCurrent
+                                ? (_hasTranslation ? 17 : 18)
+                                : (_hasTranslation ? 14 : 15),
+                            fontWeight: isCurrent
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isCurrent ? primary : Colors.white54,
+                          ),
+                        ),
+                        if (translation != null)
+                          Text(
+                            translation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isCurrent
+                                  ? primary.withValues(alpha: 0.7)
+                                  : Colors.white38,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -574,8 +616,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab> {
                 icon: const Icon(Icons.copy_all_outlined, size: 18),
                 tooltip: '复制歌词',
                 onPressed: () {
-                  Clipboard.setData(
-                      ClipboardData(text: _lyrics.map((l) => l.text).join('\n')));
+                  Clipboard.setData(ClipboardData(
+                      text: _lyrics.lines.map((l) => l.text).join('\n')));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('歌词已复制'), duration: Duration(seconds: 1)),
                   );
