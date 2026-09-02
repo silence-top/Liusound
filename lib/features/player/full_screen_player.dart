@@ -4,16 +4,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
+import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../auth/auth_controller.dart';
 import 'action_sheets.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
+
+/// 专辑封面主色取色（动态背景，对标 Spotify 沉浸式播放页）。
+/// autoDispose 按封面 id 缓存；64px 缩样取 vibrant/muted/dominant，
+/// 任何异常返回 null（回退框架色），绝不阻塞播放器打开。
+final albumDominantColorProvider =
+    FutureProvider.autoDispose.family<Color?, String>((ref, albumId) async {
+  if (albumId.isEmpty) return null;
+  final auth = ref.watch(subsonicAuthProvider);
+  if (!auth.isValid) return null;
+  try {
+    final palette = await PaletteGenerator.fromImageProvider(
+      NetworkImage(Subsonic.coverArtUrl(auth, albumId)),
+      size: const Size(64, 64),
+      maximumColorCount: 16,
+    );
+    return (palette.vibrantColor ?? palette.mutedColor ?? palette.dominantColor)
+        ?.color;
+  } catch (_) {
+    return null;
+  }
+});
 
 /// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
 /// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
@@ -77,75 +100,95 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     if (song == null) return const SizedBox.shrink();
 
     final tabs = const ['推荐', '歌曲', '歌词'];
+    // 封面主色 → 播放器背景渐变（取色中/失败回退框架色）
+    final tint =
+        ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull;
+    final top = tint == null
+        ? AppTheme.shell
+        : Color.lerp(tint, Colors.black, 0.42)!;
+    final bottom = tint == null
+        ? AppTheme.shell
+        : Color.lerp(tint, Colors.black, 0.85)!;
 
     return Scaffold(
       backgroundColor: AppTheme.shell,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
-            // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
-            // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
-            SizedBox(
-              height: 48,
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    left: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_down),
-                      iconSize: 32,
-                      color: Colors.white,
-                      onPressed: widget.onClose,
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [top, bottom],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
+              // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
+              // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
+              SizedBox(
+                height: 48,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      child: IconButton(
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                        iconSize: 32,
+                        color: Colors.white,
+                        onPressed: widget.onClose,
+                      ),
                     ),
-                  ),
-                  ListenableBuilder(
-                    listenable: _tab,
-                    builder: (_, _) => Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < tabs.length; i++)
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _tab.animateTo(i),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 18, vertical: 6),
-                              child: Text(
-                                tabs[i],
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: _tab.index == i
-                                      ? FontWeight.bold
-                                      : FontWeight.w400,
-                                  color: _tab.index == i
-                                      ? Colors.white
-                                      : const Color(0xFF888888),
+                    ListenableBuilder(
+                      listenable: _tab,
+                      builder: (_, _) => Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var i = 0; i < tabs.length; i++)
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _tab.animateTo(i),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 18, vertical: 6),
+                                child: Text(
+                                  tabs[i],
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: _tab.index == i
+                                        ? FontWeight.bold
+                                        : FontWeight.w400,
+                                    color: _tab.index == i
+                                        ? Colors.white
+                                        : const Color(0xFF888888),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
-            Expanded(
-              child: TabBarView(
-                controller: _tab,
-                children: [
-                  const _RecommendTab(),
-                  const _NowPlayingTab(),
-                  _LyricsTab(song: song),
-                ],
+              // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
+              Expanded(
+                child: TabBarView(
+                  controller: _tab,
+                  children: [
+                    const _RecommendTab(),
+                    const _NowPlayingTab(),
+                    _LyricsTab(song: song),
+                  ],
+                ),
               ),
-            ),
-            const _BottomArea(),
-          ],
+              const _BottomArea(),
+            ],
+          ),
         ),
       ),
     );
@@ -398,8 +441,15 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                             color: Colors.white.withValues(alpha: 0.04)),
                       ),
                     ),
-                    // 中央封面（黑胶圆孔位）
-                    CoverArt(albumId: song.albumId, size: 120, radius: 8),
+                    // 中央封面（黑胶圆孔位；切歌淡入过渡）
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      child: KeyedSubtree(
+                        key: ValueKey(song.albumId),
+                        child: CoverArt(
+                            albumId: song.albumId, size: 120, radius: 8),
+                      ),
+                    ),
                   ],
                 ),
               ),

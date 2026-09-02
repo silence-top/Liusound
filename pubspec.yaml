@@ -43,6 +43,7 @@ dependencies:
   shared_preferences: ^2.5.5
   flutter_cache_manager: ^3.4.2
   audio_session: ^0.2.4
+  palette_generator: ^0.3.3+7
 
 dev_dependencies:
   flutter_test:

@@ -68,6 +68,30 @@ class _QueueSheet extends ConsumerWidget {
                       style: const TextStyle(
                           fontSize: 17, fontWeight: FontWeight.bold)),
                   const Spacer(),
+                  // 清空队列（现代播放器标配）
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      ref.read(playerActionsProvider).clearQueue();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('已清空播放队列'),
+                            duration: Duration(seconds: 1)),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('清空',
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.white)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () =>
@@ -101,13 +125,30 @@ class _QueueSheet extends ConsumerWidget {
               )
             else
               Flexible(
-                child: ListView.builder(
+                // 拖动排序（现代播放器标配）：行首把手拖动 + 拖动中浮起高亮
+                child: ReorderableListView.builder(
                   shrinkWrap: true,
+                  buildDefaultDragHandles: false,
+                  // onReorderItem 的 newIndex 已完成移除位修正，直接插入
+                  onReorderItem: (oldIndex, newIndex) =>
+                      ref.read(playerActionsProvider).reorderQueue(
+                          oldIndex, newIndex),
+                  proxyDecorator: (child, index, animation) => AnimatedBuilder(
+                    animation: animation,
+                    builder: (_, child) => Material(
+                      color: const Color(0x2E1EB4FF),
+                      borderRadius: BorderRadius.circular(8),
+                      elevation: animation.value * 6,
+                      child: child,
+                    ),
+                    child: child,
+                  ),
                   itemCount: queue.length,
                   itemBuilder: (_, i) {
                     final song = queue[i];
                     final isCurrent = current?.id == song.id;
                     return Container(
+                      key: ValueKey(song.id),
                       decoration: BoxDecoration(
                         color: isCurrent
                             ? const Color(0x141EB4FF) // rgba(30,180,255,0.08)
@@ -126,6 +167,15 @@ class _QueueSheet extends ConsumerWidget {
                               horizontal: 18, vertical: 10),
                           child: Row(
                             children: [
+                              // 拖动把手
+                              ReorderableDragStartListener(
+                                index: i,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(right: 6),
+                                  child: Icon(Icons.drag_indicator,
+                                      size: 22, color: Colors.white38),
+                                ),
+                              ),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

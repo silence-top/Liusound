@@ -23,63 +23,65 @@ class MiniPlayer extends ConsumerWidget {
     final song = ref.watch(currentSongProvider);
     if (song == null) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-      padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.miniPlayer,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _SpinCover(song: song),
-          const SizedBox(width: 12),
-          // 文字区：点击进入全屏播放器
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _openFullScreen(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  const SizedBox(height: 2),
-                  _LyricSubtitle(song: song),
-                ],
+    return _SwipeToSwitch(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.miniPlayer,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _SpinCover(song: song),
+            const SizedBox(width: 12),
+            // 文字区：点击进入全屏播放器
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openFullScreen(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
+                    const SizedBox(height: 2),
+                    _LyricSubtitle(song: song),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          // 队列按钮：打开队列弹窗
-          GestureDetector(
-            onTap: () => showQueueModal(context),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
+            const SizedBox(width: 12),
+            // 队列按钮：打开队列弹窗
+            GestureDetector(
+              onTap: () => showQueueModal(context),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.queue_music,
+                    size: 28, color: Colors.white),
               ),
-              child: const Icon(Icons.queue_music,
-                  size: 28, color: Colors.white),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -141,7 +143,13 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
             RotationTransition(
               turns: _rotation,
               child: ClipOval(
-                child: CoverArt(albumId: widget.song.albumId, size: 44),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: KeyedSubtree(
+                    key: ValueKey(widget.song.albumId),
+                    child: CoverArt(albumId: widget.song.albumId, size: 44),
+                  ),
+                ),
               ),
             ),
             if (!isPlaying)
@@ -264,6 +272,52 @@ class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
       style: TextStyle(
         fontSize: 14,
         color: Colors.white.withValues(alpha: 0.8),
+      ),
+    );
+  }
+}
+
+/// 左右滑动切歌手势（现代播放器标配）：拖动跟手（阻尼 0.55），
+/// 位移超阈值或快滑即切歌，松手回位。与行内点击互不干扰。
+class _SwipeToSwitch extends ConsumerStatefulWidget {
+  const _SwipeToSwitch({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_SwipeToSwitch> createState() => _SwipeToSwitchState();
+}
+
+class _SwipeToSwitchState extends ConsumerState<_SwipeToSwitch> {
+  static const _trigger = 72.0; // 位移触发阈值（逻辑像素）
+  static const _velocity = 600.0; // 快滑触发速度
+  double _dx = 0;
+
+  void _end(DragEndDetails d) {
+    final v = d.velocity.pixelsPerSecond.dx;
+    final hit = _dx.abs() > _trigger || v.abs() > _velocity;
+    final forward = _dx < 0 || v < 0; // 左滑 → 下一首
+    setState(() => _dx = 0);
+    if (!hit) return;
+    final actions = ref.read(playerActionsProvider);
+    if (forward) {
+      actions.playNext();
+    } else {
+      actions.playPrevious();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (d) =>
+          setState(() => _dx = (_dx + d.delta.dx).clamp(-90.0, 90.0)),
+      onHorizontalDragEnd: _end,
+      onHorizontalDragCancel: () => setState(() => _dx = 0),
+      child: Transform.translate(
+        offset: Offset(_dx * 0.55, 0),
+        child: widget.child,
       ),
     );
   }

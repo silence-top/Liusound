@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
@@ -42,15 +43,22 @@ class MusicApp extends ConsumerWidget {
         ref.read(playerActionsProvider).stop();
       }
     });
-    return MaterialApp(
-      title: '流声',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: !auth.initialized
-          ? const _Splash()
-          : auth.isAuthenticated
-              ? const AppShell()
-              : const ServerSelectScreen(),
+    // 沉浸式状态栏：全局浅色图标 + 透明底（全屏播放器/详情页无 AppBar 时图标仍可见）
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+      ),
+      child: MaterialApp(
+        title: '流声',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark,
+        home: !auth.initialized
+            ? const _Splash()
+            : auth.isAuthenticated
+                ? const AppShell()
+                : const ServerSelectScreen(),
+      ),
     );
   }
 }
