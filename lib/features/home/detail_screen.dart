@@ -138,7 +138,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               itemBuilder: (context, index) =>
                   SongRow(song: songs[index], index: index, songs: songs),
             ),
-            const _EndMark(),
+            const SliverToBoxAdapter(child: _EndMark()),
           ],
         ],
       ),
@@ -312,7 +312,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               itemBuilder: (context, index) =>
                   SongRow(song: songs[index], index: index, songs: songs),
             ),
-            const _EndMark(),
+            const SliverToBoxAdapter(child: _EndMark()),
           ],
         ],
       ),
