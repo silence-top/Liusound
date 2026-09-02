@@ -25,6 +25,7 @@ class Song {
     required this.duration,
     required this.playCount,
     required this.starred,
+    required this.size,
     this.lyrics,
   });
 
@@ -37,7 +38,8 @@ class Song {
   final double duration; // 秒
   final int playCount;
   final bool starred;
-  final String? lyrics; // Navidrome JSON 歌词原文（Phase 2 解析）
+  final int size; // 文件字节数（详情页计算码率展示用，对齐 1.x SongResponse.size）
+  final String? lyrics; // Navidrome JSON 歌词原文
 
   factory Song.fromJson(Map<String, dynamic> j) => Song(
         id: _Json.str(j, 'id'),
@@ -49,6 +51,7 @@ class Song {
         duration: _Json.doubleOf(j, 'duration'),
         playCount: _Json.intOf(j, 'playCount'),
         starred: _Json.boolOf(j, 'starred'),
+        size: _Json.intOf(j, 'size'),
         lyrics: j['lyrics'] as String?,
       );
 
@@ -67,6 +70,7 @@ class Song {
         'duration': duration,
         'playCount': playCount,
         'starred': starred,
+        'size': size,
       };
 }
 
