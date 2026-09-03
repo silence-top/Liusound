@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
@@ -81,26 +82,29 @@ class _SearchBar extends StatelessWidget {
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(const SearchScreen()),
       ),
-      child: Container(
-        height: 38,
+      child: GlassSurface(
+        radius: GlassTokens.radiusPill,
+        blur: 0,
+        tint: Colors.white.withValues(alpha: 0.06),
+        gradientBorder: true,
+        shadow: false,
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.searchbar,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          children: [
-            SizedBox(width: 4),
-            Icon(Icons.search, size: 20, color: AppTheme.textDim),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('搜索',
-                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
-            ),
-            Icon(Icons.qr_code, size: 20, color: AppTheme.textDim),
-            SizedBox(width: 4),
-          ],
+        child: SizedBox(
+          height: 38,
+          child: const Row(
+            children: [
+              SizedBox(width: 4),
+              Icon(Icons.search, size: 20, color: AppTheme.textDim),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('搜索',
+                    style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
+              ),
+              Icon(Icons.qr_code, size: 20, color: AppTheme.textDim),
+              SizedBox(width: 4),
+            ],
+          ),
         ),
       ),
     );
@@ -293,9 +297,13 @@ class _DailySection extends ConsumerWidget {
                     fontSize: 14,
                     fontWeight: FontWeight.bold)),
           ),
-          child: Column(
-            children:
-                list.take(3).map((song) => _DailyRow(song: song)).toList(),
+          child: GlassCard(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Column(
+              children:
+                  list.take(3).map((song) => _DailyRow(song: song)).toList(),
+            ),
           ),
         );
       },

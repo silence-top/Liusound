@@ -1,83 +1,163 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/navidrome_client.dart';
-import '../../core/storage/auth_store.dart';
-import '../../core/subsonic/subsonic.dart';
-
-/// 全局唯一的 REST 客户端
-final navidromeClientProvider = Provider<NavidromeClient>((ref) => NavidromeClient());
+import '../../core/api/server_adapter.dart';
+import '../../core/api/server_type.dart';
+import '../../core/storage/server_repository.dart';
 
 class AuthState {
-  const AuthState({this.session, this.initialized = false});
+  const AuthState({
+    this.servers = const [],
+    this.activeServerId,
+    this.activeSecrets = const {},
+    this.initialized = false,
+  });
 
-  final StoredSession? session;
-  final bool initialized; // 冷启动恢复是否完成（决定是否显示启动 loading）
+  final List<ServerConfig> servers;
+  final String? activeServerId;
+  final Map<String, String> activeSecrets;
+  final bool initialized;
 
-  bool get isAuthenticated => session != null;
+  bool get isAuthenticated => activeServerId != null;
+
+  ServerConfig? get activeConfig =>
+      servers.cast<ServerConfig?>().firstWhere(
+            (s) => s?.id == activeServerId,
+            orElse: () => null,
+          );
+
+  AuthState copyWith({
+    List<ServerConfig>? servers,
+    String? activeServerId,
+    Map<String, String>? activeSecrets,
+    bool? initialized,
+  }) =>
+      AuthState(
+        servers: servers ?? this.servers,
+        activeServerId: activeServerId ?? this.activeServerId,
+        activeSecrets: activeSecrets ?? this.activeSecrets,
+        initialized: initialized ?? this.initialized,
+      );
 }
 
-/// 认证状态控制器：冷启动恢复会话 / 登录 / 登出
 class AuthController extends Notifier<AuthState> {
-  late final AuthStore _store = AuthStore();
+  final _repo = ServerRepository();
 
   @override
   AuthState build() {
     _restore();
-    return const AuthState(); // initialized=false → 启动 loading
+    return const AuthState();
   }
 
   Future<void> _restore() async {
     try {
-      final session = await _store.readSession();
-      if (session != null) {
-        ref.read(navidromeClientProvider).setSession(session);
+      await _repo.migrateLegacySession();
+      final servers = await _repo.loadServers();
+      final activeId = await _repo.loadActiveId();
+      if (servers.isNotEmpty && activeId != null) {
+        final secrets = await _repo.loadSecrets(activeId);
+        state = AuthState(
+          servers: servers,
+          activeServerId: activeId,
+          activeSecrets: secrets,
+          initialized: true,
+        );
+      } else {
+        state = const AuthState(initialized: true);
       }
-      state = AuthState(session: session, initialized: true);
     } catch (_) {
-      // 恢复失败按未登录处理（安全存储异常等情况）
       state = const AuthState(initialized: true);
     }
   }
 
-  /// 登录：请求成功后持久化会话并同步内存凭证
-  Future<void> login(String serverUrl, String username, String password) async {
-    final client = ref.read(navidromeClientProvider);
-    final result = await client.login(serverUrl, username, password);
-    final session = StoredSession(
-      serverUrl: serverUrl,
-      username: result.username.isNotEmpty ? result.username : username,
-      token: result.token,
-      subsonicToken: result.subsonicToken,
-      subsonicSalt: result.subsonicSalt,
+  Future<void> login(
+    ServerType type,
+    String serverUrl,
+    String username,
+    String password,
+  ) async {
+    final normalizedUrl = normalizeServerUrl(serverUrl);
+    final result = await type.signIn(AuthRequest(
+      serverUrl: normalizedUrl,
+      username: username,
+      password: password,
+    ));
+
+    final id = '${type.name}-${DateTime.now().millisecondsSinceEpoch}';
+    final config = ServerConfig(
+      id: id,
+      type: type,
+      name: type.displayName,
+      serverUrl: normalizedUrl,
+      username: username,
     );
-    await _store.saveSession(session);
-    client.setSession(session);
-    state = AuthState(session: session, initialized: true);
+
+    final servers = [...state.servers, config];
+    await _repo.saveServers(servers);
+    await _repo.saveSecrets(id, result.secrets);
+    await _repo.saveActiveId(id);
+
+    state = state.copyWith(
+      servers: servers,
+      activeServerId: id,
+      activeSecrets: result.secrets,
+      initialized: true,
+    );
+  }
+
+  Future<void> switchServer(String id) async {
+    if (id == state.activeServerId) return;
+    final config = state.servers.cast<ServerConfig?>().firstWhere(
+          (s) => s?.id == id,
+          orElse: () => null,
+        );
+    if (config == null) return;
+    final secrets = await _repo.loadSecrets(id);
+    await _repo.saveActiveId(id);
+    state = state.copyWith(
+      activeServerId: id,
+      activeSecrets: secrets,
+    );
+  }
+
+  Future<void> removeServer(String id) async {
+    await _repo.deleteServer(id);
+    final servers = state.servers.where((s) => s.id != id).toList();
+    if (state.activeServerId == id) {
+      state = state.copyWith(
+        servers: servers,
+        activeServerId: null,
+        activeSecrets: const {},
+      );
+    } else {
+      state = state.copyWith(servers: servers);
+    }
   }
 
   Future<void> logout() async {
-    await _store.clear();
-    ref.read(navidromeClientProvider).clearSession();
-    state = AuthState(initialized: true);
+    final activeId = state.activeServerId;
+    if (activeId != null) {
+      await _repo.deleteServer(activeId);
+    }
+    final servers = state.servers.where((s) => s.id != activeId).toList();
+    state = AuthState(
+      servers: servers,
+      initialized: true,
+    );
   }
 }
 
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 
-/// Subsonic 直链所需的认证信息（未登录时返回 empty，isValid=false）
-final subsonicAuthProvider = Provider<SubsonicAuth>((ref) {
-  final session = ref.watch(authControllerProvider).session;
-  if (session == null) return SubsonicAuth.empty;
-  return SubsonicAuth(
-    serverUrl: session.serverUrl,
-    username: session.username,
-    subsonicToken: session.subsonicToken,
-    subsonicSalt: session.subsonicSalt,
-  );
+final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
+  final auth = ref.watch(authControllerProvider);
+  final config = auth.activeConfig;
+  if (config == null) return null;
+  final adapter = config.type.createAdapter(config, auth.activeSecrets);
+  ref.onDispose(adapter.dispose);
+  return adapter;
 });
 
-/// 服务器地址规范化：补 scheme、去尾斜杠（对标 1.x LoginScreen）
 String normalizeServerUrl(String raw) {
   var url = raw.trim();
   if (url.isEmpty) return url;

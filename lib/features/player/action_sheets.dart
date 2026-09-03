@@ -7,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/download/download_service.dart';
 import '../../core/models/models.dart';
-import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
@@ -24,10 +24,10 @@ import 'widgets/star_rating.dart';
 void showSongActionSheet(BuildContext context, Song song) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppTheme.queuePanel,
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
     ),
     builder: (_) => _SongActionSheet(song: song),
   );
@@ -62,7 +62,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final before = _view;
     _syncLocal(before.copyWith(rating: rating));
     final ok =
-        await ref.read(navidromeClientProvider).setRating(before.id, rating);
+        await ref.read(serverAdapterProvider)?.setRating(before.id, rating) ?? false;
     if (!ok && mounted) {
       _syncLocal(before);
       _toast('评分提交失败');
@@ -73,8 +73,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final before = _view;
     _syncLocal(before.copyWith(starred: !before.starred));
     final ok = await ref
-        .read(navidromeClientProvider)
-        .setStar(before.id, !before.starred);
+        .read(serverAdapterProvider)
+        ?.setStar(before.id, !before.starred) ?? false;
     if (!ok && mounted) {
       _syncLocal(before);
       _toast('收藏操作失败');
@@ -84,8 +84,21 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
   @override
   Widget build(BuildContext context) {
     final song = _view;
-    return SafeArea(
-      top: false,
+    final caps = ref.watch(serverAdapterProvider)?.capabilities;
+    final canRate = caps?.ratings ?? false;
+    final canDownload = caps?.download ?? true;
+    return GlassSurface(
+      radius: GlassTokens.radiusSheet,
+      blur: GlassTokens.blurHeavy,
+      tint: Colors.black.withValues(alpha: 0.35),
+      gradientBorder: true,
+      shadow: false,
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 10,
+        left: 0,
+        right: 0,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -114,7 +127,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 13)),
                       const SizedBox(height: 4),
-                      StarRating(rating: song.rating, onRating: _rate),
+                      if (canRate)
+                        StarRating(rating: song.rating, onRating: _rate),
                     ],
                   ),
                 ),
@@ -147,8 +161,9 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                 }),
                 _gridItem(Icons.playlist_add, '添加到', () =>
                     _addToPlaylist(context, song)),
-                _gridItem(Icons.download_outlined, '下载', () =>
-                    _downloadSong(context, song)),
+                if (canDownload)
+                  _gridItem(Icons.download_outlined, '下载', () =>
+                      _downloadSong(context, song)),
                 _gridItem(Icons.delete_outline, '删除文件', () =>
                     _toast('请到 Navidrome 网页端管理文件')),
                 _gridItem(Icons.timer_outlined, '定时停止', () =>
@@ -229,8 +244,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
 
   /// 离线下载：进度对话框 → 保存到应用文档目录 Music/ → 提示结果
   Future<void> _downloadSong(BuildContext context, Song song) async {
-    final auth = ref.read(subsonicAuthProvider);
-    if (!auth.isValid) {
+    final adapter = ref.read(serverAdapterProvider);
+    if (adapter == null) {
       _toast('未登录，无法下载');
       return;
     }
@@ -261,8 +276,9 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
       ),
     ).then((_) => dialogOpen = false));
     try {
+      final source = await adapter.resolveDownload(song);
       final path = await downloadSongFile(
-        auth: auth,
+        source: source,
         song: song,
         onProgress: (received, total) {
           if (total > 0) progress.value = received / total;
@@ -303,15 +319,18 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     Navigator.of(context).pop();
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.queuePanel,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
       ),
       builder: (_) => _PlaylistPickerSheet(song: song),
     );
   }
 
   void _showSongInfo(BuildContext context, Song song) {
+    final canRate =
+        ref.read(serverAdapterProvider)?.capabilities.ratings ?? false;
     Navigator.of(context).pop();
     showDialog<void>(
       context: context,
@@ -332,7 +351,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   '${((song.size * 8) / song.duration / 1000).round()} Kbps'),
             _infoLine('播放次数', '${song.playCount}'),
             _infoLine('收藏', song.starred ? '是' : '否'),
-            _infoLine('评分', '${song.rating} / 5'),
+            if (canRate) _infoLine('评分', '${song.rating} / 5'),
           ],
         ),
         actions: [
@@ -377,8 +396,20 @@ class _Cover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ProviderScope.containerOf(context).read(subsonicAuthProvider);
-    if (song.albumId.isEmpty || !auth.isValid) {
+    final adapter = ProviderScope.containerOf(context).read(serverAdapterProvider);
+    if (song.albumId.isEmpty || adapter == null) {
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
+      );
+    }
+    final imageSource = adapter.coverImage(song.albumId, size: 104);
+    if (imageSource == null) {
       return Container(
         width: 52,
         height: 52,
@@ -392,7 +423,8 @@ class _Cover extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: CachedNetworkImage(
-        imageUrl: Subsonic.coverArtUrl(auth, song.albumId),
+        imageUrl: imageSource.url,
+        httpHeaders: imageSource.headers.isNotEmpty ? imageSource.headers : null,
         width: 52,
         height: 52,
         fit: BoxFit.cover,
@@ -413,67 +445,60 @@ class _Cover extends StatelessWidget {
 /// 定时停止播放选择弹窗（歌曲操作弹窗 / 设置页共用）：
 /// 选择后倒计时展示在设置页；到点自动暂停。
 Future<void> showSleepTimerPicker(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppTheme.queuePanel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-    ),
-    builder: (_) => const _SleepTimerSheet(),
+  return glassBottomSheet<void>(
+    context,
+    const _SleepTimerContent(),
   );
 }
 
-class _SleepTimerSheet extends ConsumerWidget {
-  const _SleepTimerSheet();
+class _SleepTimerContent extends ConsumerWidget {
+  const _SleepTimerContent();
 
   static const _minutes = [15, 30, 45, 60, 90];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final remain = ref.watch(sleepTimerProvider);
-    return SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text('定时停止播放',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Text('定时停止播放',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ),
+        for (final m in _minutes)
+          ListTile(
+            title: Text('$m 分钟',
+                style: const TextStyle(color: Colors.white, fontSize: 15)),
+            onTap: () {
+              ref
+                  .read(sleepTimerProvider.notifier)
+                  .start(Duration(minutes: m));
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('将在 $m 分钟后停止播放'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
           ),
-          for (final m in _minutes)
-            ListTile(
-              title: Text('$m 分钟',
-                  style: const TextStyle(color: Colors.white, fontSize: 15)),
-              onTap: () {
-                ref
-                    .read(sleepTimerProvider.notifier)
-                    .start(Duration(minutes: m));
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('将在 $m 分钟后停止播放'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-            ),
-          if (remain != null)
-            ListTile(
-              title: Text(
-                  '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
-                  style: const TextStyle(color: AppTheme.heartRed, fontSize: 15)),
-              onTap: () {
-                ref.read(sleepTimerProvider.notifier).cancel();
-                Navigator.of(context).pop();
-              },
-            ),
-          const SizedBox(height: 10),
-        ],
-      ),
+        if (remain != null)
+          ListTile(
+            title: Text(
+                '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
+                style: const TextStyle(color: AppTheme.heartRed, fontSize: 15)),
+            onTap: () {
+              ref.read(sleepTimerProvider.notifier).cancel();
+              Navigator.of(context).pop();
+            },
+          ),
+        const SizedBox(height: 10),
+      ],
     );
   }
 }
@@ -482,53 +507,46 @@ class _SleepTimerSheet extends ConsumerWidget {
 
 /// 播放速度选择弹窗（歌曲操作弹窗 / 设置页共用），选择后立即生效并持久化。
 Future<void> showSpeedPicker(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppTheme.queuePanel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-    ),
-    builder: (_) => const _SpeedSheet(),
+  return glassBottomSheet<void>(
+    context,
+    const _SpeedContent(),
   );
 }
 
-class _SpeedSheet extends ConsumerWidget {
-  const _SpeedSheet();
+class _SpeedContent extends ConsumerWidget {
+  const _SpeedContent();
 
   static const _speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final speed = ref.watch(playbackSpeedProvider);
-    return SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text('播放速度',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Text('播放速度',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ),
+        for (final s in _speeds)
+          ListTile(
+            leading: s == speed
+                ? const Icon(Icons.check, color: AppTheme.primary)
+                : const SizedBox(width: 24),
+            title: Text(
+                s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
+                style: const TextStyle(color: Colors.white, fontSize: 15)),
+            onTap: () {
+              ref.read(playbackSpeedProvider.notifier).state = s;
+              Navigator.of(context).pop();
+            },
           ),
-          for (final s in _speeds)
-            ListTile(
-              leading: s == speed
-                  ? const Icon(Icons.check, color: AppTheme.primary)
-                  : const SizedBox(width: 24),
-              title: Text(
-                  s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
-                  style: const TextStyle(color: Colors.white, fontSize: 15)),
-              onTap: () {
-                ref.read(playbackSpeedProvider.notifier).state = s;
-                Navigator.of(context).pop();
-              },
-            ),
-          const SizedBox(height: 10),
-        ],
-      ),
+        const SizedBox(height: 10),
+      ],
     );
   }
 }
@@ -543,8 +561,16 @@ class _PlaylistPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(playlistsProvider);
-    return SafeArea(
-      top: false,
+    return GlassSurface(
+      radius: GlassTokens.radiusSheet,
+      blur: GlassTokens.blurHeavy,
+      tint: Colors.black.withValues(alpha: 0.35),
+      gradientBorder: true,
+      shadow: false,
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 10,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.55,
@@ -599,8 +625,8 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                         final navigator = Navigator.of(context);
                         final messenger = ScaffoldMessenger.of(context);
                         final ok = await ref
-                            .read(navidromeClientProvider)
-                            .addToPlaylist(list[i].id, song.id);
+                            .read(serverAdapterProvider)
+                            ?.addToPlaylist(list[i].id, song.id) ?? false;
                         messenger.showSnackBar(
                           SnackBar(
                             content:

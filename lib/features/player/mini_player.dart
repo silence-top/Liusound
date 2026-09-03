@@ -5,6 +5,7 @@ import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/glass.dart';
 import 'full_screen_player.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
@@ -24,20 +25,9 @@ class MiniPlayer extends ConsumerWidget {
     if (song == null) return const SizedBox.shrink();
 
     return _SwipeToSwitch(
-      child: Container(
+      child: GlassPill(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.miniPlayer,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x26000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
         child: Row(
           children: [
             _SpinCover(song: song),

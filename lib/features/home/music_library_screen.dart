@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
@@ -69,13 +70,9 @@ class _ServerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
       child: Row(
         children: [
           Container(
@@ -162,11 +159,20 @@ class _Entry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
         onTap: onTap,
-        child: Padding(
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 0.5,
+            ),
+          ),
           child: Column(
             children: [
               Icon(icon, size: 26, color: AppTheme.primary),
@@ -225,9 +231,13 @@ class _PlaylistSection extends ConsumerWidget {
                 ),
               );
             }
-            return Column(
-              children:
-                  list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
+            return GlassCard(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                children:
+                    list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
+              ),
             );
           },
         ),
@@ -244,9 +254,9 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ProviderScope.containerOf(context).read(subsonicAuthProvider);
+    final adapter = ProviderScope.containerOf(context).read(serverAdapterProvider);
     final hasCover =
-        playlist.coverArt != null && playlist.coverArt!.isNotEmpty && auth.isValid;
+        playlist.coverArt != null && playlist.coverArt!.isNotEmpty && adapter != null;
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
@@ -316,8 +326,9 @@ class _PlaylistRow extends StatelessWidget {
 
   Future<void> _onMenuAction(BuildContext context, String action) async {
     final navigator = ScaffoldMessenger.of(context);
-    final client = ref.read(navidromeClientProvider);
-    final songs = await client.getPlaylistSongs(playlist.id);
+    final adapter = ref.read(serverAdapterProvider);
+    if (adapter == null) return;
+    final songs = await adapter.fetchPlaylistSongs(playlist.id);
     if (songs.isEmpty) {
       navigator.showSnackBar(const SnackBar(content: Text('歌单暂无歌曲')));
       return;

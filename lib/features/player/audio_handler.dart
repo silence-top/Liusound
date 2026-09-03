@@ -3,8 +3,8 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/api/server_adapter.dart';
 import '../../core/models/models.dart';
-import '../../core/subsonic/subsonic.dart';
 import '../auth/auth_controller.dart';
 import 'player_controller.dart';
 
@@ -61,16 +61,15 @@ class AppAudioHandler extends BaseAudioHandler {
       mediaItem.add(null);
       return;
     }
-    final auth = _ref.read(subsonicAuthProvider);
+    final adapter = _ref.read(serverAdapterProvider);
+    final ImageSource? coverSrc = adapter?.coverImage(song.albumId);
     mediaItem.add(MediaItem(
       id: song.id,
       title: song.title,
       artist: song.artist,
       album: song.album,
       duration: Duration(milliseconds: (song.duration * 1000).round()),
-      artUri: auth.isValid
-          ? Uri.parse(Subsonic.coverArtUrl(auth, song.albumId))
-          : null,
+      artUri: coverSrc != null ? Uri.parse(coverSrc.url) : null,
     ));
   }
 
