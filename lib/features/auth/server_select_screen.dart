@@ -19,7 +19,7 @@ class ServerSelectScreen extends ConsumerWidget {
       body: AmbientBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
               const SizedBox(height: 48),
               Center(
@@ -69,7 +69,7 @@ class ServerSelectScreen extends ConsumerWidget {
               _SectionHeader('添加新服务器'),
               const SizedBox(height: 8),
               ...ServerType.values.map((t) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: _BackendTypeCard(type: t),
                   )),
               const SizedBox(height: 32),
@@ -108,7 +108,7 @@ class _SavedServerTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: 12),
       onTap: isActive
           ? null
           : () async {

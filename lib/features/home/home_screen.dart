@@ -88,7 +88,7 @@ class _SearchBar extends StatelessWidget {
         tint: Colors.white.withValues(alpha: 0.06),
         gradientBorder: true,
         shadow: false,
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: SizedBox(
           height: 38,
@@ -122,7 +122,7 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -299,7 +299,7 @@ class _DailySection extends ConsumerWidget {
           ),
           child: GlassCard(
             margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
               children:
                   list.take(3).map((song) => _DailyRow(song: song)).toList(),
@@ -320,7 +320,7 @@ class _DailyRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 8, 18),
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
         children: [
           CoverArt(albumId: song.albumId, size: 56, radius: 8),

@@ -25,7 +25,7 @@ class MusicLibraryScreen extends ConsumerWidget {
     final total = ref.watch(songTotalProvider);
     return Scaffold(
       body: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 96),
+        padding: const EdgeInsets.only(top: 12, bottom: 96),
         children: [
           _ServerCard(total: total.value ?? 0),
           _EntryGrid(
@@ -37,7 +37,7 @@ class MusicLibraryScreen extends ConsumerWidget {
                 context, '本地音乐', librarySongsProvider),
             onAlbums: () => _openAlbums(context),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 20),
           const _PlaylistSection(),
         ],
       ),

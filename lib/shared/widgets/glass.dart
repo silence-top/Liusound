@@ -34,30 +34,40 @@ class GlassSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final useBlur = shouldUseBlur(context);
     final effectiveTint = tint ?? GlassTokens.tint;
+    final borderRadius = BorderRadius.circular(radius);
+
+    // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
+    Widget tinted(Widget child) => Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: useBlur
+                ? effectiveTint
+                : Color.lerp(effectiveTint, Colors.black, 0.15)!,
+            borderRadius: borderRadius,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: borderRadius,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0),
+              ],
+              stops: const [0.0, 0.45],
+            ),
+          ),
+          child: child,
+        );
 
     Widget result = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: borderRadius,
       child: useBlur
           ? BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
-                padding: padding,
-                decoration: BoxDecoration(
-                  color: effectiveTint,
-                  borderRadius: BorderRadius.circular(radius),
-                ),
-                child: child,
-              ),
+              child: tinted(child),
             )
-          : Container(
-              padding: padding,
-              decoration: BoxDecoration(
-                color: Color.lerp(
-                    effectiveTint, Colors.black, 0.15)!,
-                borderRadius: BorderRadius.circular(radius),
-              ),
-              child: child,
-            ),
+          : tinted(child),
     );
 
     if (gradientBorder) {
@@ -101,17 +111,43 @@ class _GradientBorderWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: GlassTokens.borderTop,
-          width: 0.5,
-        ),
-      ),
+    return CustomPaint(
+      foregroundPainter: _GradientBorderPainter(radius),
       child: child,
     );
   }
+}
+
+/// 顶部亮 → 底部弱的渐变描边（玻璃边缘受光效果）
+class _GradientBorderPainter extends CustomPainter {
+  const _GradientBorderPainter(this.radius);
+
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect =
+        RRect.fromRectAndRadius(rect.deflate(0.5), Radius.circular(radius));
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.35),
+            Colors.white.withValues(alpha: 0.08),
+          ],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GradientBorderPainter oldDelegate) =>
+      oldDelegate.radius != radius;
 }
 
 class GlassCard extends StatelessWidget {
@@ -255,7 +291,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
       height: preferredSize.height,
       child: Row(
         children: [
-          if (leading != null) leading!,
+          ?leading,
           if (title != null)
             Expanded(
               child: DefaultTextStyle(
@@ -334,36 +370,39 @@ class AmbientBackground extends StatelessWidget {
 
   final Widget? child;
 
+  static Widget _blob(double size, Color color) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          decoration: const BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(-0.3, -0.5),
-              radius: 1.2,
-              colors: [
-                Color(0x142196F3),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.topCenter,
-              stops: const [0.0, 0.15],
-              colors: [
-                Colors.white.withValues(alpha: 0.03),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-        if (child != null) child!,
+        // 大尺度彩色光斑：为玻璃模糊提供可折射的内容，太淡则 blur 几乎不可见
+        Positioned(
+            top: -140,
+            left: -100,
+            child: _blob(340, const Color(0x332196F3))),
+        Positioned(
+            top: 80,
+            right: -120,
+            child: _blob(300, const Color(0x2E1EB4FF))),
+        Positioned(
+            bottom: -80,
+            left: 20,
+            child: _blob(300, const Color(0x267ECFFF))),
+        ?child,
       ],
     );
   }
