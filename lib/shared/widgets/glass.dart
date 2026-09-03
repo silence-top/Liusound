@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/background.dart';
 import '../../core/theme/glass_theme.dart';
 import 'glass_quality.dart';
 
@@ -464,7 +467,7 @@ Future<T?> glassDialog<T>(
   );
 }
 
-class AmbientBackground extends StatelessWidget {
+class AmbientBackground extends ConsumerWidget {
   const AmbientBackground({super.key, this.child});
 
   final Widget? child;
@@ -483,25 +486,53 @@ class AmbientBackground extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bg = ref.watch(backgroundProvider);
+    final primary = Theme.of(context).colorScheme.primary;
     return Stack(
       children: [
         // 大尺度彩色光斑：为玻璃模糊提供可折射的内容，太淡则 blur 几乎不可见
         Positioned(
           top: -140,
           left: -100,
-          child: _blob(340, const Color(0x332196F3)),
+          child: _blob(340, primary.withValues(alpha: 0.20)),
         ),
         Positioned(
           top: 80,
           right: -120,
-          child: _blob(300, const Color(0x2E1EB4FF)),
+          child: _blob(300, primary.withValues(alpha: 0.18)),
         ),
         Positioned(
           bottom: -80,
           left: 20,
-          child: _blob(300, const Color(0x267ECFFF)),
+          child: _blob(300, primary.withValues(alpha: 0.15)),
         ),
+        // §8.1 自定义背景图：全屏铺底 + 不透明度 + 可选模糊
+        if (bg.path != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: bg.opacity.clamp(0.0, 1.0),
+                child: bg.blur > 0
+                    ? ImageFiltered(
+                        imageFilter: ui.ImageFilter.blur(
+                          sigmaX: bg.blur,
+                          sigmaY: bg.blur,
+                        ),
+                        child: Image.file(
+                          File(bg.path!),
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        ),
+                      )
+                    : Image.file(
+                        File(bg.path!),
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+              ),
+            ),
+          ),
         ?child,
       ],
     );

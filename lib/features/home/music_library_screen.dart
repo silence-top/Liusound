@@ -84,12 +84,12 @@ class _ServerCard extends ConsumerWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.18),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(AppRadius.m),
             ),
             child: Icon(
               type?.fallbackIcon ?? Icons.album,
-              color: AppTheme.primary,
+              color: Theme.of(context).colorScheme.primary,
               size: 26,
             ),
           ),
@@ -130,8 +130,8 @@ class _ServerCard extends ConsumerWidget {
               const SizedBox(height: 2),
               Text(
                 '$total',
-                style: const TextStyle(
-                  color: AppTheme.primary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 19,
                   fontWeight: FontWeight.bold,
                 ),
@@ -191,7 +191,7 @@ class _Entry extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
         child: Column(
           children: [
-            Icon(icon, size: 24, color: AppTheme.primary),
+            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: AppSpacing.xs),
             Text(
               label,

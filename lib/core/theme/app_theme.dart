@@ -74,12 +74,17 @@ abstract final class AppTheme {
   static const formatBg = Color(0x593C5078); // rgba(60,80,120,0.35)
   static const formatText = Color(0xFFE0F6FF);
 
-  static ThemeData get dark {
+  static ThemeData get dark => build(primary);
+
+  /// 按指定主题色构建深色 ThemeData（§8.1）：
+  /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制
+  /// 主色等于用户选的色值，保证按钮/激活态颜色与预设完全一致。
+  static ThemeData build(Color accentColor) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: primary,
+      seedColor: accentColor,
       brightness: Brightness.dark,
       surface: surface,
-    );
+    ).copyWith(primary: accentColor);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,

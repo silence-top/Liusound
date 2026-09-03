@@ -29,13 +29,13 @@ class ServersScreen extends ConsumerWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.s),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.add,
                     size: 20,
-                    color: AppTheme.primary,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -156,13 +156,13 @@ class _ServerCard extends ConsumerWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primary.withValues(alpha: 0.15),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Text(
+                            child: Text(
                               '当前连接',
                               style: TextStyle(
-                                color: AppTheme.primary,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -206,7 +206,7 @@ class _ServerCard extends ConsumerWidget {
                   icon: const Icon(Icons.swap_horiz, size: 16),
                   label: const Text('切换', style: TextStyle(fontSize: 14)),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,

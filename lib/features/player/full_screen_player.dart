@@ -1577,7 +1577,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             Icon(
               Icons.translate,
               size: 18,
-              color: _showBilingual ? AppTheme.primary : Colors.white38,
+              color: _showBilingual ? Theme.of(context).colorScheme.primary : Colors.white38,
             ),
             const SizedBox(width: 12),
             Text(
@@ -1747,7 +1747,7 @@ class _LyricRowTile extends StatelessWidget {
             ),
           ),
           if (previewTime != null)
-            Align(alignment: Alignment.centerRight, child: _previewChip()),
+            Align(alignment: Alignment.centerRight, child: _previewChip(context)),
         ],
       ),
     );
@@ -1756,12 +1756,13 @@ class _LyricRowTile extends StatelessWidget {
   /// 待跳播胶囊「时间戳 + Play」。
   /// blur 传 0：列表行内绝不挂 BackdropFilter（§2.2 性能红线），
   /// 纯 tint + 语义描边已经够跳；GlassSurface 内置透明 Material，墨水正常。
-  Widget _previewChip() {
+  Widget _previewChip(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return GlassSurface(
       radius: AppRadius.pill,
       blur: 0,
-      tint: AppTheme.primary.withValues(alpha: 0.26),
-      borderColor: AppTheme.primary.withValues(alpha: 0.65),
+      tint: primary.withValues(alpha: 0.26),
+      borderColor: primary.withValues(alpha: 0.65),
       shadow: false,
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       child: InkWell(

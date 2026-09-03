@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/glass.dart';
@@ -226,6 +227,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
             onSelectAll: () => toggleSelectAll(songs),
             filterExpanded: _filterExpanded,
             onToggleFilter: _toggleFilter,
+            primaryColor: Theme.of(context).colorScheme.primary,
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -376,6 +378,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
             onSelectAll: () => toggleSelectAll(songs),
             filterExpanded: _filterExpanded,
             onToggleFilter: _toggleFilter,
+            primaryColor: Theme.of(context).colorScheme.primary,
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -636,13 +639,14 @@ List<Song> _filterSongs(List<Song> songs, String query) {
 Widget _filterAction({
   required bool expanded,
   required VoidCallback onPressed,
+  required Color primaryColor,
 }) {
   return IconButton(
     onPressed: onPressed,
     tooltip: expanded ? '收起筛选' : '筛选歌曲',
     icon: Icon(
       Icons.search,
-      color: expanded ? AppTheme.primary : Colors.white70,
+      color: expanded ? primaryColor : Colors.white70,
     ),
   );
 }
@@ -658,6 +662,7 @@ SliverAppBar _detailAppBar({
   required VoidCallback onSelectAll,
   required bool filterExpanded,
   required VoidCallback onToggleFilter,
+  required Color primaryColor,
 }) {
   // 空列表没得选，入口直接禁用并置灰，省得点进去是一个空的选择态
   final canSelect = totalCount > 0;
@@ -709,7 +714,7 @@ SliverAppBar _detailAppBar({
                 color: canSelect ? Colors.white70 : Colors.white24,
               ),
             ),
-            _filterAction(expanded: filterExpanded, onPressed: onToggleFilter),
+            _filterAction(expanded: filterExpanded, onPressed: onToggleFilter, primaryColor: primaryColor),
           ],
   );
 }
@@ -973,7 +978,7 @@ class SongRow extends ConsumerWidget {
                           ? Icons.check_circle
                           : Icons.radio_button_unchecked,
                       size: 22,
-                      color: checked ? AppTheme.primary : Colors.white24,
+                      color: checked ? Theme.of(context).colorScheme.primary : Colors.white24,
                     )
                   : Text(
                       '${index + 1}',
@@ -1040,18 +1045,19 @@ class SongRow extends ConsumerWidget {
   }
 }
 
-/// 列表底部「到底啦」标记
-class _EndMark extends StatelessWidget {
+/// 列表底部触底标记（§8.4 支持自定义文案）
+class _EndMark extends ConsumerWidget {
   const _EndMark();
 
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 32, bottom: 48),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = ref.watch(listEndTextProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 32, bottom: 48),
       child: Center(
         child: Text(
-          '- 到底啦 -',
-          style: TextStyle(color: Colors.white24, fontSize: 14),
+          text,
+          style: const TextStyle(color: Colors.white24, fontSize: 14),
         ),
       ),
     );
