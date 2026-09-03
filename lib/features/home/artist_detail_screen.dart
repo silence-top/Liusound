@@ -81,7 +81,7 @@ class ArtistDetailScreen extends ConsumerWidget {
                   child: SongRow(song: songs[index], index: index, songs: songs),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              const SliverToBoxAdapter(child: SizedBox(height: 64)),
             ],
           ),
         ],
@@ -144,10 +144,10 @@ class _AlbumSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 168,
+      height: 188,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
         itemCount: albums.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {

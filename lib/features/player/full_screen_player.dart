@@ -143,47 +143,56 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                     ),
                     ListenableBuilder(
                       listenable: _tab,
-                      builder: (_, _) => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var i = 0; i < tabs.length; i++)
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => _tab.animateTo(i),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 2, vertical: 6),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: _tab.index == i
-                                      ? Colors.white.withValues(alpha: 0.12)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: _tab.index == i
-                                      ? Border.all(
-                                          color: Colors.white.withValues(alpha: 0.15),
-                                          width: 0.5,
-                                        )
-                                      : null,
-                                ),
-                                child: Text(
-                                  tabs[i],
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: _tab.index == i
-                                        ? FontWeight.bold
-                                        : FontWeight.w400,
-                                    color: _tab.index == i
-                                        ? Colors.white
-                                        : const Color(0xFF888888),
-                                  ),
-                                ),
+                      builder: (_, _) {
+                        // index+offset = 当前手势位置（拖动中连续变化），
+                        // 高亮随手指实时过渡，而不是等落页才跳变
+                        final p = _tab.index + _tab.offset;
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < tabs.length; i++)
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => _tab.animateTo(i),
+                                child: Builder(builder: (context) {
+                                  final t =
+                                      (1 - (i - p).abs()).clamp(0.0, 1.0);
+                                  return Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 2, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.12 * t),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: t > 0
+                                          ? Border.all(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.15 * t),
+                                              width: 0.5,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      tabs[i],
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: t >= 0.5
+                                            ? FontWeight.bold
+                                            : FontWeight.w400,
+                                        color: Color.lerp(
+                                            const Color(0xFF888888),
+                                            Colors.white,
+                                            t),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
-                            ),
-                        ],
-                      ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),

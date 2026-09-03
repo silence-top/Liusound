@@ -5,7 +5,7 @@ abstract final class GlassTokens {
   static const blurMedium = 18.0;
   static const blurLight = 10.0;
 
-  static const tint = Color(0x59101C2E);
+  static const tint = Color(0x4D13243C);
   static const tintLight = Color(0x14FFFFFF);
   static const borderTop = Color(0x33FFFFFF);
   static const borderBottom = Color(0x0AFFFFFF);

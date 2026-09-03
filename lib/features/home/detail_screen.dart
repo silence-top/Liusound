@@ -309,7 +309,7 @@ class _Header extends StatelessWidget {
         coverAlbumId != null && coverAlbumId!.isNotEmpty && adapter != null;
     final imageSource = hasCover ? adapter.coverImage(coverAlbumId!, size: 180) : null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -667,7 +667,7 @@ class _EndMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
+      padding: EdgeInsets.only(top: 32, bottom: 48),
       child: Center(
         child: Text(
           '- 到底啦 -',
