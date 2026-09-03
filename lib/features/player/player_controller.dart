@@ -141,6 +141,9 @@ const _playerStateKey = 'player_state';
 /// 歌词偏移持久化 key 前缀（对标 1.x LYRIC_OFFSET_PREFIX）
 const lyricOffsetKeyPrefix = 'lyricOffset_';
 
+/// 双语歌词开关持久化 key（全局，默认开启）
+const bilingualLyricsKey = 'lyrics_bilingual_enabled';
+
 /// 播放控制动作集合（切歌 / 模式 / 队列 / 持久化 / 恢复）
 class PlayerActions {
   PlayerActions(this._ref) {

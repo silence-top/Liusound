@@ -101,6 +101,33 @@ List<String?> alignTranslations(
   return result;
 }
 
+/// 合并 LRC 同时间轴双语行：相邻时间戳相同的两行 → 前行原文、后行译文。
+/// 与原文完全相同的重复行会被跳过（部分 LRC 工具会整行重复）。
+/// 返回 (合并后主轨行, 与主轨逐行对齐的译文列表，无译文为 null)。
+(List<LyricLine>, List<String?>) mergeDuplicateTimestamps(
+    List<LyricLine> lines) {
+  final main = <LyricLine>[];
+  final translations = <String?>[];
+  var i = 0;
+  while (i < lines.length) {
+    main.add(lines[i]);
+    var j = i + 1;
+    while (j < lines.length &&
+        lines[j].time == lines[i].time &&
+        lines[j].text == lines[i].text) {
+      j++;
+    }
+    if (j < lines.length && lines[j].time == lines[i].time) {
+      translations.add(lines[j].text);
+      i = j + 1;
+    } else {
+      translations.add(null);
+      i = j;
+    }
+  }
+  return (main, translations);
+}
+
 /// 二分查找：返回 time 所处歌词行索引（时间在首句之前返回 -1）
 int findLyricIndex(List<LyricLine> list, double time) {
   var lo = 0;
