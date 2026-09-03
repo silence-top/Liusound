@@ -42,6 +42,7 @@ class PlexAdapter implements ServerAdapter {
     likedSongs: true,
     download: true,
     lyrics: true,
+    artistBio: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -235,6 +236,19 @@ class PlexAdapter implements ServerAdapter {
       const [];
 
   @override
+  Future<String?> fetchArtistBio(String artistId) async {
+    try {
+      final data = await _api('/library/metadata/$artistId', {});
+      final items = _containerItems(data);
+      final first = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
+      final bio = first?['summary']?.toString().trim() ?? '';
+      return bio.isEmpty ? null : bio;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<int> fetchSongCount() async {
     final data = await _api('/library/sections/$_musicSectionKey/all', {
       'type': '9',
@@ -328,6 +342,22 @@ class PlexAdapter implements ServerAdapter {
     }
   }
 
+  /// Plex 建歌单是 POST /playlists，type 必须显式给 audio，
+  /// 否则服务端按混合媒体歌单处理，音乐库里就看不到它
+  @override
+  Future<bool> createPlaylist(String name) async {
+    try {
+      await _postApi('/playlists', {
+        'title': name,
+        'type': 'audio',
+        'smart': '0',
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---------- 媒体 ----------
 
   @override
@@ -393,6 +423,19 @@ class PlexAdapter implements ServerAdapter {
     Map<String, String> params,
   ) async {
     final res = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: {...params, 'X-Plex-Token': _token},
+      options: Options(headers: const {'Accept': 'application/json'}),
+    );
+    return res.data ?? const {};
+  }
+
+  /// 写操作用（Plex 的建歌单是 POST），鉴权与 _api 保持一致
+  Future<Map<String, dynamic>> _postApi(
+    String path,
+    Map<String, String> params,
+  ) async {
+    final res = await _dio.post<Map<String, dynamic>>(
       path,
       queryParameters: {...params, 'X-Plex-Token': _token},
       options: Options(headers: const {'Accept': 'application/json'}),

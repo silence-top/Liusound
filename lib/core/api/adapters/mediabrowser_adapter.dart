@@ -11,9 +11,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   MediaBrowserAdapter({
     required String serverUrl,
     required Map<String, String> secrets,
-  })  : _serverUrl = serverUrl,
-        _userId = secrets['userId'] ?? '',
-        _token = secrets['token'] ?? '' {
+  }) : _serverUrl = serverUrl,
+       _userId = secrets['userId'] ?? '',
+       _token = secrets['token'] ?? '' {
     _dio.options.baseUrl = serverUrl;
   }
 
@@ -24,10 +24,12 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   String get userId => _userId;
   String get token => _token;
   String get serverUrl => _serverUrl;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+    ),
+  );
 
   /// 子类提供每请求认证头（Jellyfin: Token=; Emby: MediaBrowser Token= + X-Emby-Token）
   Map<String, String> get authHeaders;
@@ -42,12 +44,13 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
-        ratings: false,
-        similarSongs: false,
-        likedSongs: true,
-        download: true,
-        lyrics: true,
-      );
+    ratings: false,
+    similarSongs: false,
+    likedSongs: true,
+    download: true,
+    lyrics: true,
+    artistBio: true,
+  );
 
   @override
   Future<List<Album>> fetchAlbums(AlbumQuery query) async {
@@ -158,11 +161,13 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     });
     return (data['Items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
-        .map((e) => Playlist(
-              id: _s(e, 'Id'),
-              name: _s(e, 'Name', '未命名歌单'),
-              songCount: _i(e, 'RunTimeTicks') > 0 ? _i(e, 'ChildCount') : 0,
-            ))
+        .map(
+          (e) => Playlist(
+            id: _s(e, 'Id'),
+            name: _s(e, 'Name', '未命名歌单'),
+            songCount: _i(e, 'RunTimeTicks') > 0 ? _i(e, 'ChildCount') : 0,
+          ),
+        )
         .toList();
   }
 
@@ -199,6 +204,21 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       const [];
 
   @override
+  Future<String?> fetchArtistBio(String artistId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/Users/$_userId/Items/$artistId',
+        queryParameters: const {'Fields': 'Overview'},
+        options: Options(headers: _headers),
+      );
+      final bio = res.data?['Overview']?.toString().trim() ?? '';
+      return bio.isEmpty ? null : bio;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<int> fetchSongCount() async {
     final data = await _items({
       'IncludeItemTypes': 'Audio',
@@ -229,12 +249,14 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         case 'MusicAlbum':
           albums.add(_toAlbum(e));
         case 'MusicArtist':
-          artists.add(Artist(
-            id: _s(e, 'Id'),
-            name: _s(e, 'Name', '未知歌手'),
-            albumCount: _i(e, 'AlbumCount'),
-            songCount: _i(e, 'SongCount'),
-          ));
+          artists.add(
+            Artist(
+              id: _s(e, 'Id'),
+              name: _s(e, 'Name', '未知歌手'),
+              albumCount: _i(e, 'AlbumCount'),
+              songCount: _i(e, 'SongCount'),
+            ),
+          );
       }
     }
     return SearchResult(songs: songs, albums: albums, artists: artists);
@@ -267,14 +289,28 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     }
   }
 
+  /// Jellyfin/Emby 建歌单：Ids 传空数组即建空歌单，
+  /// MediaType 必须显式给 Audio，否则服务端按混合媒体处理
+  @override
+  Future<bool> createPlaylist(String name) async {
+    try {
+      await _post('/Playlists', {
+        'Name': name,
+        'Ids': const <String>[],
+        'UserId': _userId,
+        'MediaType': 'Audio',
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Future<PlaybackSource> resolveStream(Song song) async {
     return PlaybackSource(
       url: '$_serverUrl/Audio/${song.id}/universal',
-      headers: {
-        ...authHeaders,
-        'Accept': 'audio/*',
-      },
+      headers: {...authHeaders, 'Accept': 'audio/*'},
     );
   }
 
@@ -300,11 +336,13 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     if (albumId.isEmpty) return null;
     try {
       final url = '$_serverUrl/Items/$albumId/Images/Primary?maxWidth=$size';
-      final resp = await _dio.get<Uint8List>(url,
-          options: Options(
-            responseType: ResponseType.bytes,
-            headers: authHeaders,
-          ));
+      final resp = await _dio.get<Uint8List>(
+        url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: authHeaders,
+        ),
+      );
       return resp.data;
     } catch (_) {
       return null;
@@ -314,7 +352,11 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   @override
   Future<bool> validateSession() async {
     try {
-      await _items({'Limit': '1', 'IncludeItemTypes': 'Audio', 'Recursive': 'true'});
+      await _items({
+        'Limit': '1',
+        'IncludeItemTypes': 'Audio',
+        'Recursive': 'true',
+      });
       return true;
     } catch (_) {
       return false;
@@ -327,10 +369,10 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   // ========== 内部 HTTP ==========
 
   Map<String, String> get _headers => {
-        'X-Emby-Authorization':
-            'MediaBrowser Client="$clientName", Device="Flutter", DeviceId="liusound", Version="2.0"',
-        ...authHeaders,
-      };
+    'X-Emby-Authorization':
+        'MediaBrowser Client="$clientName", Device="Flutter", DeviceId="liusound", Version="2.0"',
+    ...authHeaders,
+  };
 
   /// 取歌曲时必须显式请求，否则响应里没有 MediaSources（音质徽标的唯一数据源）
   static const String _songFields = 'MediaSources';
@@ -345,7 +387,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   }
 
   Future<Map<String, dynamic>> _post(
-      String path, Map<String, dynamic> data) async {
+    String path,
+    Map<String, dynamic> data,
+  ) async {
     final res = await _dio.post<Map<String, dynamic>>(
       path,
       data: data,
@@ -364,8 +408,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     final artistItems = j['ArtistItems'] as List<dynamic>? ?? const [];
     final albums = j['Album'] as String? ?? '';
     final albumId = j['AlbumId'] as String? ?? '';
-    final artistId =
-        artistItems.isNotEmpty ? artistItems[0]['Id']?.toString() ?? '' : '';
+    final artistId = artistItems.isNotEmpty
+        ? artistItems[0]['Id']?.toString() ?? ''
+        : '';
     final ticks = _i(j, 'RunTimeTicks');
     final audio = _audioStream(j);
     // Jellyfin/Emby 的 BitRate 单位是 bps，其余后端统一按 kbps 表达
@@ -375,8 +420,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       title: _s(j, 'Name', '未知歌曲'),
       artist: _s(j, 'Artists') is List
           ? ((j['Artists'] as List).isNotEmpty
-              ? j['Artists'][0].toString()
-              : '未知歌手')
+                ? j['Artists'][0].toString()
+                : '未知歌手')
           : '未知歌手',
       album: albums,
       albumId: albumId,
@@ -437,11 +482,11 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   }
 
   String _albumSort(AlbumSort sort) => switch (sort) {
-        AlbumSort.recentlyAdded => 'DateCreated',
-        AlbumSort.recentlyPlayed => 'DatePlayed',
-        AlbumSort.mostPlayed => 'PlayCount',
-        AlbumSort.random => 'Random',
-        AlbumSort.name => 'SortName',
-        AlbumSort.year => 'ProductionYear',
-      };
+    AlbumSort.recentlyAdded => 'DateCreated',
+    AlbumSort.recentlyPlayed => 'DatePlayed',
+    AlbumSort.mostPlayed => 'PlayCount',
+    AlbumSort.random => 'Random',
+    AlbumSort.name => 'SortName',
+    AlbumSort.year => 'ProductionYear',
+  };
 }

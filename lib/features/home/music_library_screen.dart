@@ -29,12 +29,9 @@ class MusicLibraryScreen extends ConsumerWidget {
         children: [
           _ServerCard(total: total.value ?? 0),
           _EntryGrid(
-            onSongs: () => _openSongs(
-                context, '歌曲', librarySongsProvider),
-            onLiked: () => _openSongs(
-                context, '我喜欢的', likedSongsProvider),
-            onLocal: () => _openSongs(
-                context, '本地音乐', librarySongsProvider),
+            onSongs: () => _openSongs(context, '歌曲', librarySongsProvider),
+            onLiked: () => _openSongs(context, '我喜欢的', likedSongsProvider),
+            onLocal: () => _openSongs(context, '本地音乐', librarySongsProvider),
             onAlbums: () => _openAlbums(context),
           ),
           const SizedBox(height: 20),
@@ -45,12 +42,12 @@ class MusicLibraryScreen extends ConsumerWidget {
   }
 
   void _openSongs(
-      BuildContext context, String title, FutureProvider<List<Song>> provider) {
-    Navigator.of(context).push(
-      fadeRoute<void>(
-        SongListPage(title: title, provider: provider),
-      ),
-    );
+    BuildContext context,
+    String title,
+    FutureProvider<List<Song>> provider,
+  ) {
+    Navigator.of(context)
+        .push(fadeRoute<void>(SongListPage(title: title, provider: provider)));
   }
 
   void _openAlbums(BuildContext context) {
@@ -75,7 +72,11 @@ class _ServerCard extends ConsumerWidget {
     final type = config?.type;
     return GlassContainer(
       margin: const EdgeInsets.fromLTRB(
-          AppSpacing.l, AppSpacing.s, AppSpacing.l, AppSpacing.s),
+        AppSpacing.l,
+        AppSpacing.s,
+        AppSpacing.l,
+        AppSpacing.s,
+      ),
       padding: const EdgeInsets.all(AppSpacing.l),
       child: Row(
         children: [
@@ -86,44 +87,55 @@ class _ServerCard extends ConsumerWidget {
               color: AppTheme.primary.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(AppRadius.m),
             ),
-            child: Icon(type?.fallbackIcon ?? Icons.album,
-                color: AppTheme.primary, size: 26),
+            child: Icon(
+              type?.fallbackIcon ?? Icons.album,
+              color: AppTheme.primary,
+              size: 26,
+            ),
           ),
           const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(config?.name ?? '未连接服务器',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  config?.name ?? '未连接服务器',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                    type == null
-                        ? '点击设置添加服务器'
-                        : '${type.displayName} · ${config!.username}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12)),
+                  type == null
+                      ? '点击设置添加服务器'
+                      : '${type.displayName} · ${config!.username}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                ),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('歌曲总数',
-                  style: TextStyle(color: Colors.white38, fontSize: 12)),
+              const Text(
+                '歌曲总数',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
               const SizedBox(height: 2),
-              Text('$total',
-                  style: const TextStyle(
-                      color: AppTheme.primary,
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold)),
+              Text(
+                '$total',
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ],
@@ -181,11 +193,12 @@ class _Entry extends StatelessWidget {
           children: [
             Icon(icon, size: 24, color: AppTheme.primary),
             const SizedBox(height: AppSpacing.xs),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -205,11 +218,14 @@ class _PlaylistSection extends ConsumerWidget {
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text('我的歌单',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold)),
+          child: Text(
+            '我的歌单',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         playlists.when(
           loading: () => const SizedBox(
@@ -221,19 +237,32 @@ class _PlaylistSection extends ConsumerWidget {
             child: Center(
               child: TextButton(
                 onPressed: () => ref.invalidate(playlistsProvider),
-                child: const Text('加载失败，点击重试',
-                    style: TextStyle(color: Colors.white38)),
+                child: const Text(
+                  '加载失败，点击重试',
+                  style: TextStyle(color: Colors.white38),
+                ),
               ),
             ),
           ),
           data: (list) {
             if (list.isEmpty) {
               return glassEmptyState(
-                text: '还没有歌单\n在服务端创建或重新同步后会显示在这里',
+                text: '还没有歌单\n新建一个，或从服务器重新同步',
                 icon: Icons.queue_music_outlined,
                 padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.xl, horizontal: AppSpacing.l),
+                  vertical: AppSpacing.xl,
+                  horizontal: AppSpacing.l,
+                ),
                 actions: [
+                  FilledButton.icon(
+                    onPressed: () => glassDialog<void>(
+                      context,
+                      title: '新建歌单',
+                      content: const _CreatePlaylistForm(),
+                    ),
+                    icon: const Icon(Icons.playlist_add, size: 18),
+                    label: const Text('新建歌单'),
+                  ),
                   FilledButton.icon(
                     onPressed: () => ref.invalidate(playlistsProvider),
                     icon: const Icon(Icons.sync, size: 18),
@@ -246,11 +275,114 @@ class _PlaylistSection extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 12),
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
-                children:
-                    list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
+                children: list
+                    .map((p) => _PlaylistRow(playlist: p, ref: ref))
+                    .toList(),
               ),
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+/// 新建歌单表单（§7.2 空态引导），作为 glassDialog 的 content 使用。
+///
+/// 做成 StatefulWidget 是为了自己持有并释放 TextEditingController：
+/// 弹窗 pop 之后路由还要放退场动画，控制器若在外部提前 dispose，
+/// 会和 EditableText 的焦点回调撞在一起，退场途中直接报错。
+class _CreatePlaylistForm extends ConsumerStatefulWidget {
+  const _CreatePlaylistForm();
+
+  @override
+  ConsumerState<_CreatePlaylistForm> createState() =>
+      _CreatePlaylistFormState();
+}
+
+class _CreatePlaylistFormState extends ConsumerState<_CreatePlaylistForm> {
+  final TextEditingController _controller = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty || _busy) return;
+    final adapter = ref.read(serverAdapterProvider);
+    // 成功路径要先 pop 再提示，Messenger 必须在 pop 之前取到
+    final messenger = ScaffoldMessenger.of(context);
+    if (adapter == null) {
+      setState(() => _error = '未登录，无法新建歌单');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final ok = await adapter.createPlaylist(name);
+    if (!mounted) return;
+    if (!ok) {
+      // 失败留在弹窗内用行内文字提示：SnackBar 挂在 Scaffold 上，
+      // 会被弹窗遮罩压住，用户看不见
+      setState(() {
+        _busy = false;
+        _error = '创建失败，请确认服务器允许写入';
+      });
+      return;
+    }
+    ref.invalidate(playlistsProvider);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('已创建歌单「$name」'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          onChanged: (_) {
+            if (_error != null) setState(() => _error = null);
+          },
+          decoration: const InputDecoration(hintText: '歌单名称'),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            _error!,
+            style: const TextStyle(color: AppTheme.heartRed, fontSize: 13),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.m),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            const SizedBox(width: AppSpacing.s),
+            FilledButton(
+              onPressed: _busy ? null : _submit,
+              child: Text(_busy ? '创建中…' : '创建'),
+            ),
+          ],
         ),
       ],
     );
@@ -265,9 +397,12 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final adapter = ProviderScope.containerOf(context).read(serverAdapterProvider);
+    final adapter = ProviderScope.containerOf(context)
+        .read(serverAdapterProvider);
     final hasCover =
-        playlist.coverArt != null && playlist.coverArt!.isNotEmpty && adapter != null;
+        playlist.coverArt != null &&
+        playlist.coverArt!.isNotEmpty &&
+        adapter != null;
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
@@ -298,32 +433,38 @@ class _PlaylistRow extends StatelessWidget {
                       color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.queue_music,
-                        color: Colors.white24, size: 26),
+                    child: const Icon(
+                      Icons.queue_music,
+                      color: Colors.white24,
+                      size: 26,
+                    ),
                   ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(playlist.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500)),
+                  Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('${playlist.songCount} 首歌曲',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 12)),
+                  Text(
+                    '${playlist.songCount} 首歌曲',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                 ],
               ),
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white54),
-              onSelected: (action) =>
-                  _onMenuAction(context, action),
+              onSelected: (action) => _onMenuAction(context, action),
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'play', child: Text('播放')),
                 PopupMenuItem(value: 'queue', child: Text('加入队列')),
@@ -459,19 +600,23 @@ class _AlbumGridBody extends ConsumerWidget {
                 children: [
                   CoverArt(albumId: album.id, size: 170, radius: 10),
                   const SizedBox(height: 6),
-                  Text(album.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500)),
+                  Text(
+                    album.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(album.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 12)),
+                  Text(
+                    album.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                 ],
               ),
             ),

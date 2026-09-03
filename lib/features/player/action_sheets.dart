@@ -10,6 +10,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
+import '../../shared/widgets/quality_badge.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
@@ -27,7 +28,9 @@ void showSongActionSheet(BuildContext context, Song song) {
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(GlassTokens.radiusSheet),
+      ),
     ),
     builder: (_) => _SongActionSheet(song: song),
   );
@@ -62,7 +65,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final before = _view;
     _syncLocal(before.copyWith(rating: rating));
     final ok =
-        await ref.read(serverAdapterProvider)?.setRating(before.id, rating) ?? false;
+        await ref.read(serverAdapterProvider)?.setRating(before.id, rating) ??
+        false;
     if (!ok && mounted) {
       _syncLocal(before);
       _toast('评分提交失败');
@@ -72,9 +76,11 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
   Future<void> _toggleStar() async {
     final before = _view;
     _syncLocal(before.copyWith(starred: !before.starred));
-    final ok = await ref
-        .read(serverAdapterProvider)
-        ?.setStar(before.id, !before.starred) ?? false;
+    final ok =
+        await ref
+            .read(serverAdapterProvider)
+            ?.setStar(before.id, !before.starred) ??
+        false;
     if (!ok && mounted) {
       _syncLocal(before);
       _toast('收藏操作失败');
@@ -113,19 +119,26 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(song.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold)),
+                      Text(
+                        song.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(song.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 14)),
+                      Text(
+                        song.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       if (canRate)
                         StarRating(rating: song.rating, onRating: _rate),
@@ -135,9 +148,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                 IconButton(
                   icon: Icon(
                     song.starred ? Icons.favorite : Icons.favorite_border,
-                    color: song.starred
-                        ? AppTheme.heartRed
-                        : Colors.white70,
+                    color: song.starred ? AppTheme.heartRed : Colors.white70,
                   ),
                   onPressed: _toggleStar,
                 ),
@@ -152,6 +163,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 1.15,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
               padding: EdgeInsets.zero,
               children: [
                 _gridItem(Icons.low_priority, '下一首播放', () {
@@ -159,17 +172,27 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   Navigator.of(context).pop();
                   _toast('已设为下一首播放');
                 }),
-                _gridItem(Icons.playlist_add, '添加到', () =>
-                    _addToPlaylist(context, song)),
+                _gridItem(Icons.playlist_add, '添加到', () {
+                  Navigator.of(context).pop();
+                  showAddToPlaylistSheet(context, [song]);
+                }),
                 if (canDownload)
-                  _gridItem(Icons.download_outlined, '下载', () =>
-                      _downloadSong(context, song)),
-                _gridItem(Icons.delete_outline, '删除文件', () =>
-                    _toast('请到 Navidrome 网页端管理文件')),
-                _gridItem(Icons.timer_outlined, '定时停止', () =>
-                    showSleepTimerPicker(context)),
-                _gridItem(Icons.speed, '播放速度', () =>
-                    showSpeedPicker(context)),
+                  _gridItem(
+                    Icons.download_outlined,
+                    '下载',
+                    () => downloadSongs(context, ref, [song]),
+                  ),
+                _gridItem(
+                  Icons.delete_outline,
+                  '删除文件',
+                  () => _toast('请到音乐服务器后台管理文件'),
+                ),
+                _gridItem(
+                  Icons.timer_outlined,
+                  '定时停止',
+                  () => showSleepTimerPicker(context),
+                ),
+                _gridItem(Icons.speed, '播放速度', () => showSpeedPicker(context)),
               ],
             ),
           ),
@@ -178,10 +201,10 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
           _infoRow('歌手', song.artist, () => _openArtist(context, song)),
           _infoRow('专辑', song.album, () => _openAlbum(context, song)),
           _infoRow(
-              '歌曲信息',
-              '${_fmtDuration(song.duration)}'
-              '${song.size > 0 ? ' · ${_fmtSize(song.size)} MB' : ''}',
-              () => _showSongInfo(context, song)),
+            '歌曲信息',
+            _songSummary(song),
+            () => _showSongInfo(context, song),
+          ),
           const SizedBox(height: 10),
         ],
       ),
@@ -189,16 +212,27 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
   }
 
   Widget _gridItem(IconData icon, String label, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28, color: AppTheme.accentSoft),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-        ],
+    return GlassCard(
+      radius: AppRadius.m,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.m),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 26, color: AppTheme.accentSoft),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -210,15 +244,19 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Text(label,
-                style: const TextStyle(color: Colors.white38, fontSize: 14)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white38, fontSize: 14),
+            ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
             ),
           ],
         ),
@@ -234,68 +272,9 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       fadeRoute<void>(
-        ArtistDetailScreen(
-          artistId: song.artistId,
-          artistName: song.artist,
-        ),
+        ArtistDetailScreen(artistId: song.artistId, artistName: song.artist),
       ),
     );
-  }
-
-  /// 离线下载：进度对话框 → 保存到应用文档目录 Music/ → 提示结果
-  Future<void> _downloadSong(BuildContext context, Song song) async {
-    final adapter = ref.read(serverAdapterProvider);
-    if (adapter == null) {
-      _toast('未登录，无法下载');
-      return;
-    }
-    final progress = ValueNotifier<double?>(null); // null = 未知总量
-    var dialogOpen = true;
-    unawaited(showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ValueListenableBuilder<double?>(
-        valueListenable: progress,
-        builder: (_, value, _) => AlertDialog(
-          backgroundColor: AppTheme.queuePanel,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('正在下载「${song.title}」',
-                  style: const TextStyle(color: Colors.white, fontSize: 16)),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: value,
-                backgroundColor: Colors.white12,
-                color: AppTheme.primary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).then((_) => dialogOpen = false));
-    try {
-      final source = await adapter.resolveDownload(song);
-      final path = await downloadSongFile(
-        source: source,
-        song: song,
-        onProgress: (received, total) {
-          if (total > 0) progress.value = received / total;
-        },
-      );
-      progress.dispose();
-      if (dialogOpen && context.mounted) Navigator.of(context).pop();
-      _toast('已下载到：${Uri.file(path).pathSegments.last}');
-    } on DioException {
-      progress.dispose();
-      if (dialogOpen && context.mounted) Navigator.of(context).pop();
-      _toast('下载失败，请检查网络');
-    } catch (_) {
-      progress.dispose();
-      if (dialogOpen && context.mounted) Navigator.of(context).pop();
-      _toast('下载失败');
-    }
   }
 
   void _openAlbum(BuildContext context, Song song) {
@@ -315,72 +294,92 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     );
   }
 
-  Future<void> _addToPlaylist(BuildContext context, Song song) async {
+  Future<void> _showSongInfo(BuildContext context, Song song) async {
+    final canRate =
+        ref.read(serverAdapterProvider)?.capabilities.ratings ?? false;
+    // 先查完本地文件再关弹窗：pop 之后 sheet 的 context 就失效了
+    final cachePath = await findDownloadedSong(song);
+    if (!context.mounted) return;
+    final grade = QualityBadge.gradeLabel(song);
+    final kbps = QualityBadge.kbpsOf(song);
     Navigator.of(context).pop();
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
+    glassDialog<void>(
+      context,
+      title: '歌曲信息',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _infoLine('标题', song.title),
+          _infoLine('歌手', song.artist),
+          _infoLine('专辑', song.album),
+          _infoLine('时长', _fmtDuration(song.duration)),
+          if (song.size > 0) _infoLine('大小', '${_fmtSize(song.size)} MB'),
+          if (grade != null) _infoLine('音质', grade),
+          if (QualityBadge.formatOf(song) != null)
+            _infoLine('格式', QualityBadge.formatOf(song)!),
+          if (song.codec != null) _infoLine('解码器', song.codec!),
+          if (kbps != null) _infoLine('比特率', '$kbps kbps'),
+          if (song.sampleRate != null)
+            _infoLine('采样率', _fmtSampleRate(song.sampleRate!)),
+          if (song.bitDepth != null && song.bitDepth! > 0)
+            _infoLine('位深', '${song.bitDepth} bit'),
+          _infoLine('本地缓存', cachePath ?? '未下载'),
+          _infoLine('播放次数', '${song.playCount}'),
+          _infoLine('收藏', song.starred ? '是' : '否'),
+          if (canRate) _infoLine('评分', '${song.rating} / 5'),
+        ],
       ),
-      builder: (_) => _PlaylistPickerSheet(song: song),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
     );
   }
 
-  void _showSongInfo(BuildContext context, Song song) {
-    final canRate =
-        ref.read(serverAdapterProvider)?.capabilities.ratings ?? false;
-    Navigator.of(context).pop();
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.queuePanel,
-        title: const Text('歌曲信息'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _infoLine('标题', song.title),
-            _infoLine('歌手', song.artist),
-            _infoLine('专辑', song.album),
-            _infoLine('时长', _fmtDuration(song.duration)),
-            if (song.size > 0) _infoLine('大小', '${_fmtSize(song.size)} MB'),
-            if (song.size > 0 && song.duration > 0)
-              _infoLine('码率',
-                  '${((song.size * 8) / song.duration / 1000).round()} Kbps'),
-            _infoLine('播放次数', '${song.playCount}'),
-            _infoLine('收藏', song.starred ? '是' : '否'),
-            if (canRate) _infoLine('评分', '${song.rating} / 5'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
+  /// 44100 → 44.1 kHz；96000 → 96 kHz
+  String _fmtSampleRate(int hz) => hz % 1000 == 0
+      ? '${hz ~/ 1000} kHz'
+      : '${(hz / 1000).toStringAsFixed(1)} kHz';
+
+  /// 入口行摘要：无损 · 1030 kbps · 4:12；元数据缺失时退回时长/体积
+  String _songSummary(Song song) {
+    final grade = QualityBadge.gradeLabel(song);
+    final kbps = QualityBadge.kbpsOf(song);
+    if (grade == null) {
+      return '${_fmtDuration(song.duration)}'
+          '${song.size > 0 ? ' · ${_fmtSize(song.size)} MB' : ''}';
+    }
+    return [
+      grade,
+      if (kbps != null) '$kbps kbps',
+      _fmtDuration(song.duration),
+    ].join(' · ');
   }
 
   Widget _infoLine(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 70,
-              child: Text(label,
-                  style: const TextStyle(color: Colors.white38, fontSize: 14)),
-            ),
-            Expanded(
-              child: Text(value,
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 70,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 14),
+          ),
         ),
-      );
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ),
+      ],
+    ),
+  );
 
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -396,7 +395,8 @@ class _Cover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final adapter = ProviderScope.containerOf(context).read(serverAdapterProvider);
+    final adapter = ProviderScope.containerOf(context)
+        .read(serverAdapterProvider);
     if (song.albumId.isEmpty || adapter == null) {
       return Container(
         width: 52,
@@ -424,7 +424,9 @@ class _Cover extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: CachedNetworkImage(
         imageUrl: imageSource.url,
-        httpHeaders: imageSource.headers.isNotEmpty ? imageSource.headers : null,
+        httpHeaders: imageSource.headers.isNotEmpty
+            ? imageSource.headers
+            : null,
         width: 52,
         height: 52,
         fit: BoxFit.cover,
@@ -445,10 +447,7 @@ class _Cover extends StatelessWidget {
 /// 定时停止播放选择弹窗（歌曲操作弹窗 / 设置页共用）：
 /// 选择后倒计时展示在设置页；到点自动暂停。
 Future<void> showSleepTimerPicker(BuildContext context) {
-  return glassBottomSheet<void>(
-    context,
-    const _SleepTimerContent(),
-  );
+  return glassBottomSheet<void>(context, const _SleepTimerContent());
 }
 
 class _SleepTimerContent extends ConsumerWidget {
@@ -464,20 +463,23 @@ class _SleepTimerContent extends ConsumerWidget {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('定时停止播放',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
+          child: Text(
+            '定时停止播放',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         for (final m in _minutes)
           ListTile(
-            title: Text('$m 分钟',
-                style: const TextStyle(color: Colors.white, fontSize: 16)),
+            title: Text(
+              '$m 分钟',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
             onTap: () {
-              ref
-                  .read(sleepTimerProvider.notifier)
-                  .start(Duration(minutes: m));
+              ref.read(sleepTimerProvider.notifier).start(Duration(minutes: m));
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -490,8 +492,9 @@ class _SleepTimerContent extends ConsumerWidget {
         if (remain != null)
           ListTile(
             title: Text(
-                '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
-                style: const TextStyle(color: AppTheme.heartRed, fontSize: 16)),
+              '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
+              style: const TextStyle(color: AppTheme.heartRed, fontSize: 16),
+            ),
             onTap: () {
               ref.read(sleepTimerProvider.notifier).cancel();
               Navigator.of(context).pop();
@@ -507,10 +510,7 @@ class _SleepTimerContent extends ConsumerWidget {
 
 /// 播放速度选择弹窗（歌曲操作弹窗 / 设置页共用），选择后立即生效并持久化。
 Future<void> showSpeedPicker(BuildContext context) {
-  return glassBottomSheet<void>(
-    context,
-    const _SpeedContent(),
-  );
+  return glassBottomSheet<void>(context, const _SpeedContent());
 }
 
 class _SpeedContent extends ConsumerWidget {
@@ -526,11 +526,14 @@ class _SpeedContent extends ConsumerWidget {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('播放速度',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
+          child: Text(
+            '播放速度',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         for (final s in _speeds)
           ListTile(
@@ -538,8 +541,9 @@ class _SpeedContent extends ConsumerWidget {
                 ? const Icon(Icons.check, color: AppTheme.primary)
                 : const SizedBox(width: 24),
             title: Text(
-                s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
-                style: const TextStyle(color: Colors.white, fontSize: 16)),
+              s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
             onTap: () {
               ref.read(playbackSpeedProvider.notifier).state = s;
               Navigator.of(context).pop();
@@ -551,12 +555,133 @@ class _SpeedContent extends ConsumerWidget {
   }
 }
 
+// ---------- 离线下载（§3.2 支持批量） ----------
+
+/// 把一批歌曲下载到应用文档目录 Music/：全程一个进度对话框，结束后汇总提示。
+/// 单曲入口传 `[song]`，文案与批量前的单曲下载完全一致。
+/// 单曲失败不该中断整批，所以逐条计数、跑完再报结果。
+Future<void> downloadSongs(
+  BuildContext context,
+  WidgetRef ref,
+  List<Song> songs,
+) async {
+  if (songs.isEmpty) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final adapter = ref.read(serverAdapterProvider);
+  if (adapter == null) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('未登录，无法下载'), duration: Duration(seconds: 2)),
+    );
+    return;
+  }
+
+  final total = songs.length;
+  // 标签与进度合成一个 record：ValueNotifier 按结构相等判定，任一变化都会重建
+  final state = ValueNotifier<(String, double?)>((
+    '正在下载「${songs.first.title}」',
+    null,
+  ));
+  var dialogOpen = true;
+  unawaited(
+    glassDialog<void>(
+      context,
+      barrierDismissible: false,
+      content: ValueListenableBuilder<(String, double?)>(
+        valueListenable: state,
+        builder: (_, v, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              v.$1,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: v.$2,
+              backgroundColor: Colors.white12,
+              color: AppTheme.primary,
+            ),
+          ],
+        ),
+      ),
+    ).then((_) => dialogOpen = false),
+  );
+
+  var done = 0;
+  var failed = 0;
+  var networkFail = false;
+  var lastName = '';
+  for (var i = 0; i < total; i++) {
+    final song = songs[i];
+    state.value = (
+      total == 1
+          ? '正在下载「${song.title}」'
+          : '正在下载（${i + 1}/$total）「${song.title}」',
+      total == 1 ? null : i / total,
+    );
+    try {
+      final source = await adapter.resolveDownload(song);
+      final path = await downloadSongFile(
+        source: source,
+        song: song,
+        onProgress: (received, size) {
+          if (size <= 0) return;
+          state.value = (
+            state.value.$1,
+            total == 1 ? received / size : (i + received / size) / total,
+          );
+        },
+      );
+      done++;
+      lastName = Uri.file(path).pathSegments.last;
+    } on DioException {
+      failed++;
+      networkFail = true;
+    } catch (_) {
+      failed++;
+    }
+  }
+  state.dispose();
+  if (dialogOpen && context.mounted) Navigator.of(context).pop();
+
+  final message = failed == 0
+      ? (total == 1 ? '已下载到：$lastName' : '已下载 $done 首歌曲')
+      : (done == 0
+            ? (networkFail ? '下载失败，请检查网络' : '下载失败')
+            : '已下载 $done 首，$failed 首失败');
+  messenger.showSnackBar(
+    SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+  );
+}
+
 // ---------- 添加到歌单 ----------
 
-class _PlaylistPickerSheet extends ConsumerWidget {
-  const _PlaylistPickerSheet({required this.song});
+/// 添加到歌单弹层（§3.2 支持批量）：选一个歌单，把 [songs] 全部加进去。
+/// 单曲入口传 `[song]` 即可，两条路径共用同一份结果提示。
+Future<void> showAddToPlaylistSheet(BuildContext context, List<Song> songs) {
+  if (songs.isEmpty) return Future.value();
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(GlassTokens.radiusSheet),
+      ),
+    ),
+    builder: (_) => _PlaylistPickerSheet(songs: songs),
+  );
+}
 
-  final Song song;
+class _PlaylistPickerSheet extends ConsumerWidget {
+  const _PlaylistPickerSheet({required this.songs});
+
+  final List<Song> songs;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -578,13 +703,16 @@ class _PlaylistPickerSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text('添加到歌单',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                songs.length == 1 ? '添加到歌单' : '添加 ${songs.length} 首到歌单',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             Flexible(
               child: playlists.when(
@@ -594,43 +722,67 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                 ),
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.all(32),
-                  child: Text('加载失败: $e',
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 14)),
+                  child: Text(
+                    '加载失败: $e',
+                    style: const TextStyle(color: Colors.white38, fontSize: 14),
+                  ),
                 ),
                 data: (list) {
                   if (list.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(32),
-                      child: Text('还没有歌单',
-                          style:
-                              TextStyle(color: Colors.white38, fontSize: 14)),
+                      child: Text(
+                        '还没有歌单',
+                        style: TextStyle(color: Colors.white38, fontSize: 14),
+                      ),
                     );
                   }
                   return ListView.builder(
                     shrinkWrap: true,
                     itemCount: list.length,
                     itemBuilder: (_, i) => ListTile(
-                      leading: const Icon(Icons.queue_music,
-                          color: Colors.white54),
-                      title: Text(list[i].name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 16)),
-                      subtitle: Text('${list[i].songCount} 首歌曲',
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 12)),
+                      leading: const Icon(
+                        Icons.queue_music,
+                        color: Colors.white54,
+                      ),
+                      title: Text(
+                        list[i].name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${list[i].songCount} 首歌曲',
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                        ),
+                      ),
                       onTap: () async {
                         final navigator = Navigator.of(context);
                         final messenger = ScaffoldMessenger.of(context);
-                        final ok = await ref
-                            .read(serverAdapterProvider)
-                            ?.addToPlaylist(list[i].id, song.id) ?? false;
+                        final adapter = ref.read(serverAdapterProvider);
+                        final playlist = list[i];
+                        var added = 0;
+                        for (final s in songs) {
+                          final ok =
+                              await adapter?.addToPlaylist(playlist.id, s.id) ??
+                              false;
+                          if (ok) added++;
+                        }
                         messenger.showSnackBar(
                           SnackBar(
-                            content:
-                                Text(ok ? '已添加到「${list[i].name}」' : '添加失败'),
+                            content: Text(
+                              songs.length == 1
+                                  ? (added == 1
+                                        ? '已添加到「${playlist.name}」'
+                                        : '添加失败')
+                                  : '已添加 $added/${songs.length} 首到'
+                                        '「${playlist.name}」',
+                            ),
                             duration: const Duration(seconds: 2),
                           ),
                         );

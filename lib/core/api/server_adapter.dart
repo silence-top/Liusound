@@ -16,12 +16,20 @@ abstract class ServerAdapter {
   Future<List<Song>> fetchPlaylistSongs(String playlistId);
   Future<List<Song>> fetchLikedSongs({int limit = 100});
   Future<List<Song>> fetchSimilarSongs(String songId, {int count = 20});
+
+  /// 歌手简介；后端不支持或没写简介时返回 null（UI 据此隐藏分区）
+  Future<String?> fetchArtistBio(String artistId);
+
   Future<SearchResult> search(String query);
   Future<int> fetchSongCount();
 
   Future<bool> setStar(String id, bool starred);
   Future<bool> setRating(String id, int rating);
   Future<bool> addToPlaylist(String playlistId, String songId);
+
+  /// 在服务端新建一个空歌单；成功返回 true。
+  /// 调用方自行 invalidate 歌单列表刷新，本方法不负责回传新歌单
+  Future<bool> createPlaylist(String name);
 
   Future<PlaybackSource> resolveStream(Song song);
   Future<PlaybackSource> resolveDownload(Song song);
@@ -77,22 +85,19 @@ class AdapterCapabilities {
     this.likedSongs = true,
     this.download = true,
     this.lyrics = true,
+    this.artistBio = false,
   });
   final bool ratings;
   final bool similarSongs;
   final bool likedSongs;
   final bool download;
   final bool lyrics;
+
+  /// 服务端是否提供歌手简介（Audio Station 等无此接口）
+  final bool artistBio;
 }
 
-enum AlbumSort {
-  recentlyAdded,
-  recentlyPlayed,
-  mostPlayed,
-  random,
-  name,
-  year,
-}
+enum AlbumSort { recentlyAdded, recentlyPlayed, mostPlayed, random, name, year }
 
 class AlbumQuery {
   const AlbumQuery({
@@ -111,7 +116,15 @@ class AlbumQuery {
   final bool descending;
 }
 
-enum SongSort { title, random, rating, recentlyAdded, recentlyPlayed, mostPlayed, track }
+enum SongSort {
+  title,
+  random,
+  rating,
+  recentlyAdded,
+  recentlyPlayed,
+  mostPlayed,
+  track,
+}
 
 class SongQuery {
   const SongQuery({

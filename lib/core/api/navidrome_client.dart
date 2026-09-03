@@ -158,6 +158,27 @@ class NavidromeClient {
     }
   }
 
+  /// 歌手简介（Subsonic getArtistInfo.biography）；取不到一律返回 null，
+  /// 由 UI 隐藏整个简介分区，不让推荐页因为一条空数据报错
+  Future<String?> getArtistBio(String artistId) async {
+    if (_session == null) return null;
+    try {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/rest/getArtistInfo',
+        queryParameters: {...Subsonic.params(_subsonicAuth), 'id': artistId},
+      );
+      final response = res.data?['subsonic-response'] as Map<String, dynamic>?;
+      if (response == null || response['status'] != 'ok') return null;
+      final info =
+          (response['artistInfo'] ?? response['artistInfo2'])
+              as Map<String, dynamic>?;
+      final bio = info?['biography']?.toString().trim() ?? '';
+      return bio.isEmpty ? null : bio;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ---------- 专辑歌曲 / 歌单 / 喜欢 / 总数 / 收藏 / 评分 ----------
 
   /// 专辑内歌曲（按曲目号排序，对标 1.x 详情页 GET /api/song?album_id=）
@@ -238,6 +259,10 @@ class NavidromeClient {
       return false;
     }
   }
+
+  /// 新建歌单（Subsonic createPlaylist 只传 name、不带 playlistId 即为新建）
+  Future<bool> createPlaylist(String name) =>
+      _subsonicAction('createPlaylist', {'name': name});
 
   // ---------- 搜索 ----------
   /// Subsonic search3：Navidrome 原生 API 无 /search 路由，

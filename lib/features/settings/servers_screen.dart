@@ -309,23 +309,28 @@ class _ServerCard extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('删除服务器'),
-        content: Text('确定删除「${config.name}」？\n将清除该服务器的本地会话数据。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('删除'),
-          ),
-        ],
+    final confirmed = await glassDialog<bool>(
+      context,
+      title: '删除服务器',
+      content: Text(
+        '确定删除「${config.name}」？\n将清除该服务器的本地会话数据。',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          height: 1.5,
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          child: const Text('删除'),
+        ),
+      ],
     );
     if (confirmed == true) {
       await ref.read(authControllerProvider.notifier).removeServer(config.id);

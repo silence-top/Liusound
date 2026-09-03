@@ -13,49 +13,55 @@ class AudioStationAdapter implements ServerAdapter {
   AudioStationAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  })  : _config = config,
-        _sid = secrets['sid'] ?? '',
-        _password = secrets['password'] ?? '' {
+  }) : _config = config,
+       _sid = secrets['sid'] ?? '',
+       _password = secrets['password'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
   }
 
   final ServerConfig _config;
   String _sid;
   final String _password;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+    ),
+  );
 
   @override
   ServerType get type => ServerType.audioStation;
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
-        ratings: true,
-        similarSongs: false,
-        likedSongs: true,
-        download: true,
-        lyrics: true,
-      );
+    ratings: true,
+    similarSongs: false,
+    likedSongs: true,
+    download: true,
+    lyrics: true,
+  );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
-    final dio = Dio(BaseOptions(
-      baseUrl: request.serverUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: request.serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
     try {
-      final res = await dio.get<Map<String, dynamic>>('/webapi/auth.cgi',
-          queryParameters: {
-            'api': 'SYNO.API.Auth',
-            'version': '3',
-            'method': 'login',
-            'account': request.username,
-            'passwd': request.password,
-            'session': 'AudioStation',
-            'format': 'sid',
-          });
+      final res = await dio.get<Map<String, dynamic>>(
+        '/webapi/auth.cgi',
+        queryParameters: {
+          'api': 'SYNO.API.Auth',
+          'version': '3',
+          'method': 'login',
+          'account': request.username,
+          'passwd': request.password,
+          'session': 'AudioStation',
+          'format': 'sid',
+        },
+      );
       final data = res.data ?? const {};
       if (data['success'] != true) {
         throw Exception('Audio Station 认证失败');
@@ -209,6 +215,10 @@ class AudioStationAdapter implements ServerAdapter {
   Future<List<Song>> fetchSimilarSongs(String songId, {int count = 20}) async =>
       const [];
 
+  /// Audio Station 没有歌手简介接口，能力位 artistBio 保持 false
+  @override
+  Future<String?> fetchArtistBio(String artistId) async => null;
+
   @override
   Future<int> fetchSongCount() async {
     final data = await _api('SYNO.AudioStation.Song', 'list', {
@@ -243,12 +253,14 @@ class AudioStationAdapter implements ServerAdapter {
     final artistItems = data['data']?['artist'] as List<dynamic>?;
     for (final e in (artistItems ?? const [])) {
       if (e is Map<String, dynamic>) {
-        artists.add(Artist(
-          id: _s(e, 'id'),
-          name: _s(e, 'name', '未知歌手'),
-          albumCount: _i(e, 'album_count'),
-          songCount: _i(e, 'song_count'),
-        ));
+        artists.add(
+          Artist(
+            id: _s(e, 'id'),
+            name: _s(e, 'name', '未知歌手'),
+            albumCount: _i(e, 'album_count'),
+            songCount: _i(e, 'song_count'),
+          ),
+        );
       }
     }
     return SearchResult(songs: songs, albums: albums, artists: artists);
@@ -294,6 +306,16 @@ class AudioStationAdapter implements ServerAdapter {
     }
   }
 
+  @override
+  Future<bool> createPlaylist(String name) async {
+    try {
+      await _api('SYNO.AudioStation.Playlist', 'create', {'name': name});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---------- 媒体 ----------
 
   @override
@@ -330,8 +352,10 @@ class AudioStationAdapter implements ServerAdapter {
     try {
       final url =
           '${_config.serverUrl}/webapi/entry.cgi?api=SYNO.AudioStation.CoverArt&version=1&method=getcover&album_id=${Uri.encodeComponent(albumId)}&size=$size&_sid=$_sid';
-      final resp = await _dio.get<Uint8List>(url,
-          options: Options(responseType: ResponseType.bytes));
+      final resp = await _dio.get<Uint8List>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
       return resp.data;
     } catch (_) {
       return null;
@@ -356,28 +380,35 @@ class AudioStationAdapter implements ServerAdapter {
   // ========== 内部工具 ==========
 
   Future<Map<String, dynamic>> _api(
-      String api, String method, Map<String, String> extra) async {
-    final res = await _dio.get<Map<String, dynamic>>('/webapi/entry.cgi',
-        queryParameters: {
-          'api': api,
-          'version': '1',
-          'method': method,
-          '_sid': _sid,
-          ...extra,
-        });
+    String api,
+    String method,
+    Map<String, String> extra,
+  ) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/webapi/entry.cgi',
+      queryParameters: {
+        'api': api,
+        'version': '1',
+        'method': method,
+        '_sid': _sid,
+        ...extra,
+      },
+    );
     final data = res.data ?? const {};
     if (data['success'] != true) {
       final errorCode = data['error']?['code']?.toString() ?? '';
       if (errorCode == '105' || errorCode == '106' || errorCode == '107') {
         await _relogin();
-        final retry = await _dio.get<Map<String, dynamic>>('/webapi/entry.cgi',
-            queryParameters: {
-              'api': api,
-              'version': '1',
-              'method': method,
-              '_sid': _sid,
-              ...extra,
-            });
+        final retry = await _dio.get<Map<String, dynamic>>(
+          '/webapi/entry.cgi',
+          queryParameters: {
+            'api': api,
+            'version': '1',
+            'method': method,
+            '_sid': _sid,
+            ...extra,
+          },
+        );
         final retryData = retry.data ?? const {};
         if (retryData['success'] != true) {
           throw Exception('Audio Station 请求失败');
@@ -396,16 +427,18 @@ class AudioStationAdapter implements ServerAdapter {
 
   Future<void> _relogin() async {
     if (_password.isEmpty) throw Exception('无密码，无法重新登录');
-    final res = await _dio.get<Map<String, dynamic>>('/webapi/auth.cgi',
-        queryParameters: {
-          'api': 'SYNO.API.Auth',
-          'version': '3',
-          'method': 'login',
-          'account': _config.username,
-          'passwd': _password,
-          'session': 'AudioStation',
-          'format': 'sid',
-        });
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/webapi/auth.cgi',
+      queryParameters: {
+        'api': 'SYNO.API.Auth',
+        'version': '3',
+        'method': 'login',
+        'account': _config.username,
+        'passwd': _password,
+        'session': 'AudioStation',
+        'format': 'sid',
+      },
+    );
     final data = res.data ?? const {};
     if (data['success'] != true) throw Exception('Audio Station 重新登录失败');
     _sid = data['data']?['sid']?.toString() ?? '';
@@ -443,18 +476,18 @@ class AudioStationAdapter implements ServerAdapter {
       album: _s(j, 'album'),
       albumId: _s(j, 'album_id'),
       artistId: _s(j, 'artist_id'),
-      duration: (audio['duration'] as num?)?.toDouble() ??
-          (_n(j, 'duration')),
+      duration: (audio['duration'] as num?)?.toDouble() ?? (_n(j, 'duration')),
       playCount: _i(j, 'play_count'),
       starred: tag['starred'] == true || j['starred'] == true,
       size: (audio['size'] as num?)?.toInt() ?? _i(j, 'size'),
       rating: _i(j, 'rating'),
       // Song.list 默认不返回 song_audio，此时退回从 id 的文件扩展名取容器
-      suffix: _firstStr(audio, const ['container', 'codec']) ??
-          _extOf(id),
+      suffix: _firstStr(audio, const ['container', 'codec']) ?? _extOf(id),
       codec: _firstStr(audio, const ['codec']),
       bitRate: _bpsToKbps(_n(audio, 'bitrate')),
-      sampleRate: _hzOrNull(_firstNum(audio, const ['sample_rate', 'frequency'])),
+      sampleRate: _hzOrNull(
+        _firstNum(audio, const ['sample_rate', 'frequency']),
+      ),
     );
   }
 
@@ -495,7 +528,8 @@ class AudioStationAdapter implements ServerAdapter {
 
   Album _toAlbum(Map<String, dynamic> j) {
     final additional = j['additional'] as Map<String, dynamic>? ?? const {};
-    final audio = additional['album_audio'] as Map<String, dynamic>? ?? const {};
+    final audio =
+        additional['album_audio'] as Map<String, dynamic>? ?? const {};
     return Album(
       id: _s(j, 'id'),
       name: _s(j, 'name', '未知专辑'),

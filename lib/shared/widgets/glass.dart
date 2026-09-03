@@ -414,6 +414,56 @@ BoxConstraints glassSheetConstraints(
   double factor = 0.7,
 }) => BoxConstraints(maxHeight: MediaQuery.of(context).size.height * factor);
 
+/// 玻璃对话框：AlertDialog 的液态玻璃替代，标题 + 可滚动内容 + 右下操作区。
+Future<T?> glassDialog<T>(
+  BuildContext context, {
+  required Widget content,
+  String? title,
+  List<Widget> actions = const [],
+  bool barrierDismissible = true,
+}) {
+  return showDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    barrierColor: Colors.black38,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: GlassSurface(
+        radius: GlassTokens.radiusSheet,
+        blur: GlassTokens.blurHeavy,
+        tint: Colors.black.withValues(alpha: 0.35),
+        gradientBorder: true,
+        shadow: false,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null) ...[
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Flexible(child: SingleChildScrollView(child: content)),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class AmbientBackground extends StatelessWidget {
   const AmbientBackground({super.key, this.child});
 
