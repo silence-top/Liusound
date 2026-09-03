@@ -118,6 +118,11 @@ class SubsonicAdapter implements ServerAdapter {
     if (query.artistId != null) {
       return fetchArtistSongs(query.artistId!, limit: query.limit);
     }
+    // Subsonic 协议没有歌曲级最近/最常播放接口（getAlbumList2 仅专辑级）
+    if (query.sort == SongSort.recentlyPlayed ||
+        query.sort == SongSort.mostPlayed) {
+      return const [];
+    }
     final data = await _api('getRandomSongs', {
       'size': '${query.limit}',
     });

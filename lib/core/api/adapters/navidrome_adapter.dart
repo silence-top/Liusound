@@ -95,9 +95,18 @@ class NavidromeAdapter implements ServerAdapter {
         SongSort.random => 'random',
         SongSort.rating => 'rating',
         SongSort.recentlyAdded => 'recently_added',
+        SongSort.recentlyPlayed => 'play_date',
+        SongSort.mostPlayed => 'play_count',
         SongSort.track => 'track',
       };
       params['_sort'] = sort;
+      // 最近添加/最近播放/最常播放需要倒序（Navidrome REST 默认 ASC）
+      const descSorts = {
+        SongSort.recentlyAdded,
+        SongSort.recentlyPlayed,
+        SongSort.mostPlayed,
+      };
+      if (descSorts.contains(query.sort)) params['_order'] = 'DESC';
     }
     if (query.albumId != null) params['album_id'] = query.albumId;
     if (query.artistId != null) params['artist_id'] = query.artistId;

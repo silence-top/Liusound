@@ -81,8 +81,17 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         SongSort.random => 'Random',
         SongSort.rating => 'CommunityRating',
         SongSort.recentlyAdded => 'DateCreated',
+        SongSort.recentlyPlayed => 'DatePlayed',
+        SongSort.mostPlayed => 'PlayCount',
         SongSort.track => 'TrackNumber',
       };
+      // 时间/热度类排序需要倒序（Jellyfin/Emby 默认升序）
+      const descSorts = {
+        SongSort.recentlyAdded,
+        SongSort.recentlyPlayed,
+        SongSort.mostPlayed,
+      };
+      if (descSorts.contains(query.sort)) params['SortOrder'] = 'Descending';
     }
     if (query.albumId != null) params['AlbumIds'] = query.albumId!;
     if (query.artistId != null) params['ArtistIds'] = query.artistId!;

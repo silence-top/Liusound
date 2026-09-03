@@ -14,7 +14,8 @@ import 'home_providers.dart';
 
 /// 首页（对标 1.x HomeScreen）：
 /// 装饰搜索栏 + 分区顺序：最新专辑 / 每日推荐 / 最近播放 / 最常播放 / 随机专辑。
-/// 每日推荐展示 3 行，点「查看更多」进入全屏列表（PlaylistDetailScreen）。
+/// 歌曲分区（每日推荐 / 最近播放 / 最常播放）展示 3 行歌曲，
+/// 点「查看更多」进入全屏列表（PlaylistDetailScreen）。
 ///
 /// 性能设计：本页不订阅任何播放进度 provider → 播放期间零重建；
 /// 横向分区使用 ListView.builder 惰性构建 + 固定 itemExtent。
@@ -25,8 +26,8 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _refresh(WidgetRef ref) async {
     ref.read(randomSeedProvider.notifier).state = makeSeed();
     ref.invalidate(latestAlbumsProvider);
-    ref.invalidate(recentlyPlayedProvider);
-    ref.invalidate(mostPlayedProvider);
+    ref.invalidate(recentlyPlayedSongsProvider);
+    ref.invalidate(mostPlayedSongsProvider);
     ref.invalidate(randomAlbumsProvider);
     ref.invalidate(dailySongsProvider);
   }
@@ -46,17 +47,23 @@ class HomeScreen extends ConsumerWidget {
                 child: _AlbumRow(latestAlbumsProvider),
               ),
             ),
-            const SliverToBoxAdapter(child: _DailySection()),
             SliverToBoxAdapter(
-              child: _Section(
-                title: '最近播放',
-                child: _AlbumRow(recentlyPlayedProvider, playDirectly: true),
+              child: _SongListSection(
+                title: '每日推荐',
+                provider: dailySongsProvider,
+                withDate: true,
               ),
             ),
             SliverToBoxAdapter(
-              child: _Section(
+              child: _SongListSection(
+                title: '最近播放',
+                provider: recentlyPlayedSongsProvider,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _SongListSection(
                 title: '最常播放',
-                child: _AlbumRow(mostPlayedProvider, playDirectly: true),
+                provider: mostPlayedSongsProvider,
               ),
             ),
             SliverToBoxAdapter(
@@ -149,13 +156,11 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// 横向专辑行（四个专辑分区共用）：playDirectly 为 true 时点击直接整张播放
-/// （最近播放 / 最常播放），否则进入专辑详情页。
+/// 横向专辑行（最新专辑 / 随机专辑分区共用），点击进入专辑详情页
 class _AlbumRow extends ConsumerWidget {
-  const _AlbumRow(this.provider, {this.playDirectly = false});
+  const _AlbumRow(this.provider);
 
   final FutureProvider<List<Album>> provider;
-  final bool playDirectly;
 
   static const _cardWidth = 140.0;
 
@@ -185,10 +190,7 @@ class _AlbumRow extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: list.length,
             itemExtent: _cardWidth + 8, // 卡片宽 + 左右 margin 4
-            itemBuilder: (context, index) => _AlbumCard(
-              album: list[index],
-              playDirectly: playDirectly,
-            ),
+            itemBuilder: (context, index) => _AlbumCard(album: list[index]),
           ),
         );
       },
@@ -196,54 +198,27 @@ class _AlbumRow extends ConsumerWidget {
   }
 }
 
-/// 专辑卡（140 封面 + 名称 + 歌手，点击进详情或直接播放）
-class _AlbumCard extends ConsumerWidget {
-  const _AlbumCard({required this.album, this.playDirectly = false});
+/// 专辑卡（140 封面 + 名称 + 歌手，点击进入专辑详情页）
+class _AlbumCard extends StatelessWidget {
+  const _AlbumCard({required this.album});
 
   final Album album;
-  final bool playDirectly;
-
-  /// 直接播放：拉取专辑歌曲 → 替换队列并从首曲开播
-  Future<void> _playAlbum(BuildContext context, WidgetRef ref) async {
-    try {
-      final songs = await ref.read(albumSongsProvider(album.id).future);
-      if (songs.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('该专辑暂无歌曲'), duration: Duration(seconds: 2)),
-          );
-        }
-        return;
-      }
-      final actions = ref.read(playerActionsProvider);
-      actions.replaceQueue(songs);
-      await actions.play(songs.first);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载专辑歌曲失败'), duration: Duration(seconds: 2)),
-        );
-      }
-    }
-  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: PressableScale(
-        onTap: playDirectly
-            ? () => _playAlbum(context, ref)
-            : () => Navigator.of(context).push(
-                  fadeRoute<void>(
-                    AlbumDetailScreen(
-                      albumId: album.id,
-                      title: album.name,
-                      subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-                      rating: album.rating,
-                    ),
-                  ),
-                ),
+        onTap: () => Navigator.of(context).push(
+          fadeRoute<void>(
+            AlbumDetailScreen(
+              albumId: album.id,
+              title: album.name,
+              subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+              rating: album.rating,
+            ),
+          ),
+        ),
         child: SizedBox(
           width: _AlbumRow._cardWidth,
           child: Column(
@@ -275,18 +250,31 @@ class _AlbumCard extends ConsumerWidget {
   }
 }
 
-/// 每日推荐分区：3 行歌曲 + 「查看更多」进入全屏列表
-class _DailySection extends ConsumerWidget {
-  const _DailySection();
+/// 歌曲列表分区（每日推荐 / 最近播放 / 最常播放共用）：
+/// GlassCard 内 3 行歌曲 + 「查看更多」进入全屏列表
+class _SongListSection extends ConsumerWidget {
+  const _SongListSection({
+    required this.title,
+    required this.provider,
+    this.withDate = false,
+  });
+
+  final String title;
+  final FutureProvider<List<Song>> provider;
+
+  /// 「查看更多」页头是否展示今日日期（每日推荐）
+  final bool withDate;
 
   void _openDetail(BuildContext context, List<Song> songs) {
     Navigator.of(context).push(
       fadeRoute<void>(
         PlaylistDetailScreen(
-          title: '每日推荐',
+          title: title,
           songs: songs,
           coverAlbumId: songs.first.albumId,
-          date: DateTime.now().toIso8601String().substring(0, 10),
+          date: withDate
+              ? DateTime.now().toIso8601String().substring(0, 10)
+              : null,
         ),
       ),
     );
@@ -294,25 +282,25 @@ class _DailySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final songs = ref.watch(dailySongsProvider);
+    final songs = ref.watch(provider);
     return songs.when(
-      loading: () => const _Section(
-        title: '每日推荐',
-        child: SizedBox(
+      loading: () => _Section(
+        title: title,
+        child: const SizedBox(
           height: 180,
           child: Center(child: CircularProgressIndicator()),
         ),
       ),
       error: (e, _) => _Section(
-        title: '每日推荐',
+        title: title,
         child: _ErrorRetry(
-            message: '$e', onRetry: () => ref.invalidate(dailySongsProvider)),
+            message: '$e', onRetry: () => ref.invalidate(provider)),
       ),
       data: (list) {
         if (list.isEmpty) {
-          return const _Section(
-            title: '每日推荐',
-            child: SizedBox(
+          return _Section(
+            title: title,
+            child: const SizedBox(
               height: 60,
               child: Center(
                   child: Text('暂无内容',
@@ -321,7 +309,7 @@ class _DailySection extends ConsumerWidget {
           );
         }
         return _Section(
-          title: '每日推荐',
+          title: title,
           trailing: GestureDetector(
             onTap: () => _openDetail(context, list),
             child: const Text('查看更多',
@@ -334,8 +322,10 @@ class _DailySection extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 12),
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
-              children:
-                  list.take(3).map((song) => _DailyRow(song: song)).toList(),
+              children: list
+                  .take(3)
+                  .map((song) => _SongCardRow(song: song, queue: list))
+                  .toList(),
             ),
           ),
         );
@@ -344,54 +334,63 @@ class _DailySection extends ConsumerWidget {
   }
 }
 
-/// 每日推荐歌曲行：56 封面 + 标题/副标题 + 播放按钮
-class _DailyRow extends ConsumerWidget {
-  const _DailyRow({required this.song});
+/// 歌曲列表分区行：56 封面 + 标题/副标题 + 播放按钮，
+/// 点击直接播放（整卡队列）并弹出全屏播放器
+class _SongCardRow extends ConsumerWidget {
+  const _SongCardRow({required this.song, required this.queue});
 
   final Song song;
+  final List<Song> queue;
+
+  void _play(BuildContext context, WidgetRef ref) {
+    final actions = ref.read(playerActionsProvider);
+    actions.replaceQueue(queue);
+    actions.play(song);
+    openFullScreenPlayer(context);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      child: Row(
-        children: [
-          CoverArt(albumId: song.albumId, size: 56, radius: 8),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  song.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${song.artist} - ${song.album}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
-                ),
-              ],
+    return InkWell(
+      onTap: () => _play(context, ref),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            CoverArt(albumId: song.albumId, size: 56, radius: 8),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${song.artist} - ${song.album}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            onPressed: () {
-              ref.read(playerActionsProvider).play(song);
-              openFullScreenPlayer(context);
-            },
-            icon: const Icon(Icons.play_circle_outline,
-                size: 32, color: Colors.white),
-          ),
-        ],
+            const SizedBox(width: 12),
+            IconButton(
+              onPressed: () => _play(context, ref),
+              icon: const Icon(Icons.play_circle_outline,
+                  size: 32, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
