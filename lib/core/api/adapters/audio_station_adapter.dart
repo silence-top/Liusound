@@ -435,8 +435,9 @@ class AudioStationAdapter implements ServerAdapter {
     final additional = j['additional'] as Map<String, dynamic>? ?? const {};
     final audio = additional['song_audio'] as Map<String, dynamic>? ?? const {};
     final tag = additional['song_tag'] as Map<String, dynamic>? ?? const {};
+    final id = _s(j, 'id');
     return Song(
-      id: _s(j, 'id'),
+      id: id,
       title: _s(j, 'title', '未知歌曲'),
       artist: _s(j, 'artist', '未知歌手'),
       album: _s(j, 'album'),
@@ -448,7 +449,48 @@ class AudioStationAdapter implements ServerAdapter {
       starred: tag['starred'] == true || j['starred'] == true,
       size: (audio['size'] as num?)?.toInt() ?? _i(j, 'size'),
       rating: _i(j, 'rating'),
+      // Song.list 默认不返回 song_audio，此时退回从 id 的文件扩展名取容器
+      suffix: _firstStr(audio, const ['container', 'codec']) ??
+          _extOf(id),
+      codec: _firstStr(audio, const ['codec']),
+      bitRate: _bpsToKbps(_n(audio, 'bitrate')),
+      sampleRate: _hzOrNull(_firstNum(audio, const ['sample_rate', 'frequency'])),
     );
+  }
+
+  static String? _firstStr(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      final v = j[k]?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  static double? _firstNum(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      final v = j[k];
+      if (v is num) return v.toDouble();
+      if (v is String) {
+        final p = double.tryParse(v);
+        if (p != null) return p;
+      }
+    }
+    return null;
+  }
+
+  /// Audio Station 的 bitrate 单位是 bps（320000），归一到 kbps
+  static int? _bpsToKbps(double bps) => bps <= 0 ? null : (bps / 1000).round();
+
+  static int? _hzOrNull(double? hz) =>
+      hz == null || hz <= 0 ? null : hz.round();
+
+  /// AudioStation 的歌曲 id 就是音乐库相对路径，扩展名即容器格式
+  static String? _extOf(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot < 0 || dot == path.length - 1) return null;
+    final ext = path.substring(dot + 1).toLowerCase();
+    // 路径里的「.」可能出现在目录名上，限定长度过滤掉误判
+    return ext.length <= 5 ? ext : null;
   }
 
   Album _toAlbum(Map<String, dynamic> j) {

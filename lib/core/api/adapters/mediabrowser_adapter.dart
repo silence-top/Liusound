@@ -74,6 +74,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       'StartIndex': '${query.start}',
       'Limit': '${query.limit}',
       'Recursive': 'true',
+      'Fields': _songFields,
     };
     if (query.sort != null) {
       params['SortBy'] = switch (query.sort!) {
@@ -109,6 +110,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       'ParentId': albumId,
       'IncludeItemTypes': 'Audio',
       'SortBy': 'SortName',
+      'Fields': _songFields,
     });
     return (data['Items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -140,6 +142,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       'SortOrder': 'Descending',
       'Limit': '$limit',
       'Recursive': 'true',
+      'Fields': _songFields,
     });
     return (data['Items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -168,6 +171,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     final data = await _items({
       'ParentId': playlistId,
       'IncludeItemTypes': 'Audio',
+      'Fields': _songFields,
     });
     return (data['Items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -182,6 +186,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       'IsFavorite': 'true',
       'Limit': '$limit',
       'Recursive': 'true',
+      'Fields': _songFields,
     });
     return (data['Items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -210,6 +215,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       'IncludeItemTypes': 'Audio,MusicAlbum,MusicArtist',
       'Limit': '20',
       'Recursive': 'true',
+      'Fields': _songFields,
     });
     final items = data['Items'] as List<dynamic>? ?? const [];
     final songs = <Song>[];
@@ -326,6 +332,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         ...authHeaders,
       };
 
+  /// 取歌曲时必须显式请求，否则响应里没有 MediaSources（音质徽标的唯一数据源）
+  static const String _songFields = 'MediaSources';
+
   Future<Map<String, dynamic>> _items(Map<String, String> params) async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/Users/$_userId/Items',
@@ -358,6 +367,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     final artistId =
         artistItems.isNotEmpty ? artistItems[0]['Id']?.toString() ?? '' : '';
     final ticks = _i(j, 'RunTimeTicks');
+    final audio = _audioStream(j);
+    // Jellyfin/Emby 的 BitRate 单位是 bps，其余后端统一按 kbps 表达
+    final bps = _i(audio, 'BitRate');
     return Song(
       id: _s(j, 'Id'),
       title: _s(j, 'Name', '未知歌曲'),
@@ -374,7 +386,25 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       starred: _bool(j, 'UserData', 'IsFavorite'),
       size: 0,
       rating: (j['CommunityRating'] as num?)?.toInt() ?? 0,
+      suffix: _s(j, 'Container').isEmpty ? null : _s(j, 'Container'),
+      codec: _s(audio, 'Codec').isEmpty ? null : _s(audio, 'Codec'),
+      bitRate: bps > 0 ? (bps / 1000).round() : null,
+      sampleRate: _i(audio, 'SampleRate') > 0 ? _i(audio, 'SampleRate') : null,
+      bitDepth: _i(audio, 'BitDepth') > 0 ? _i(audio, 'BitDepth') : null,
     );
+  }
+
+  /// MediaSources[].MediaStreams[] 里的第一条音频流；
+  /// 未请求 Fields=MediaSources 时返回空 map，各字段自然退化为 null
+  static Map<String, dynamic> _audioStream(Map<String, dynamic> j) {
+    final sources = j['MediaSources'] as List<dynamic>? ?? const [];
+    for (final s in sources) {
+      if (s is! Map<String, dynamic>) continue;
+      for (final st in s['MediaStreams'] as List<dynamic>? ?? const []) {
+        if (st is Map<String, dynamic> && st['Type'] == 'Audio') return st;
+      }
+    }
+    return const {};
   }
 
   Album _toAlbum(Map<String, dynamic> j) {

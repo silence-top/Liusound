@@ -8,8 +8,8 @@ import '../features/settings/settings_screen.dart';
 import '../shared/widgets/glass.dart';
 
 /// 主框架（对齐设计图首屏/负一屏）：
-/// 顶部图标式 Tab 栏（搜索=首页 / 音乐库 / 设置），中间 IndexedStack 保活三页，
-/// 底部 MiniPlayer。播放期间页面零重建（MiniPlayer 内部自管高频订阅）。
+/// 底部悬浮毛玻璃导航（首页 / 资料库 / 设置），中间 PageView 保活三页并支持左右滑动，
+/// 导航之上为 MiniPlayer。播放期间页面零重建（MiniPlayer 内部自管高频订阅）。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -18,11 +18,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  // 对齐设计图首屏：搜索（首页内容）/ 音乐库（负一屏）/ 设置，默认搜索
+  // 对齐设计图首屏：首页（搜索/发现内容）/ 资料库（负一屏）/ 设置，默认首页
   int _index = 0;
   final _pageController = PageController();
 
   static const _icons = [Icons.search, Icons.music_note, Icons.settings];
+  static const _labels = ['首页', '资料库', '设置'];
 
   @override
   void dispose() {
@@ -46,44 +47,6 @@ class _AppShellState extends State<AppShell> {
         child: SafeArea(
           child: Column(
             children: [
-              GlassPill(
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: SizedBox(
-                  height: 56,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      for (var i = 0; i < _icons.length; i++)
-                        Expanded(
-                          child: Center(
-                            child: Material(
-                              color: _index == i
-                                  ? AppTheme.primary.withValues(alpha: 0.18)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () => _goTo(i),
-                                child: SizedBox(
-                                  width: 56,
-                                  height: 48,
-                                  child: Icon(
-                                    _icons[i],
-                                    size: 28,
-                                    color: _index == i
-                                        ? AppTheme.primary
-                                        : Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -96,9 +59,62 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
               const MiniPlayer(),
+              _buildBottomBar(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 悬浮底部导航：胶囊玻璃容器 + 三 Tab（图标 + 文字），激活态主色高亮
+  Widget _buildBottomBar() {
+    return GlassContainer(
+      radius: GlassTokens.radiusPill,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          for (var i = 0; i < _icons.length; i++)
+            Expanded(
+              child: Material(
+                color: _index == i
+                    ? AppTheme.primary.withValues(alpha: 0.18)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  onTap: () => _goTo(i),
+                  child: SizedBox(
+                    height: 52,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _icons[i],
+                          size: 22,
+                          color: _index == i
+                              ? AppTheme.primary
+                              : Colors.white,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _labels[i],
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1.2,
+                            color: _index == i
+                                ? AppTheme.primary
+                                : Colors.white54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

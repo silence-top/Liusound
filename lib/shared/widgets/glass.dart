@@ -16,6 +16,7 @@ class GlassSurface extends StatelessWidget {
     this.blur = GlassTokens.blurMedium,
     this.tint,
     this.gradientBorder = true,
+    this.borderColor,
     this.padding,
     this.margin,
     this.shadow = true,
@@ -26,6 +27,10 @@ class GlassSurface extends StatelessWidget {
   final double blur;
   final Color? tint;
   final bool gradientBorder;
+
+  /// 纯色 1px 描边（音质分级等需要用颜色表达语义的场景）；
+  /// 设置后不再叠加白色渐变描边，避免两条边互相干扰
+  final Color? borderColor;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final bool shadow;
@@ -46,6 +51,9 @@ class GlassSurface extends StatelessWidget {
             ? effectiveTint
             : Color.lerp(effectiveTint, Colors.black, 0.15)!,
         borderRadius: borderRadius,
+        border: borderColor == null
+            ? null
+            : Border.all(color: borderColor!, width: 1),
       ),
       foregroundDecoration: BoxDecoration(
         borderRadius: borderRadius,
@@ -77,7 +85,7 @@ class GlassSurface extends StatelessWidget {
           : tinted(child),
     );
 
-    if (gradientBorder) {
+    if (gradientBorder && borderColor == null) {
       result = _GradientBorderWrapper(radius: radius, child: result);
     }
 
@@ -230,6 +238,51 @@ class GlassPill extends StatelessWidget {
       );
     }
     return pill;
+  }
+}
+
+/// 容器级液态玻璃浮层：12px 背景模糊 + 1px 受光描边 + 投影，营造浮空层叠感。
+/// 性能红线：仅用于非滚动 chrome 或单卡（导航栏 / 服务器卡 / 分组外框），
+/// 列表滚动项一律用 blur 为 0 的 [GlassCard]，禁止逐行挂 BackdropFilter。
+class GlassContainer extends StatelessWidget {
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.onTap,
+    this.radius = GlassTokens.radiusCard,
+    this.blur = GlassTokens.blurContainer,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final VoidCallback? onTap;
+  final double radius;
+  final double blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final container = GlassSurface(
+      radius: radius,
+      blur: blur,
+      tint: GlassTokens.tint,
+      gradientBorder: true,
+      padding: padding,
+      margin: margin,
+      shadow: true,
+      child: child,
+    );
+
+    if (onTap != null) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: container,
+      );
+    }
+    return container;
   }
 }
 
