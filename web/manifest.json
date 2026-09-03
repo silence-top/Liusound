@@ -3,9 +3,9 @@
     "short_name": "流声",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#121212",
-    "theme_color": "#121212",
-    "description": "流声 (Liu Sound) —— Navidrome 自建音乐服务器客户端",
+    "background_color": "#001B2E",
+    "theme_color": "#2196F3",
+    "description": "流声 (Liu Sound) —— 多后端音乐客户端（Navidrome / Subsonic / Jellyfin / Emby / Plex / Audio Station）",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
