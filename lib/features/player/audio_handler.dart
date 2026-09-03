@@ -41,8 +41,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
-  Future<void> skipToNext() =>
-      _ref.read(playerActionsProvider).playNext();
+  Future<void> skipToNext() => _ref.read(playerActionsProvider).playNext();
 
   @override
   Future<void> skipToPrevious() =>
@@ -63,41 +62,46 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     final adapter = _ref.read(serverAdapterProvider);
     final ImageSource? coverSrc = adapter?.coverImage(song.albumId);
-    mediaItem.add(MediaItem(
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      duration: Duration(milliseconds: (song.duration * 1000).round()),
-      artUri: coverSrc != null ? Uri.parse(coverSrc.url) : null,
-    ));
+    mediaItem.add(
+      MediaItem(
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        album: song.album,
+        duration: Duration(milliseconds: (song.duration * 1000).round()),
+        artUri: coverSrc != null ? Uri.parse(coverSrc.url) : null,
+      ),
+    );
   }
 
   void _broadcastState(PlaybackEvent event) {
     final playing = _player.playing;
-    playbackState.add(playbackState.value.copyWith(
-      controls: [
-        MediaControl.skipToPrevious,
-        playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.skipToNext,
-      ],
-      systemActions: const {MediaAction.seek},
-      processingState: switch (_player.processingState) {
-        ProcessingState.idle => AudioProcessingState.idle,
-        ProcessingState.loading => AudioProcessingState.loading,
-        ProcessingState.buffering => AudioProcessingState.buffering,
-        ProcessingState.ready => AudioProcessingState.ready,
-        ProcessingState.completed => AudioProcessingState.completed,
-      },
-      playing: playing,
-      updatePosition: _player.position,
-      bufferedPosition: _player.bufferedPosition,
-      speed: _player.speed,
-      queueIndex: event.currentIndex,
-    ));
+    playbackState.add(
+      playbackState.value.copyWith(
+        controls: [
+          MediaControl.skipToPrevious,
+          playing ? MediaControl.pause : MediaControl.play,
+          MediaControl.skipToNext,
+        ],
+        systemActions: const {MediaAction.seek},
+        processingState: switch (_player.processingState) {
+          ProcessingState.idle => AudioProcessingState.idle,
+          ProcessingState.loading => AudioProcessingState.loading,
+          ProcessingState.buffering => AudioProcessingState.buffering,
+          ProcessingState.ready => AudioProcessingState.ready,
+          ProcessingState.completed => AudioProcessingState.completed,
+        },
+        playing: playing,
+        updatePosition: _player.position,
+        bufferedPosition: _player.bufferedPosition,
+        speed: _player.speed,
+        queueIndex: event.currentIndex,
+      ),
+    );
   }
 }
 
 /// 全局唯一的后台播放处理器（main 中 AudioService.init 消费）
-final audioHandlerProvider =
-    Provider<AppAudioHandler>((ref) => AppAudioHandler(ref));
+final audioHandlerProvider = Provider<AppAudioHandler>(
+  (ref) => AppAudioHandler(ref),
+);

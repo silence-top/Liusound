@@ -122,8 +122,11 @@ class Song {
     size: _Json.intOf(j, 'size'),
     rating: _Json.intOf(j, 'rating'),
     lyrics: j['lyrics'] as String?,
-    suffix: _Json.strOrNull(
-        j, const ['suffix', 'transcodedSuffix', 'contentType']),
+    suffix: _Json.strOrNull(j, const [
+      'suffix',
+      'transcodedSuffix',
+      'contentType',
+    ]),
     codec: _Json.strOrNull(j, const ['codec', 'transcodedCodec']),
     bitRate: _Json.intOrNull(j, const ['bitRate', 'bitrate']),
     sampleRate: _sampleRateHz(j),

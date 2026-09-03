@@ -44,8 +44,7 @@ class ServerRepository {
     return (jsonDecode(raw) as Map<String, dynamic>).cast<String, String>();
   }
 
-  Future<void> saveSecrets(
-      String serverId, Map<String, String> secrets) async {
+  Future<void> saveSecrets(String serverId, Map<String, String> secrets) async {
     await _secure.write(
       key: '$_secretsPrefix$serverId',
       value: jsonEncode(secrets),

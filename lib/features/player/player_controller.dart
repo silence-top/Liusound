@@ -57,8 +57,9 @@ class QueueNotifier extends Notifier<List<Song>> {
   }
 }
 
-final queueProvider =
-    NotifierProvider<QueueNotifier, List<Song>>(QueueNotifier.new);
+final queueProvider = NotifierProvider<QueueNotifier, List<Song>>(
+  QueueNotifier.new,
+);
 
 /// 播放模式
 enum PlayMode { order, shuffle, repeatOne }
@@ -111,8 +112,9 @@ class SleepTimerNotifier extends Notifier<Duration?> {
   }
 }
 
-final sleepTimerProvider =
-    NotifierProvider<SleepTimerNotifier, Duration?>(SleepTimerNotifier.new);
+final sleepTimerProvider = NotifierProvider<SleepTimerNotifier, Duration?>(
+  SleepTimerNotifier.new,
+);
 
 // ---------- 细粒度流式状态（事件驱动，替代 1.x 的 100ms 轮询） ----------
 // 消费端用 ref.watch(...select) 或在最小组件内 watch，
@@ -154,7 +156,8 @@ class PlayerActions {
         .listen((_) => playNext());
     _ref.listen<PlayMode>(playModeProvider, (_, mode) {
       player.setLoopMode(
-          mode == PlayMode.repeatOne ? LoopMode.one : LoopMode.off);
+        mode == PlayMode.repeatOne ? LoopMode.one : LoopMode.off,
+      );
       _schedulePersist();
     });
     _ref.listen<double>(playbackSpeedProvider, (_, speed) {
@@ -321,8 +324,11 @@ class PlayerActions {
   Future<void> _persistNow() async {
     try {
       final payload = <String, dynamic>{
-        'queue':
-            _ref.read(queueProvider).take(100).map((s) => s.toJson()).toList(),
+        'queue': _ref
+            .read(queueProvider)
+            .take(100)
+            .map((s) => s.toJson())
+            .toList(),
         'currentSong': _ref.read(currentSongProvider)?.toJson(),
         'playMode': _ref.read(playModeProvider).name,
         'speed': _ref.read(playbackSpeedProvider),
@@ -361,11 +367,11 @@ class PlayerActions {
             }
           }
           final savedMode = saved['playMode'] as String?;
-          _ref.read(playModeProvider.notifier).state =
-              PlayMode.values.firstWhere(
-            (m) => m.name == savedMode,
-            orElse: () => PlayMode.order,
-          );
+          _ref.read(playModeProvider.notifier).state = PlayMode.values
+              .firstWhere(
+                (m) => m.name == savedMode,
+                orElse: () => PlayMode.order,
+              );
           final savedSpeed = (saved['speed'] as num?)?.toDouble() ?? 1.0;
           if (savedSpeed > 0) {
             _ref.read(playbackSpeedProvider.notifier).state = savedSpeed;
@@ -374,8 +380,7 @@ class PlayerActions {
               saved['loopPlayback'] as bool? ?? true;
         }
         _resumePositionMs =
-            (((saved['currentTime'] as num?)?.toDouble() ?? 0) * 1000)
-                .round();
+            (((saved['currentTime'] as num?)?.toDouble() ?? 0) * 1000).round();
 
         // 启动后自动播放：直接播放恢复的歌曲并跳到上次进度
         if (_ref.read(autoPlayProvider.notifier).state) {
@@ -416,5 +421,6 @@ class PlayerActions {
   }
 }
 
-final playerActionsProvider =
-    Provider<PlayerActions>((ref) => PlayerActions(ref));
+final playerActionsProvider = Provider<PlayerActions>(
+  (ref) => PlayerActions(ref),
+);

@@ -93,9 +93,7 @@ class _AppShellState extends State<AppShell> {
                         Icon(
                           _icons[i],
                           size: 22,
-                          color: _index == i
-                              ? AppTheme.primary
-                              : Colors.white,
+                          color: _index == i ? AppTheme.primary : Colors.white,
                         ),
                         const SizedBox(height: 2),
                         Text(

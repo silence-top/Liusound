@@ -7,16 +7,15 @@ abstract final class Subsonic {
   static Map<String, String> params(
     SubsonicAuth auth, [
     Map<String, String> extra = const {},
-  ]) =>
-      {
-        'u': auth.username,
-        't': auth.subsonicToken,
-        's': auth.subsonicSalt,
-        'f': 'json',
-        'v': apiVersion,
-        'c': client,
-        ...extra,
-      };
+  ]) => {
+    'u': auth.username,
+    't': auth.subsonicToken,
+    's': auth.subsonicSalt,
+    'f': 'json',
+    'v': apiVersion,
+    'c': client,
+    ...extra,
+  };
 
   /// 专辑/歌曲封面直链（服务端裁剪到 300px，配合客户端限制解码尺寸）
   static String coverArtUrl(SubsonicAuth auth, String id) =>
@@ -31,7 +30,9 @@ abstract final class Subsonic {
       '${auth.serverUrl}/rest/download?${_query(params(auth, {'id': songId}))}';
 
   static String _query(Map<String, String> p) => p.entries
-      .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+      .map(
+        (e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',
+      )
       .join('&');
 }
 
@@ -56,5 +57,7 @@ class SubsonicAuth {
   );
 
   bool get isValid =>
-      serverUrl.isNotEmpty && subsonicToken.isNotEmpty && subsonicSalt.isNotEmpty;
+      serverUrl.isNotEmpty &&
+      subsonicToken.isNotEmpty &&
+      subsonicSalt.isNotEmpty;
 }

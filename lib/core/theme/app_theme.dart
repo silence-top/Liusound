@@ -26,12 +26,21 @@ abstract final class AppRadius {
 /// const 上下文可用的字阶样式（不能引 Theme 的共享件用这里；
 /// Widget 内优先用 Theme.of(context).textTheme 对应槽位）
 abstract final class AppText {
-  static const h1 =
-      TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700);
-  static const h2 =
-      TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600);
-  static const h3 =
-      TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w500);
+  static const h1 = TextStyle(
+    color: Colors.white,
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+  );
+  static const h2 = TextStyle(
+    color: Colors.white,
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+  );
+  static const h3 = TextStyle(
+    color: Colors.white,
+    fontSize: 19,
+    fontWeight: FontWeight.w500,
+  );
   static const body = TextStyle(color: Colors.white, fontSize: 16);
   static const aux = TextStyle(color: Colors.white, fontSize: 14);
   static const caption = TextStyle(color: Color(0xFFBBBBBB), fontSize: 12);
@@ -78,19 +87,34 @@ abstract final class AppTheme {
       // 统一文本基线（对齐 2.1 字阶：H1 28 / H2 22 / H3 19 / 正文 16 / 辅助 14 / 说明 12）：
       // 未显式指定样式的 Text 自动获得深色背景下的可读样式
       textTheme: const TextTheme(
-        headlineLarge:
-            TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700),
-        headlineSmall:
-            TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
-        titleLarge:
-            TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
-        titleMedium:
-            TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w500),
+        headlineLarge: TextStyle(
+          color: Colors.white,
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+        ),
+        headlineSmall: TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+        ),
+        titleMedium: TextStyle(
+          color: Colors.white,
+          fontSize: 19,
+          fontWeight: FontWeight.w500,
+        ),
         bodyLarge: TextStyle(color: Colors.white, fontSize: 16),
         bodyMedium: TextStyle(color: Colors.white, fontSize: 14),
         bodySmall: TextStyle(color: Color(0xFFBBBBBB), fontSize: 12),
-        labelLarge:
-            TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+        labelLarge: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         labelSmall: TextStyle(color: Colors.white38, fontSize: 12),
       ),
       appBarTheme: const AppBarTheme(
@@ -98,9 +122,14 @@ abstract final class AppTheme {
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
-            color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600),
+          color: Colors.white,
+          fontSize: 19,
+          fontWeight: FontWeight.w600,
+        ),
       ),
-      dividerTheme: const DividerThemeData(color: Color(0x14FFFFFF)), // 统一 8% 白分隔线
+      dividerTheme: const DividerThemeData(
+        color: Color(0x14FFFFFF),
+      ), // 统一 8% 白分隔线
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
@@ -108,9 +137,14 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
-      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

@@ -34,10 +34,7 @@ LyricsData parseLyricsData(String? lyricsText) {
       break;
     }
   }
-  return LyricsData(
-    lines: mainLines,
-    translations: translation ?? const [],
-  );
+  return LyricsData(lines: mainLines, translations: translation ?? const []);
 }
 
 /// 解析全部音轨（「切换歌词」弹窗用）：返回 (lang, lines) 列表。
@@ -60,7 +57,8 @@ List<(String, List<LyricLine>)> parseLyricsTracks(String? lyricsText) {
         if (line is! Map<String, dynamic>) continue;
         final String text = line['value']?.toString().trim() ?? '';
         if (text.isEmpty) continue;
-        final double timeSec = ((line['start'] as num?)?.toDouble() ?? 0) / 1000;
+        final double timeSec =
+            ((line['start'] as num?)?.toDouble() ?? 0) / 1000;
         parsed.add(LyricLine(time: timeSec, text: text));
       }
       if (parsed.isEmpty) continue;
@@ -105,7 +103,8 @@ List<String?> alignTranslations(
 /// 与原文完全相同的重复行会被跳过（部分 LRC 工具会整行重复）。
 /// 返回 (合并后主轨行, 与主轨逐行对齐的译文列表，无译文为 null)。
 (List<LyricLine>, List<String?>) mergeDuplicateTimestamps(
-    List<LyricLine> lines) {
+  List<LyricLine> lines,
+) {
   final main = <LyricLine>[];
   final translations = <String?>[];
   var i = 0;

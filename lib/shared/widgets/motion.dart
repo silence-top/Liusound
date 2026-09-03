@@ -9,13 +9,17 @@ PageRoute<T> fadeRoute<T>(Widget page) {
     reverseTransitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      final curved =
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween(begin: const Offset(0, 0.03), end: Offset.zero)
-              .animate(curved),
+          position: Tween(
+            begin: const Offset(0, 0.03),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         ),
       );
@@ -38,8 +42,10 @@ class FadeSlideIn extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (_, t, child) => Opacity(
         opacity: t,
-        child:
-            Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: child,
+        ),
       ),
       child: child,
     );
@@ -65,9 +71,15 @@ class _PressableScaleState extends State<PressableScale> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: widget.onTap == null ? null : (_) => setState(() => _down = true),
-      onTapUp: widget.onTap == null ? null : (_) => setState(() => _down = false),
-      onTapCancel: widget.onTap == null ? null : () => setState(() => _down = false),
+      onTapDown: widget.onTap == null
+          ? null
+          : (_) => setState(() => _down = true),
+      onTapUp: widget.onTap == null
+          ? null
+          : (_) => setState(() => _down = false),
+      onTapCancel: widget.onTap == null
+          ? null
+          : () => setState(() => _down = false),
       onTap: widget.onTap,
       child: AnimatedScale(
         scale: _down ? 0.97 : 1,

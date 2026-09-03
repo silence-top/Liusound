@@ -11,10 +11,7 @@ class EmbyAdapter extends MediaBrowserAdapter {
   EmbyAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  }) : super(
-          serverUrl: config.serverUrl,
-          secrets: secrets,
-        );
+  }) : super(serverUrl: config.serverUrl, secrets: secrets);
 
   @override
   ServerType get type => ServerType.emby;
@@ -24,12 +21,12 @@ class EmbyAdapter extends MediaBrowserAdapter {
 
   @override
   Map<String, String> get authHeaders => {
-        if (token.isNotEmpty) ...{
-          'X-Emby-Authorization':
-              'MediaBrowser Client="Emby", Device="Flutter", DeviceId="liusound", Version="2.0", Token=$token',
-          'X-Emby-Token': token,
-        },
-      };
+    if (token.isNotEmpty) ...{
+      'X-Emby-Authorization':
+          'MediaBrowser Client="Emby", Device="Flutter", DeviceId="liusound", Version="2.0", Token=$token',
+      'X-Emby-Token': token,
+    },
+  };
 
   @override
   Map<String, String> extractSecrets(Map<String, dynamic> loginResponse) {
@@ -41,19 +38,22 @@ class EmbyAdapter extends MediaBrowserAdapter {
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final pwMd5 = md5.convert(request.password.codeUnits).toString();
-    final dio = Dio(BaseOptions(
-      baseUrl: request.serverUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: request.serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
     try {
       final res = await dio.post<Map<String, dynamic>>(
         '/Users/AuthenticateByName',
         data: {'Username': request.username, 'Pw': pwMd5},
-        options: Options(headers: {
-          'X-Emby-Authorization':
-              'MediaBrowser Client="Emby", Device="Flutter", DeviceId="liusound", Version="2.0"',
-        }),
+        options: Options(
+          headers: {
+            'X-Emby-Authorization': 'MediaBrowser Client="Emby", Device="Flutter", DeviceId="liusound", Version="2.0"',
+          },
+        ),
       );
       final data = res.data ?? const {};
       final accessToken = data['AccessToken']?.toString() ?? '';

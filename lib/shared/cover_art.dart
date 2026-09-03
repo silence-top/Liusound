@@ -48,8 +48,9 @@ class CoverArt extends ConsumerWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        memCacheWidth:
-            (size * MediaQuery.devicePixelRatioOf(context)).round().clamp(80, 300),
+        memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+            .round()
+            .clamp(80, 300),
         fadeInDuration: const Duration(milliseconds: 150),
         placeholder: (_, _) => placeholder,
         errorWidget: (_, _, _) => placeholder,

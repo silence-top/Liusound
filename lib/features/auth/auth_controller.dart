@@ -19,24 +19,22 @@ class AuthState {
 
   bool get isAuthenticated => activeServerId != null;
 
-  ServerConfig? get activeConfig =>
-      servers.cast<ServerConfig?>().firstWhere(
-            (s) => s?.id == activeServerId,
-            orElse: () => null,
-          );
+  ServerConfig? get activeConfig => servers.cast<ServerConfig?>().firstWhere(
+    (s) => s?.id == activeServerId,
+    orElse: () => null,
+  );
 
   AuthState copyWith({
     List<ServerConfig>? servers,
     String? activeServerId,
     Map<String, String>? activeSecrets,
     bool? initialized,
-  }) =>
-      AuthState(
-        servers: servers ?? this.servers,
-        activeServerId: activeServerId ?? this.activeServerId,
-        activeSecrets: activeSecrets ?? this.activeSecrets,
-        initialized: initialized ?? this.initialized,
-      );
+  }) => AuthState(
+    servers: servers ?? this.servers,
+    activeServerId: activeServerId ?? this.activeServerId,
+    activeSecrets: activeSecrets ?? this.activeSecrets,
+    initialized: initialized ?? this.initialized,
+  );
 }
 
 class AuthController extends Notifier<AuthState> {
@@ -76,11 +74,13 @@ class AuthController extends Notifier<AuthState> {
     String password,
   ) async {
     final normalizedUrl = normalizeServerUrl(serverUrl);
-    final result = await type.signIn(AuthRequest(
-      serverUrl: normalizedUrl,
-      username: username,
-      password: password,
-    ));
+    final result = await type.signIn(
+      AuthRequest(
+        serverUrl: normalizedUrl,
+        username: username,
+        password: password,
+      ),
+    );
 
     final id = '${type.name}-${DateTime.now().millisecondsSinceEpoch}';
     final config = ServerConfig(
@@ -107,16 +107,13 @@ class AuthController extends Notifier<AuthState> {
   Future<void> switchServer(String id) async {
     if (id == state.activeServerId) return;
     final config = state.servers.cast<ServerConfig?>().firstWhere(
-          (s) => s?.id == id,
-          orElse: () => null,
-        );
+      (s) => s?.id == id,
+      orElse: () => null,
+    );
     if (config == null) return;
     final secrets = await _repo.loadSecrets(id);
     await _repo.saveActiveId(id);
-    state = state.copyWith(
-      activeServerId: id,
-      activeSecrets: secrets,
-    );
+    state = state.copyWith(activeServerId: id, activeSecrets: secrets);
   }
 
   Future<void> removeServer(String id) async {
@@ -139,15 +136,13 @@ class AuthController extends Notifier<AuthState> {
       await _repo.deleteServer(activeId);
     }
     final servers = state.servers.where((s) => s.id != activeId).toList();
-    state = AuthState(
-      servers: servers,
-      initialized: true,
-    );
+    state = AuthState(servers: servers, initialized: true);
   }
 }
 
-final authControllerProvider =
-    NotifierProvider<AuthController, AuthState>(AuthController.new);
+final authControllerProvider = NotifierProvider<AuthController, AuthState>(
+  AuthController.new,
+);
 
 final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   final auth = ref.watch(authControllerProvider);
