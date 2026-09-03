@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/quality_badge.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/full_screen_player.dart';
@@ -59,6 +60,25 @@ class AlbumDetailScreen extends ConsumerStatefulWidget {
 class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   late int _rating = widget.rating;
   String _search = '';
+  bool _filterExpanded = false;
+  final TextEditingController _filterController = TextEditingController();
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  /// 收起时一并清空关键词，避免「看不见但仍在过滤」
+  void _toggleFilter() {
+    setState(() {
+      _filterExpanded = !_filterExpanded;
+      if (!_filterExpanded) {
+        _filterController.clear();
+        _search = '';
+      }
+    });
+  }
 
   Future<void> _rate(int rating) async {
     final before = _rating;
@@ -103,6 +123,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               onShuffle: () => _playShuffle(songs),
               onQueue: () => _enqueue(songs),
               onChanged: (v) => setState(() => _search = v),
+              controller: _filterController,
+              expanded: _filterExpanded,
             ),
           ),
           ...sliverAsyncGuard<Song>(
@@ -136,6 +158,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       leading: const BackButton(),
       title: Text(widget.title,
           maxLines: 1, overflow: TextOverflow.ellipsis),
+      actions: [
+        _filterAction(expanded: _filterExpanded, onPressed: _toggleFilter),
+      ],
     );
   }
 
@@ -194,6 +219,25 @@ class PlaylistDetailScreen extends ConsumerStatefulWidget {
 
 class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
   String _search = '';
+  bool _filterExpanded = false;
+  final TextEditingController _filterController = TextEditingController();
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  /// 收起时一并清空关键词，避免「看不见但仍在过滤」
+  void _toggleFilter() {
+    setState(() {
+      _filterExpanded = !_filterExpanded;
+      if (!_filterExpanded) {
+        _filterController.clear();
+        _search = '';
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +272,10 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
             leading: const BackButton(),
             title: Text(widget.title,
                 maxLines: 1, overflow: TextOverflow.ellipsis),
+            actions: [
+              _filterAction(
+                  expanded: _filterExpanded, onPressed: _toggleFilter),
+            ],
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -245,6 +293,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
               onShuffle: () => _playShuffle(songs),
               onQueue: () => _enqueue(songs),
               onChanged: (v) => setState(() => _search = v),
+              controller: _filterController,
+              expanded: _filterExpanded,
             ),
           ),
           ...sliverAsyncGuard<Song>(
@@ -379,7 +429,7 @@ class _CoverPlaceholder extends StatelessWidget {
   }
 }
 
-/// 列表顶部：全部播放栏（右三图标功能化）+ 过滤框，_bar 圆角容器
+/// 列表顶部：全部播放栏（右三图标功能化）+ 可收纳过滤框，_bar 圆角容器
 class _ListTop extends StatelessWidget {
   const _ListTop({
     required this.count,
@@ -387,6 +437,8 @@ class _ListTop extends StatelessWidget {
     required this.onShuffle,
     required this.onQueue,
     required this.onChanged,
+    required this.controller,
+    required this.expanded,
   });
 
   final int count;
@@ -394,6 +446,8 @@ class _ListTop extends StatelessWidget {
   final VoidCallback onShuffle;
   final VoidCallback onQueue;
   final ValueChanged<String> onChanged;
+  final TextEditingController controller;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -421,8 +475,23 @@ class _ListTop extends StatelessWidget {
             onShuffle: onShuffle,
             onQueue: onQueue,
           ),
-          const Divider(height: 1, color: Color(0x0DFFFFFF)),
-          _FilterBar(onChanged: onChanged),
+          // 收起时高度归零，把 44dp 纵向空间还给歌曲列表
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Column(
+                    children: [
+                      const Divider(height: 1, color: Color(0x0DFFFFFF)),
+                      _FilterBar(
+                        controller: controller,
+                        onChanged: onChanged,
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
@@ -441,11 +510,25 @@ List<Song> _filterSongs(List<Song> songs, String query) {
       .toList();
 }
 
+/// AppBar 过滤入口：点击展开/收起列表内过滤框，展开态染主色
+/// （专辑详情页与歌单详情页共用）
+Widget _filterAction({required bool expanded, required VoidCallback onPressed}) {
+  return IconButton(
+    onPressed: onPressed,
+    tooltip: expanded ? '收起筛选' : '筛选歌曲',
+    icon: Icon(
+      Icons.search,
+      color: expanded ? AppTheme.primary : Colors.white70,
+    ),
+  );
+}
+
 /// 站内过滤搜索框（过滤当前列表，非全局搜索）
 class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.onChanged});
+  const _FilterBar({required this.onChanged, required this.controller});
 
   final ValueChanged<String> onChanged;
+  final TextEditingController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -458,7 +541,10 @@ class _FilterBar extends StatelessWidget {
           const SizedBox(width: 4),
           Expanded(
             child: TextField(
+              controller: controller,
               onChanged: onChanged,
+              // 由 AppBar 搜索图标展开时立即获得焦点，省去二次点击
+              autofocus: true,
               style: const TextStyle(color: Colors.white, fontSize: 16),
               decoration: const InputDecoration(
                 hintText: '搜索歌曲/专辑/歌手',
@@ -572,10 +658,6 @@ class SongRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 码率（对齐 1.x：Math.round(size * 8 / duration / 1000)，flac 标签）
-    final kbps = song.size > 0 && song.duration > 0
-        ? ((song.size * 8) / song.duration / 1000).round()
-        : 0;
     return InkWell(
       onTap: () {
         final actions = ref.read(playerActionsProvider);
@@ -618,23 +700,7 @@ class SongRow extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      if (kbps > 0) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.formatBg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.formatBorder),
-                          ),
-                          child: Text('flac ${kbps}K',
-                              style: const TextStyle(
-                                  color: AppTheme.formatText,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
+                      QualityBadge(song: song, trailingGap: 8),
                       Expanded(
                         child: Text(
                           '${song.artist} - ${song.album}',

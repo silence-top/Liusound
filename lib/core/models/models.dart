@@ -35,6 +35,37 @@ abstract final class _Json {
     String key, [
     bool fallback = false,
   ]) => j[key] is bool ? j[key] as bool : fallback;
+
+  /// 依次取第一个非空字段，全缺时返回 null（可选元数据用，不能用 fallback 版）
+  static String? strOrNull(Map<String, dynamic> j, List<String> keys) {
+    final v = strOf(j, keys);
+    return v.isEmpty ? null : v;
+  }
+
+  /// 依次取第一个可解析为数值的字段；兼容后端把数字返回成字符串，全缺返回 null
+  static double? doubleOrNull(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      final v = j[k];
+      if (v is num) return v.toDouble();
+      if (v is String) {
+        final parsed = double.tryParse(v);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  static int? intOrNull(Map<String, dynamic> j, List<String> keys) =>
+      doubleOrNull(j, keys)?.round();
+}
+
+/// 采样率统一为 Hz：Subsonic 系的 samplingRate 单位是 kHz（44.1），
+/// Jellyfin / Plex 的 sampleRate 是 Hz（44100）。真实音频不存在 1kHz 以下的
+/// 采样率，以 1000 为界做单位归一，避免两种后端展示差三个数量级。
+int? _sampleRateHz(Map<String, dynamic> j) {
+  final raw = _Json.doubleOrNull(j, const ['samplingRate', 'sampleRate']);
+  if (raw == null || raw <= 0) return null;
+  return raw < 1000 ? (raw * 1000).round() : raw.round();
 }
 
 class Song {
@@ -51,6 +82,11 @@ class Song {
     required this.size,
     required this.rating,
     this.lyrics,
+    this.suffix,
+    this.codec,
+    this.bitRate,
+    this.sampleRate,
+    this.bitDepth,
   });
 
   final String id;
@@ -66,6 +102,13 @@ class Song {
   final int rating; // 评分 0-5（Subsonic setRating）
   final String? lyrics; // Navidrome JSON 歌词原文
 
+  // 音频元数据：六种后端能力不一，取不到即留空，展示层负责降级
+  final String? suffix; // 容器/编码后缀，如 flac / mp3 / m4a
+  final String? codec; // 解码器名，如 FLAC / AAC
+  final int? bitRate; // kbps
+  final int? sampleRate; // Hz（已由 _sampleRateHz 归一）
+  final int? bitDepth; // 位深，如 16 / 24
+
   factory Song.fromJson(Map<String, dynamic> j) => Song(
     id: _Json.str(j, 'id'),
     title: _Json.str(j, 'title', '未知歌曲'),
@@ -79,6 +122,12 @@ class Song {
     size: _Json.intOf(j, 'size'),
     rating: _Json.intOf(j, 'rating'),
     lyrics: j['lyrics'] as String?,
+    suffix: _Json.strOrNull(
+        j, const ['suffix', 'transcodedSuffix', 'contentType']),
+    codec: _Json.strOrNull(j, const ['codec', 'transcodedCodec']),
+    bitRate: _Json.intOrNull(j, const ['bitRate', 'bitrate']),
+    sampleRate: _sampleRateHz(j),
+    bitDepth: _Json.intOrNull(j, const ['bitDepth']),
   );
 
   Song copyWith({bool? starred, int? rating}) => Song(
@@ -94,6 +143,11 @@ class Song {
     size: size,
     rating: rating ?? this.rating,
     lyrics: lyrics,
+    suffix: suffix,
+    codec: codec,
+    bitRate: bitRate,
+    sampleRate: sampleRate,
+    bitDepth: bitDepth,
   );
 
   static List<Song> listFromJson(dynamic json) => (json as List<dynamic>)
@@ -113,6 +167,12 @@ class Song {
     'starred': starred,
     'size': size,
     'rating': rating,
+    // 音频元数据一并落盘：冷启动恢复队列后音质徽标不会退化成空
+    if (suffix != null) 'suffix': suffix,
+    if (codec != null) 'codec': codec,
+    if (bitRate != null) 'bitRate': bitRate,
+    if (sampleRate != null) 'sampleRate': sampleRate,
+    if (bitDepth != null) 'bitDepth': bitDepth,
   };
 }
 

@@ -339,6 +339,10 @@ class SubsonicAdapter implements ServerAdapter {
         starred: j['starred'] != null,
         size: _int(j, 'size'),
         rating: _int(j, 'rating'),
+        suffix: _firstStr(j, const ['suffix', 'transcodedSuffix']),
+        codec: _firstStr(j, const ['contentType', 'transcodedContentType']),
+        bitRate: _intOrNull(j, 'bitRate'),
+        sampleRate: _khzToHz(_num(j, 'samplingRate')),
       );
 
   Album _toAlbum(Map<String, dynamic> j) => Album(
@@ -362,6 +366,18 @@ class SubsonicAdapter implements ServerAdapter {
       (j[k] as num?)?.toInt();
   static double _num(Map<String, dynamic> j, String k) =>
       (j[k] as num?)?.toDouble() ?? 0;
+
+  /// 按候选键顺序取第一个非空字符串；用于「原始格式 → 转码格式」回退
+  static String? _firstStr(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      final v = j[k]?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// Subsonic 协议的 samplingRate 单位是 kHz（44.1），统一归一为 Hz
+  static int? _khzToHz(double khz) => khz <= 0 ? null : (khz * 1000).round();
 
   static String _randomHex(int bytes) {
     final r = Random.secure();

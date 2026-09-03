@@ -422,6 +422,15 @@ class PlexAdapter implements ServerAdapter {
 
   Song _toSong(Map<String, dynamic> j) {
     final durationMs = _i(j, 'duration');
+    final media = _media(j);
+    final audio = _audioStream(media);
+    final container = _s(media, 'container').isEmpty
+        ? _s(audio, 'container')
+        : _s(media, 'container');
+    // Media 级 bitrate 是整条流的码率，音频流自带的更准
+    final kbps = _i(audio, 'bitrate') > 0
+        ? _i(audio, 'bitrate')
+        : _i(media, 'bitrate');
     return Song(
       id: _s(j, 'ratingKey'),
       title: _s(j, 'title', '未知歌曲'),
@@ -434,7 +443,34 @@ class PlexAdapter implements ServerAdapter {
       starred: j['userRating'] != null,
       size: _i(j, 'size'),
       rating: ((_i(j, 'userRating')) / 2).round(),
+      suffix: container.isEmpty ? null : container,
+      codec: _s(audio, 'codec').isEmpty ? null : _s(audio, 'codec'),
+      bitRate: kbps > 0 ? kbps : null,
+      sampleRate: _i(audio, 'samplingRate') > 0
+          ? _i(audio, 'samplingRate')
+          : null,
+      bitDepth: _i(audio, 'bitDepth') > 0 ? _i(audio, 'bitDepth') : null,
     );
+  }
+
+  /// 列表接口常常不带 Media，缺省返回空 map 让各字段自然退化为 null
+  static Map<String, dynamic> _media(Map<String, dynamic> j) {
+    final media = j['Media'] as List<dynamic>? ?? const [];
+    return media.isNotEmpty && media[0] is Map<String, dynamic>
+        ? media[0] as Map<String, dynamic>
+        : const {};
+  }
+
+  /// Media[].Part[].Stream[] 里 streamType == 2 的音频流
+  static Map<String, dynamic> _audioStream(Map<String, dynamic> media) {
+    final parts = media['Part'] as List<dynamic>? ?? const [];
+    for (final p in parts) {
+      if (p is! Map<String, dynamic>) continue;
+      for (final s in p['Stream'] as List<dynamic>? ?? const []) {
+        if (s is Map<String, dynamic> && s['streamType'] == 2) return s;
+      }
+    }
+    return const {};
   }
 
   Album _toAlbum(Map<String, dynamic> j) {

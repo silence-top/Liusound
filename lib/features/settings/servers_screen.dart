@@ -19,7 +19,7 @@ class ServersScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          GlassCard(
+          GlassContainer(
             onTap: () => _showAddServerSheet(context),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             margin: const EdgeInsets.only(bottom: 12),

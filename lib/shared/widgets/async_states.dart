@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'glass.dart';
 
 /// 异步列表三态统一渲染（loading / error 可重试 / 空态 / 数据）。
 ///
@@ -28,10 +29,54 @@ Widget _error(VoidCallback onRetry) => Padding(
       ),
     );
 
-Widget _empty(String text) => Padding(
-      padding: _kStatePadding,
-      child: Center(child: Text(text, style: _kStateStyle)),
+/// 玻璃质感空态：圆形玻璃图标 + 提示文案 + 可选操作按钮组。
+/// 空态要给出明确出口（同步 / 新建 / 重试），而不是一句「暂无内容」。
+Widget glassEmptyState({
+  required String text,
+  IconData icon = Icons.library_music_outlined,
+  List<Widget> actions = const [],
+  EdgeInsetsGeometry padding = _kStatePadding,
+}) =>
+    Padding(
+      padding: padding,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GlassSurface(
+              radius: GlassTokens.radiusPill,
+              blur: 0,
+              tint: GlassTokens.tint,
+              gradientBorder: true,
+              shadow: false,
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: Icon(icon, size: 30, color: Colors.white38),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.l),
+            Text(text, textAlign: TextAlign.center, style: _kStateStyle),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.l),
+              Wrap(
+                spacing: AppSpacing.m,
+                runSpacing: AppSpacing.m,
+                alignment: WrapAlignment.center,
+                children: actions,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
+
+Widget _empty(
+  String text, {
+  IconData icon = Icons.library_music_outlined,
+  List<Widget> actions = const [],
+}) =>
+    glassEmptyState(text: text, icon: icon, actions: actions);
 
 /// Sliver 版：直接展开塞进 CustomScrollView 的 slivers。
 ///
@@ -48,6 +93,8 @@ List<Widget> sliverAsyncGuard<T>({
   required List<Widget> Function(List<T> data) onData,
   required String emptyText,
   required VoidCallback onRetry,
+  IconData emptyIcon = Icons.library_music_outlined,
+  List<Widget> emptyActions = const [],
 }) {
   final data = async.value;
   if (data == null) {
@@ -55,7 +102,10 @@ List<Widget> sliverAsyncGuard<T>({
     if (async.hasError) return [SliverToBoxAdapter(child: _error(onRetry))];
   }
   if (data == null || data.isEmpty) {
-    return [SliverToBoxAdapter(child: _empty(emptyText))];
+    return [
+      SliverToBoxAdapter(
+          child: _empty(emptyText, icon: emptyIcon, actions: emptyActions)),
+    ];
   }
   return onData(data);
 }
@@ -66,13 +116,17 @@ Widget asyncStateBox<T>({
   required Widget Function(List<T> data) onData,
   required String emptyText,
   required VoidCallback onRetry,
+  IconData emptyIcon = Icons.library_music_outlined,
+  List<Widget> emptyActions = const [],
 }) {
   final data = async.value;
   if (data == null) {
     if (async.isLoading) return _loading();
     if (async.hasError) return _error(onRetry);
   }
-  if (data == null || data.isEmpty) return _empty(emptyText);
+  if (data == null || data.isEmpty) {
+    return _empty(emptyText, icon: emptyIcon, actions: emptyActions);
+  }
   return onData(data);
 }
 

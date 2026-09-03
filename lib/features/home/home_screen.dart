@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
+import '../player/action_sheets.dart';
 import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
@@ -199,27 +202,37 @@ class _AlbumRow extends ConsumerWidget {
 
   static const _cardWidth = 140.0;
 
+  /// 封面 140 + 间距 8 + 双行标题 ~34 + 间距 4 + 歌手 ~17
+  static const _rowHeight = 208.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final albums = ref.watch(provider);
     return albums.when(
       loading: () => const SizedBox(
-        height: 190,
+        height: _rowHeight,
         child: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) =>
           _ErrorRetry(message: '$e', onRetry: () => ref.invalidate(provider)),
       data: (list) {
         if (list.isEmpty) {
-          return const SizedBox(
-            height: 150,
-            child: Center(
-              child: Text('暂无内容', style: TextStyle(color: Colors.white38)),
-            ),
+          return glassEmptyState(
+            text: '暂无专辑',
+            icon: Icons.album_outlined,
+            padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.xl, horizontal: AppSpacing.l),
+            actions: [
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(provider),
+                icon: const Icon(Icons.sync, size: 18),
+                label: const Text('重新同步'),
+              ),
+            ],
           );
         }
         return SizedBox(
-          height: 190,
+          height: _rowHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -264,23 +277,23 @@ class _AlbumCard extends StatelessWidget {
                 size: _AlbumRow._cardWidth,
                 radius: 8,
               ),
-              const SizedBox(height: 8),
-              Text(
+              const SizedBox(height: AppSpacing.s),
+              // 双行 12sp：避免「我的楼兰（2026新…」这类粗暴截断；
+              // 两行仍放不下时长按可跑马灯读全名
+              MarqueeText(
                 album.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
+              const SizedBox(height: AppSpacing.xs),
+              MarqueeText(
                 album.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                style:
+                    const TextStyle(color: Color(0xFF666666), fontSize: 12),
               ),
             ],
           ),
@@ -342,11 +355,10 @@ class _SongListSection extends ConsumerWidget {
         if (list.isEmpty) {
           return _Section(
             title: title,
-            child: const SizedBox(
-              height: 60,
-              child: Center(
-                child: Text('暂无内容', style: TextStyle(color: Colors.white38)),
-              ),
+            child: glassEmptyState(
+              text: '$title暂无内容',
+              padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.l, horizontal: AppSpacing.l),
             ),
           );
         }
@@ -363,7 +375,7 @@ class _SongListSection extends ConsumerWidget {
               ),
             ),
           ),
-          child: GlassCard(
+          child: GlassContainer(
             margin: const EdgeInsets.symmetric(horizontal: 12),
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
@@ -398,6 +410,8 @@ class _SongCardRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       onTap: () => _play(context, ref),
+      // 长按唤出上下文菜单（与详情页 SongRow 行为一致）
+      onLongPress: () => showSongActionSheet(context, song),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
         child: Row(
@@ -431,12 +445,15 @@ class _SongCardRow extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 4),
+            // 命中区 44×44dp：圆圈图标本身偏小，靠 constraints 兜住可点范围
             IconButton(
               onPressed: () => _play(context, ref),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               icon: const Icon(
                 Icons.play_circle_outline,
-                size: 32,
+                size: 34,
                 color: Colors.white,
               ),
             ),

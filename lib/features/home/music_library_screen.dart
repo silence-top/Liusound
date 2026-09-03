@@ -62,17 +62,21 @@ class MusicLibraryScreen extends ConsumerWidget {
   }
 }
 
-/// 服务器卡片：唱片图标 + Navidrome + 主线路 + 歌曲总数
-class _ServerCard extends StatelessWidget {
+/// 服务器卡片：后端图标 + 服务器名 + 类型/账号 + 歌曲总数
+/// 标题与副标题读自当前激活服务器，六种后端各自正确显示（不再硬编码 Navidrome）
+class _ServerCard extends ConsumerWidget {
   const _ServerCard({required this.total});
 
   final int total;
 
   @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(authControllerProvider).activeConfig;
+    final type = config?.type;
+    return GlassContainer(
+      margin: const EdgeInsets.fromLTRB(
+          AppSpacing.l, AppSpacing.s, AppSpacing.l, AppSpacing.s),
+      padding: const EdgeInsets.all(AppSpacing.l),
       child: Row(
         children: [
           Container(
@@ -80,23 +84,32 @@ class _ServerCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.m),
             ),
-            child: const Icon(Icons.album, color: AppTheme.primary, size: 28),
+            child: Icon(type?.fallbackIcon ?? Icons.album,
+                color: AppTheme.primary, size: 26),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Navidrome',
-                    style: TextStyle(
+                Text(config?.name ?? '未连接服务器',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text('主线路',
-                    style: TextStyle(color: Colors.white38, fontSize: 12)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                    type == null
+                        ? '点击设置添加服务器'
+                        : '${type.displayName} · ${config!.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 12)),
               ],
             ),
           ),
@@ -159,29 +172,21 @@ class _Entry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
+      child: GlassCard(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 0.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 26, color: AppTheme.primary),
-              const SizedBox(height: 6),
-              Text(label,
-                  style:
-                      const TextStyle(color: Colors.white70, fontSize: 12)),
-            ],
-          ),
+        radius: AppRadius.m,
+        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+        child: Column(
+          children: [
+            Icon(icon, size: 24, color: AppTheme.primary),
+            const SizedBox(height: AppSpacing.xs),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
         ),
       ),
     );
@@ -223,12 +228,18 @@ class _PlaylistSection extends ConsumerWidget {
           ),
           data: (list) {
             if (list.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(
-                  child: Text('暂无歌单',
-                      style: TextStyle(color: Colors.white38, fontSize: 14)),
-                ),
+              return glassEmptyState(
+                text: '还没有歌单\n在服务端创建或重新同步后会显示在这里',
+                icon: Icons.queue_music_outlined,
+                padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.xl, horizontal: AppSpacing.l),
+                actions: [
+                  FilledButton.icon(
+                    onPressed: () => ref.invalidate(playlistsProvider),
+                    icon: const Icon(Icons.sync, size: 18),
+                    label: const Text('重新同步'),
+                  ),
+                ],
               );
             }
             return GlassCard(
