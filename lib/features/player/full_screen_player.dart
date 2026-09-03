@@ -142,11 +142,12 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                       ),
                     ),
                     ListenableBuilder(
-                      listenable: _tab,
+                      listenable: _tab.animation!,
                       builder: (_, _) {
-                        // index+offset = 当前手势位置（拖动中连续变化），
-                        // 高亮随手指实时过渡，而不是等落页才跳变
-                        final p = _tab.index + _tab.offset;
+                        // animation.value 就是 TabBarView 摆放页面的实时位置
+                        // （拖动/动画每帧更新），与可见页严格同步，
+                        // 高亮随手指过渡而不是等落页才跳变
+                        final p = _tab.animation!.value;
                         return Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
