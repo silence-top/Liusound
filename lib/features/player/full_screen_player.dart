@@ -540,6 +540,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   bool _showBilingual = true; // 双语歌词开关（默认开，全局持久化）
   double _offset = 0;
   bool _manualScrolling = false;
+  // 程序化 animateTo 计数：滚动通知监听据此排除自动滚动，避免误设 _manualScrolling
+  int _autoScrollCount = 0;
+  bool _syncScheduled = false;
   bool _showLrcMenu = false;
   bool _showLyricAdjust = false;
   bool _showVolume = false;
@@ -663,6 +666,18 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       setState(() =>
           _offset = double.parse((_offset + delta).toStringAsFixed(2)));
 
+  /// 进度/拖动流触发的同步统一推迟到帧后执行：
+  /// ref.listen 可能在 build 阶段同步回调，此时 jumpTo/animateTo 会污染布局管线，
+  /// 导致后续帧持续断言失败、命中测试失效（真机上表现为所有点击无响应）。
+  void _scheduleSyncIndex() {
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncScheduled = false;
+      if (mounted) _syncIndex();
+    });
+  }
+
   /// 计算当前行并同步高亮/滚动（进度流与拖动流共同触发）
   void _syncIndex() {
     if (_displayLines.isEmpty) return;
@@ -687,9 +702,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       // 拖动进度条时无动画立即跟随（对齐 1.x handleSliderChange）
       _controller.jumpTo(target);
     } else if (!_manualScrolling) {
+      _autoScrollCount++;
       _controller.animateTo(target,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut);
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+        .whenComplete(() => _autoScrollCount--);
     }
   }
 
@@ -697,8 +713,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   Widget build(BuildContext context) {
     super.build(context);
 
-    ref.listen(positionProvider, (_, _) => _syncIndex());
-    ref.listen(sliderDragValueProvider, (_, _) => _syncIndex());
+    ref.listen(positionProvider, (_, _) => _scheduleSyncIndex());
+    ref.listen(sliderDragValueProvider, (_, _) => _scheduleSyncIndex());
 
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
@@ -717,7 +733,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                 builder: (_, constraints) =>
                     NotificationListener<UserScrollNotification>(
                   onNotification: (n) {
-                    if (n.direction != ScrollDirection.idle) {
+                    if (_autoScrollCount == 0 &&
+                        n.direction != ScrollDirection.idle) {
                       _manualScrolling = true;
                       _manualScrollTimer?.cancel();
                       _manualScrollTimer = Timer(
