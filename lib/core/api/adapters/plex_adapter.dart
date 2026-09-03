@@ -150,6 +150,8 @@ class PlexAdapter implements ServerAdapter {
         SongSort.random => 'random',
         SongSort.rating => 'rating:desc',
         SongSort.recentlyAdded => 'addedAt:desc',
+        SongSort.recentlyPlayed => 'lastViewedAt:desc',
+        SongSort.mostPlayed => 'viewCount:desc',
         SongSort.track => 'index:asc',
       };
     }

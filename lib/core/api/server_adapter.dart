@@ -111,7 +111,7 @@ class AlbumQuery {
   final bool descending;
 }
 
-enum SongSort { title, random, rating, recentlyAdded, track }
+enum SongSort { title, random, rating, recentlyAdded, recentlyPlayed, mostPlayed, track }
 
 class SongQuery {
   const SongQuery({

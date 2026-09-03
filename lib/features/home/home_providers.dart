@@ -23,19 +23,21 @@ final latestAlbumsProvider = FutureProvider<List<Album>>((ref) async {
   );
 });
 
-final recentlyPlayedProvider = FutureProvider<List<Album>>((ref) async {
+/// 最近播放歌曲（首页歌曲列表分区）
+final recentlyPlayedSongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchAlbums(
-    const AlbumQuery(sort: AlbumSort.recentlyPlayed, limit: 20),
+  return adapter.fetchSongs(
+    const SongQuery(sort: SongSort.recentlyPlayed, limit: 50),
   );
 });
 
-final mostPlayedProvider = FutureProvider<List<Album>>((ref) async {
+/// 最常播放歌曲（首页歌曲列表分区）
+final mostPlayedSongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchAlbums(
-    const AlbumQuery(sort: AlbumSort.mostPlayed, limit: 20),
+  return adapter.fetchSongs(
+    const SongQuery(sort: SongSort.mostPlayed, limit: 50),
   );
 });
 

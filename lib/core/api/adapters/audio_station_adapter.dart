@@ -114,15 +114,25 @@ class AudioStationAdapter implements ServerAdapter {
     if (query.artistId != null) {
       return fetchArtistSongs(query.artistId!, limit: query.limit);
     }
+    final sortBy = switch (query.sort ?? SongSort.title) {
+      SongSort.title => 'title',
+      SongSort.random => 'random',
+      SongSort.rating => 'rating',
+      SongSort.recentlyAdded => 'createtime',
+      SongSort.recentlyPlayed => 'lastplayed',
+      SongSort.mostPlayed => 'playcount',
+      SongSort.track => 'track',
+    };
+    // 时间/热度类排序需要倒序（Audio Station 默认升序）
+    const descSorts = {
+      SongSort.rating,
+      SongSort.recentlyAdded,
+      SongSort.recentlyPlayed,
+      SongSort.mostPlayed,
+    };
     final data = await _api('SYNO.AudioStation.Song', 'list', {
-      'sort_by': switch (query.sort ?? SongSort.title) {
-        SongSort.title => 'title',
-        SongSort.random => 'random',
-        SongSort.rating => 'rating',
-        SongSort.recentlyAdded => 'createtime',
-        SongSort.track => 'track',
-      },
-      'sort_order': 'asc',
+      'sort_by': sortBy,
+      'sort_order': descSorts.contains(query.sort) ? 'desc' : 'asc',
       'limit': '${query.limit}',
       'offset': '${query.start}',
     });
