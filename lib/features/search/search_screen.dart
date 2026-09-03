@@ -72,13 +72,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             GlassSurface(
-              radius: GlassTokens.radiusCard,
+              radius: GlassTokens.radiusPill,
               blur: 0,
-              tint: Colors.white.withValues(alpha: 0.06),
+              tint: GlassTokens.tint,
               gradientBorder: true,
               shadow: false,
               margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   const Icon(Icons.search, size: 24, color: AppTheme.textDim),
@@ -89,16 +89,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       onChanged: _onChanged,
                       autocorrect: false,
                       textInputAction: TextInputAction.search,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 16),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: const InputDecoration(
                         hintText: '搜索音乐、专辑、艺人',
-                        hintStyle:
-                            TextStyle(color: AppTheme.textDim, fontSize: 16),
+                        hintStyle: TextStyle(
+                          color: AppTheme.textDim,
+                          fontSize: 16,
+                        ),
                         border: InputBorder.none,
                         filled: false,
-                        contentPadding:
-                            EdgeInsets.symmetric(vertical: 16),
+                        contentPadding: EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
                   ),
@@ -106,8 +106,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     IconButton(
                       onPressed: _clear,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.cancel,
-                          size: 20, color: AppTheme.textDim),
+                      icon: const Icon(
+                        Icons.cancel,
+                        size: 20,
+                        color: AppTheme.textDim,
+                      ),
                     ),
                 ],
               ),
@@ -116,7 +119,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               current: _tab,
               onChanged: (t) => setState(() => _tab = t),
             ),
-            Expanded(child: _Results(query: query, tab: _tab)),
+            Expanded(
+              child: _Results(query: query, tab: _tab),
+            ),
           ],
         ),
       ),
@@ -133,7 +138,9 @@ class _Results extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(searchResultProvider).when(
+    return ref
+        .watch(searchResultProvider)
+        .when(
           // 新关键词请求期间保留上次结果，避免结果区闪烁 loading
           skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -147,12 +154,19 @@ class _Results extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.music_off,
-                        size: 48, color: AppTheme.textFaint),
+                    const Icon(
+                      Icons.music_off,
+                      size: 48,
+                      color: AppTheme.textFaint,
+                    ),
                     const SizedBox(height: 12),
-                    Text('未找到与"$query"相关的内容',
-                        style: const TextStyle(
-                            color: AppTheme.textDim, fontSize: 16)),
+                    Text(
+                      '未找到与"$query"相关的内容',
+                      style: const TextStyle(
+                        color: AppTheme.textDim,
+                        fontSize: 16,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -184,7 +198,7 @@ class _SegmentTabs extends StatelessWidget {
       child: GlassSurface(
         radius: GlassTokens.radiusPill,
         blur: 0,
-        tint: Colors.white.withValues(alpha: 0.06),
+        tint: GlassTokens.tint,
         gradientBorder: true,
         shadow: false,
         padding: const EdgeInsets.all(4),
@@ -195,8 +209,7 @@ class _SegmentTabs extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius:
-                        const BorderRadius.all(Radius.circular(999)),
+                    borderRadius: const BorderRadius.all(Radius.circular(999)),
                     onTap: () => onChanged(tab),
                     child: Container(
                       height: 32,
@@ -205,8 +218,9 @@ class _SegmentTabs extends StatelessWidget {
                         color: tab == current
                             ? AppTheme.primary.withValues(alpha: 0.18)
                             : Colors.transparent,
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(999)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(999),
+                        ),
                       ),
                       child: Text(
                         _labels[tab]!,
@@ -215,8 +229,9 @@ class _SegmentTabs extends StatelessWidget {
                           fontWeight: tab == current
                               ? FontWeight.w600
                               : FontWeight.normal,
-                          color:
-                              tab == current ? AppTheme.primary : AppTheme.textDim,
+                          color: tab == current
+                              ? AppTheme.primary
+                              : AppTheme.textDim,
                         ),
                       ),
                     ),
@@ -265,9 +280,10 @@ class _ResultList extends ConsumerWidget {
           children: [
             const Icon(Icons.music_off, size: 48, color: AppTheme.textFaint),
             const SizedBox(height: 12),
-            Text(_emptyText[tab]!,
-                style: const TextStyle(
-                    color: AppTheme.textDim, fontSize: 16)),
+            Text(
+              _emptyText[tab]!,
+              style: const TextStyle(color: AppTheme.textDim, fontSize: 16),
+            ),
           ],
         ),
       );
@@ -311,11 +327,14 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(title,
-          style: const TextStyle(
-              color: Colors.white,
-              fontSize: 19,
-              fontWeight: FontWeight.bold)),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 19,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -331,10 +350,7 @@ class _ArtistRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
-          ArtistDetailScreen(
-            artistId: artist.id,
-            artistName: artist.name,
-          ),
+          ArtistDetailScreen(artistId: artist.id, artistName: artist.name),
         ),
       ),
       child: Padding(
@@ -347,17 +363,22 @@ class _ArtistRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(artist.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(color: Colors.white, fontSize: 16)),
+                  Text(
+                    artist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                   const SizedBox(height: 2),
-                  Text('${artist.albumCount} 张专辑 · ${artist.songCount} 首',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: AppTheme.textDim, fontSize: 14)),
+                  Text(
+                    '${artist.albumCount} 张专辑 · ${artist.songCount} 首',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.textDim,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -386,17 +407,19 @@ class _AlbumRowCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(album.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 16)),
+                Text(
+                  album.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
                 const SizedBox(height: 2),
-                Text(album.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: AppTheme.textDim, fontSize: 14)),
+                Text(
+                  album.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppTheme.textDim, fontSize: 14),
+                ),
               ],
             ),
           ),
@@ -429,23 +452,31 @@ class _SongRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 16)),
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                   const SizedBox(height: 2),
-                  Text('${song.artist} - ${song.album}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: AppTheme.textDim, fontSize: 14)),
+                  Text(
+                    '${song.artist} - ${song.album}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.textDim,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.play_circle_outline,
-                size: 28, color: Colors.white),
+            const Icon(
+              Icons.play_circle_outline,
+              size: 28,
+              color: Colors.white,
+            ),
           ],
         ),
       ),

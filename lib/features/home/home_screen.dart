@@ -100,7 +100,11 @@ class _Greeting extends StatelessWidget {
     return FadeSlideIn(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-            AppSpacing.l, AppSpacing.xl, AppSpacing.l, 0),
+          AppSpacing.l,
+          AppSpacing.xl,
+          AppSpacing.l,
+          0,
+        ),
         child: Text(_greetingForNow(), style: AppText.h1),
       ),
     );
@@ -114,13 +118,12 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        fadeRoute<void>(const SearchScreen()),
-      ),
+      onTap: () =>
+          Navigator.of(context).push(fadeRoute<void>(const SearchScreen())),
       child: GlassSurface(
         radius: GlassTokens.radiusPill,
         blur: 0,
-        tint: Colors.white.withValues(alpha: 0.06),
+        tint: GlassTokens.tint,
         gradientBorder: true,
         shadow: false,
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -133,8 +136,10 @@ class _SearchBar extends StatelessWidget {
               Icon(Icons.search, size: 20, color: AppTheme.textDim),
               SizedBox(width: 8),
               Expanded(
-                child: Text('搜索',
-                    style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16)),
+                child: Text(
+                  '搜索',
+                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16),
+                ),
               ),
               Icon(Icons.qr_code, size: 20, color: AppTheme.textDim),
               SizedBox(width: 4),
@@ -165,11 +170,14 @@ class _Section extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Spacer(),
                 ?trailing,
               ],
@@ -206,8 +214,8 @@ class _AlbumRow extends ConsumerWidget {
           return const SizedBox(
             height: 150,
             child: Center(
-                child: Text('暂无内容',
-                    style: TextStyle(color: Colors.white38))),
+              child: Text('暂无内容', style: TextStyle(color: Colors.white38)),
+            ),
           );
         }
         return SizedBox(
@@ -251,16 +259,21 @@ class _AlbumCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CoverArt(albumId: album.id, size: _AlbumRow._cardWidth, radius: 8),
+              CoverArt(
+                albumId: album.id,
+                size: _AlbumRow._cardWidth,
+                radius: 8,
+              ),
               const SizedBox(height: 8),
               Text(
                 album.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500),
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -321,7 +334,9 @@ class _SongListSection extends ConsumerWidget {
       error: (e, _) => _Section(
         title: title,
         child: _ErrorRetry(
-            message: '$e', onRetry: () => ref.invalidate(provider)),
+          message: '$e',
+          onRetry: () => ref.invalidate(provider),
+        ),
       ),
       data: (list) {
         if (list.isEmpty) {
@@ -330,8 +345,8 @@ class _SongListSection extends ConsumerWidget {
             child: const SizedBox(
               height: 60,
               child: Center(
-                  child: Text('暂无内容',
-                      style: TextStyle(color: Colors.white38))),
+                child: Text('暂无内容', style: TextStyle(color: Colors.white38)),
+              ),
             ),
           );
         }
@@ -339,11 +354,14 @@ class _SongListSection extends ConsumerWidget {
           title: title,
           trailing: GestureDetector(
             onTap: () => _openDetail(context, list),
-            child: const Text('查看更多',
-                style: TextStyle(
-                    color: AppTheme.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold)),
+            child: const Text(
+              '查看更多',
+              style: TextStyle(
+                color: AppTheme.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           child: GlassCard(
             margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -395,17 +413,20 @@ class _SongCardRow extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${song.artist} - ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
+                    style: const TextStyle(
+                      color: Color(0xFFB0B0B0),
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -413,8 +434,11 @@ class _SongCardRow extends ConsumerWidget {
             const SizedBox(width: 12),
             IconButton(
               onPressed: () => _play(context, ref),
-              icon: const Icon(Icons.play_circle_outline,
-                  size: 32, color: Colors.white),
+              icon: const Icon(
+                Icons.play_circle_outline,
+                size: 32,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -437,8 +461,10 @@ class _ErrorRetry extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('加载失败',
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
+            const Text(
+              '加载失败',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+            ),
             const SizedBox(height: 4),
             TextButton(onPressed: onRetry, child: const Text('重试')),
           ],

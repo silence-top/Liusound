@@ -21,38 +21,42 @@ import 'queue_modal.dart';
 /// 专辑封面主色取色（动态背景，对标 Spotify 沉浸式播放页）。
 /// autoDispose 按封面 id 缓存；64px 缩样取 vibrant/muted/dominant，
 /// 任何异常返回 null（回退框架色），绝不阻塞播放器打开。
-final albumDominantColorProvider =
-    FutureProvider.autoDispose.family<Color?, String>((ref, albumId) async {
-  if (albumId.isEmpty) return null;
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return null;
-  try {
-    final ImageSource? cover = adapter.coverImage(albumId, size: 64);
-    if (cover == null) return null;
-    final palette = await PaletteGenerator.fromImageProvider(
-      NetworkImage(cover.url),
-      size: const Size(64, 64),
-      maximumColorCount: 16,
-    );
-    return (palette.vibrantColor ?? palette.mutedColor ?? palette.dominantColor)
-        ?.color;
-  } catch (_) {
-    return null;
-  }
-});
+final albumDominantColorProvider = FutureProvider.autoDispose
+    .family<Color?, String>((ref, albumId) async {
+      if (albumId.isEmpty) return null;
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return null;
+      try {
+        final ImageSource? cover = adapter.coverImage(albumId, size: 64);
+        if (cover == null) return null;
+        final palette = await PaletteGenerator.fromImageProvider(
+          NetworkImage(cover.url),
+          size: const Size(64, 64),
+          maximumColorCount: 16,
+        );
+        return (palette.vibrantColor ??
+                palette.mutedColor ??
+                palette.dominantColor)
+            ?.color;
+      } catch (_) {
+        return null;
+      }
+    });
 
 /// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
 /// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
-final similarSongsProvider =
-    FutureProvider.autoDispose.family<List<Song>, String>((ref, songId) {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return <Song>[];
-  return adapter.fetchSimilarSongs(songId);
-});
+final similarSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>, String>((ref, songId) {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return <Song>[];
+      return adapter.fetchSimilarSongs(songId);
+    });
 
 /// 热门歌曲（同歌手按 rating 取前 30，对标 1.x 推荐 Tab 的热门分区）
-final hotSongsProvider =
-    FutureProvider.autoDispose.family<List<Song>, String>((ref, artistId) {
+final hotSongsProvider = FutureProvider.autoDispose.family<List<Song>, String>((
+  ref,
+  artistId,
+) {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return <Song>[];
   return adapter.fetchArtistSongs(artistId).catchError((_) => <Song>[]);
@@ -95,8 +99,11 @@ class FullScreenPlayer extends ConsumerStatefulWidget {
 class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     with TickerProviderStateMixin {
   // 对齐 1.x：默认停留在"歌曲"Tab
-  late final TabController _tab =
-      TabController(length: 3, vsync: this, initialIndex: 1);
+  late final TabController _tab = TabController(
+    length: 3,
+    vsync: this,
+    initialIndex: 1,
+  );
 
   @override
   void dispose() {
@@ -111,8 +118,9 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
 
     final tabs = const ['推荐', '歌曲', '歌词'];
     // 封面主色 → 播放器背景渐变（取色中/失败回退框架色）
-    final tint =
-        ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull;
+    final tint = ref
+        .watch(albumDominantColorProvider(song.albumId))
+        .valueOrNull;
     final top = tint == null
         ? AppTheme.shell
         : Color.lerp(tint, Colors.black, 0.42)!;
@@ -167,41 +175,54 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                               GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: () => _tab.animateTo(i),
-                                child: Builder(builder: (context) {
-                                  final t =
-                                      (1 - (i - p).abs()).clamp(0.0, 1.0);
-                                  return Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        horizontal: 2, vertical: 6),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.12 * t),
-                                      borderRadius: BorderRadius.circular(20), // 圆角豁免：Tab 胶囊需随高度全圆贴合
-                                      border: t > 0
-                                          ? Border.all(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.15 * t),
-                                              width: 0.5,
-                                            )
-                                          : null,
-                                    ),
-                                    child: Text(
-                                      tabs[i],
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: t >= 0.5
-                                            ? FontWeight.bold
-                                            : FontWeight.w400,
-                                        color: Color.lerp(
+                                child: Builder(
+                                  builder: (context) {
+                                    final t = (1 - (i - p).abs()).clamp(
+                                      0.0,
+                                      1.0,
+                                    );
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 2,
+                                        vertical: 6,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.12 * t,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          20,
+                                        ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
+                                        border: t > 0
+                                            ? Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.15 * t,
+                                                ),
+                                                width: 0.5,
+                                              )
+                                            : null,
+                                      ),
+                                      child: Text(
+                                        tabs[i],
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: t >= 0.5
+                                              ? FontWeight.bold
+                                              : FontWeight.w400,
+                                          color: Color.lerp(
                                             const Color(0xFF888888),
                                             Colors.white,
-                                            t),
+                                            t,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }),
+                                    );
+                                  },
+                                ),
                               ),
                           ],
                         );
@@ -262,8 +283,7 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        if (canSimilar)
-          _SongSection(title: '相似歌曲', async: similar),
+        if (canSimilar) _SongSection(title: '相似歌曲', async: similar),
         _SongSection(title: '热门歌曲', async: hot),
       ],
     );
@@ -284,29 +304,35 @@ class _SongSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(30, 8, 0, 12),
-          child: Text(title,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white)),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
         ),
         ...switch (async) {
           null => [const SizedBox.shrink()],
-          AsyncValue(:final valueOrNull?) => valueOrNull.isEmpty
-              ? const [
-                  Padding(
-                    padding: EdgeInsets.only(left: 30, bottom: 24),
-                    child: Text('暂无数据',
-                        style: TextStyle(fontSize: 14, color: Colors.white38)),
-                  ),
-                ]
-              : [for (final s in valueOrNull) _SongRow(song: s)],
+          AsyncValue(:final valueOrNull?) =>
+            valueOrNull.isEmpty
+                ? const [
+                    Padding(
+                      padding: EdgeInsets.only(left: 30, bottom: 24),
+                      child: Text(
+                        '暂无数据',
+                        style: TextStyle(fontSize: 14, color: Colors.white38),
+                      ),
+                    ),
+                  ]
+                : [for (final s in valueOrNull) _SongRow(song: s)],
           _ => const [
-              SizedBox(
-                height: 80,
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
-            ],
+            SizedBox(
+              height: 80,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          ],
         },
       ],
     );
@@ -334,32 +360,38 @@ class _SongRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(fontSize: 16, color: Colors.white)),
+                  Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  ),
                   const SizedBox(height: 2),
-                  Text('${song.artist} - ${song.album}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14, color: Colors.white38)),
+                  Text(
+                    '${song.artist} - ${song.album}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, color: Colors.white38),
+                  ),
                 ],
               ),
             ),
             // 下一首播放（设计图行尾 ☰+ 按钮）
             IconButton(
               visualDensity: VisualDensity.compact,
-              icon: Icon(Icons.playlist_add,
-                  size: 22, color: Colors.white.withValues(alpha: 0.9)),
+              icon: Icon(
+                Icons.playlist_add,
+                size: 22,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
               tooltip: '下一首播放',
               onPressed: () {
                 ref.read(playerActionsProvider).playNextInQueue([song]);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('已设为下一首播放'),
-                      duration: Duration(seconds: 1)),
+                    content: Text('已设为下一首播放'),
+                    duration: Duration(seconds: 1),
+                  ),
                 );
               },
             ),
@@ -402,13 +434,13 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
         .map((s) => s.playing)
         .distinct()
         .listen((playing) {
-      if (!mounted) return;
-      if (playing) {
-        _spin.repeat();
-      } else {
-        _spin.stop();
-      }
-    });
+          if (!mounted) return;
+          if (playing) {
+            _spin.repeat();
+          } else {
+            _spin.stop();
+          }
+        });
   }
 
   @override
@@ -469,7 +501,8 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.05)),
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
                       ),
                     ),
                     Container(
@@ -478,7 +511,8 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.04)),
+                          color: Colors.white.withValues(alpha: 0.04),
+                        ),
                       ),
                     ),
                     // 中央封面（黑胶圆孔位；切歌淡入过渡）
@@ -487,7 +521,10 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                       child: KeyedSubtree(
                         key: ValueKey(song.albumId),
                         child: CoverArt(
-                            albumId: song.albumId, size: 120, radius: 8),
+                          albumId: song.albumId,
+                          size: 120,
+                          radius: 8,
+                        ),
                       ),
                     ),
                   ],
@@ -497,20 +534,25 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(song.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
+              child: Text(
+                song.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
             const SizedBox(height: 4),
-            Text(song.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 16, color: Colors.white38)),
+            Text(
+              song.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 16, color: Colors.white38),
+            ),
             const SizedBox(height: 32),
           ],
         ),
@@ -639,14 +681,17 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       _showBilingual = v;
       _rowHeight = v && _hasTranslation ? _lyricDualHeight : _lyricRowHeight;
     });
-    SharedPreferences.getInstance()
-        .then((p) => p.setBool(bilingualLyricsKey, v));
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool(bilingualLyricsKey, v),
+    );
     if (!_controller.hasClients) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final idx = _currentIndex.value;
       if (idx < 0 || !_controller.hasClients) return;
-      final target = (idx * _rowHeight + _rowHeight / 2)
-          .clamp(0.0, _controller.position.maxScrollExtent);
+      final target = (idx * _rowHeight + _rowHeight / 2).clamp(
+        0.0,
+        _controller.position.maxScrollExtent,
+      );
       _controller.jumpTo(target);
     });
   }
@@ -662,9 +707,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     }
   }
 
-  void _adjustOffset(double delta) =>
-      setState(() =>
-          _offset = double.parse((_offset + delta).toStringAsFixed(2)));
+  void _adjustOffset(double delta) => setState(
+    () => _offset = double.parse((_offset + delta).toStringAsFixed(2)),
+  );
 
   /// 进度/拖动流触发的同步统一推迟到帧后执行：
   /// ref.listen 可能在 build 阶段同步回调，此时 jumpTo/animateTo 会污染布局管线，
@@ -686,7 +731,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     if (drag != null) {
       t = drag / 1000.0;
     } else {
-      t = (ref.read(positionProvider).valueOrNull ?? Duration.zero)
+      t =
+          (ref.read(positionProvider).valueOrNull ?? Duration.zero)
               .inMilliseconds /
           1000.0;
     }
@@ -696,16 +742,22 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     if (idx < 0 || !_controller.hasClients) return;
     // 列表上下 padding 各为半个视口（见 build），行中心对齐视口中心
     // 只需滚到 idx*行高 + 半行高，首尾行同样可居中
-    final target = (idx * _rowHeight + _rowHeight / 2)
-        .clamp(0.0, _controller.position.maxScrollExtent);
+    final target = (idx * _rowHeight + _rowHeight / 2).clamp(
+      0.0,
+      _controller.position.maxScrollExtent,
+    );
     if (drag != null) {
       // 拖动进度条时无动画立即跟随（对齐 1.x handleSliderChange）
       _controller.jumpTo(target);
     } else if (!_manualScrolling) {
       _autoScrollCount++;
-      _controller.animateTo(target,
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
-        .whenComplete(() => _autoScrollCount--);
+      _controller
+          .animateTo(
+            target,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          )
+          .whenComplete(() => _autoScrollCount--);
     }
   }
 
@@ -719,8 +771,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
       return const Center(
-          child:
-              Text('暂无歌词', style: TextStyle(color: Colors.white38)));
+        child: Text('暂无歌词', style: TextStyle(color: Colors.white38)),
+      );
     }
 
     return Stack(
@@ -732,81 +784,92 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: LayoutBuilder(
                 builder: (_, constraints) =>
                     NotificationListener<UserScrollNotification>(
-                  onNotification: (n) {
-                    if (_autoScrollCount == 0 &&
-                        n.direction != ScrollDirection.idle) {
-                      _manualScrolling = true;
-                      _manualScrollTimer?.cancel();
-                      _manualScrollTimer = Timer(
-                          const Duration(milliseconds: 2500),
-                          () => _manualScrolling = false);
-                    }
-                    return false;
-                  },
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ListView.builder(
-                        controller: _controller,
-                        itemExtent: _rowHeight,
-                        padding: EdgeInsets.symmetric(
-                          vertical: constraints.maxHeight / 2,
-                          horizontal: 20,
-                        ),
-                        itemCount: _displayLines.length,
-                        itemBuilder: (_, i) => ValueListenableBuilder<int>(
-                          valueListenable: _currentIndex,
-                          builder: (_, current, _) =>
-                              _LyricRowTile(
-                            text: _displayLines[i].text,
-                            translation:
-                                _showBilingual ? _displayTranslations[i] : null,
-                            isCurrent: i == current,
-                            rowHeight: _rowHeight,
-                            onTap: () {
-                              // 点击行跳转（减去偏移，对齐 1.x handleLyricPress）
-                              final t = _displayLines[i].time - _offset;
-                              ref.read(playerActionsProvider).seek(
-                                  Duration(
-                                      milliseconds: (t * 1000).round()));
-                            },
-                          ),
-                        ),
-                      ),
-                      // 顶部/底部渐变遮罩（对齐 1.x lyricFadeTop/Bottom）
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: 0.2,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [_lyricFade, _lyricFade.withValues(alpha: 0)],
+                      onNotification: (n) {
+                        if (_autoScrollCount == 0 &&
+                            n.direction != ScrollDirection.idle) {
+                          _manualScrolling = true;
+                          _manualScrollTimer?.cancel();
+                          _manualScrollTimer = Timer(
+                            const Duration(milliseconds: 2500),
+                            () => _manualScrolling = false,
+                          );
+                        }
+                        return false;
+                      },
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ListView.builder(
+                            controller: _controller,
+                            itemExtent: _rowHeight,
+                            padding: EdgeInsets.symmetric(
+                              vertical: constraints.maxHeight / 2,
+                              horizontal: 20,
+                            ),
+                            itemCount: _displayLines.length,
+                            itemBuilder: (_, i) => ValueListenableBuilder<int>(
+                              valueListenable: _currentIndex,
+                              builder: (_, current, _) => _LyricRowTile(
+                                text: _displayLines[i].text,
+                                translation: _showBilingual
+                                    ? _displayTranslations[i]
+                                    : null,
+                                isCurrent: i == current,
+                                rowHeight: _rowHeight,
+                                onTap: () {
+                                  // 点击行跳转（减去偏移，对齐 1.x handleLyricPress）
+                                  final t = _displayLines[i].time - _offset;
+                                  ref
+                                      .read(playerActionsProvider)
+                                      .seek(
+                                        Duration(
+                                          milliseconds: (t * 1000).round(),
+                                        ),
+                                      );
+                                },
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: 0.15,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [_lyricFade, _lyricFade.withValues(alpha: 0)],
+                          // 顶部/底部渐变遮罩（对齐 1.x lyricFadeTop/Bottom）
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: FractionallySizedBox(
+                              heightFactor: 0.2,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      _lyricFade,
+                                      _lyricFade.withValues(alpha: 0),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: FractionallySizedBox(
+                              heightFactor: 0.15,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      _lyricFade,
+                                      _lyricFade.withValues(alpha: 0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
               ),
             ),
             // LRC / 音量按钮行（对齐 1.x lrcRow）
@@ -825,15 +888,18 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                       onTap: () => setState(() => _showLrcMenu = true),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.white),
                           // 圆角豁免：LRC 徽章沿用 1.x 小圆角
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('LRC',
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 14)),
+                        child: const Text(
+                          'LRC',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
                       ),
                     ),
                   ),
@@ -841,11 +907,15 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
-                        minWidth: 36, minHeight: 36),
-                    onPressed: () =>
-                        setState(() => _showVolume = !_showVolume),
-                    icon: const Icon(Icons.volume_up,
-                        size: 20, color: Colors.white),
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: () => setState(() => _showVolume = !_showVolume),
+                    icon: const Icon(
+                      Icons.volume_up,
+                      size: 20,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -866,16 +936,16 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 140),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xF51E1E1E),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              child: GlassSurface(
+                radius: AppRadius.l,
+                blur: GlassTokens.blurMedium,
+                tint: GlassTokens.tint,
+                gradientBorder: true,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  // 不用 stretch：Positioned 下宽度无约束，stretch 会迫使
+                  // 子项无限宽导致布局崩溃；收缩包裹最宽子项即等效效果
                   children: [
                     _menuItem(Icons.tune, '调整歌词', () {
                       setState(() {
@@ -883,7 +953,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                         _showLyricAdjust = true;
                       });
                     }),
-                    _menuSwitchItem(),
+                    _menuBilingualItem(),
                     _menuItem(Icons.search, '切换歌词', () {
                       setState(() {
                         _showLrcMenu = false;
@@ -910,24 +980,27 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 140),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xF51E1E1E),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              child: GlassSurface(
+                radius: AppRadius.l,
+                blur: GlassTokens.blurMedium,
+                tint: GlassTokens.tint,
+                gradientBorder: true,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  // 不用 stretch：Positioned 下宽度无约束，stretch 会迫使
+                  // 子项无限宽导致布局崩溃；收缩包裹最宽子项即等效效果
                   children: [
                     if (_tracks.length <= 1)
                       const Padding(
                         padding: EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        child: Text('没有其他音轨',
-                            style: TextStyle(
-                                color: Colors.white38, fontSize: 14)),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          '没有其他音轨',
+                          style: TextStyle(color: Colors.white38, fontSize: 14),
+                        ),
                       )
                     else
                       for (var i = 0; i < _tracks.length; i++)
@@ -949,40 +1022,49 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
           Positioned(
             right: 18,
             top: MediaQuery.of(context).size.height * 0.18,
-            child: Container(
-              width: 56,
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              decoration: BoxDecoration(
-                color: const Color(0xD91E1E1E),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _adjBtn(Icons.arrow_upward, () => _adjustOffset(0.05)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text('${_offset.toStringAsFixed(2)}s',
+            child: GlassSurface(
+              radius: AppRadius.xl,
+              blur: GlassTokens.blurMedium,
+              tint: GlassTokens.tint,
+              gradientBorder: true,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
+              child: SizedBox(
+                width: 56,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _adjBtn(Icons.arrow_upward, () => _adjustOffset(0.05)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        '${_offset.toStringAsFixed(2)}s',
                         style: const TextStyle(
-                            fontSize: 14, color: Colors.white)),
-                  ),
-                  _adjBtn(Icons.arrow_downward, () => _adjustOffset(-0.05)),
-                  _adjBtn(Icons.refresh, () => setState(() => _offset = 0)),
-                  _adjBtn(Icons.check, () {
-                    _persistOffset(_offset);
-                    setState(() => _showLyricAdjust = false);
-                  }),
-                  _adjBtn(Icons.content_copy, () {
-                    Clipboard.setData(ClipboardData(
-                        text:
-                            _lyrics.lines.map((l) => l.text).join('\n')));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    _adjBtn(Icons.arrow_downward, () => _adjustOffset(-0.05)),
+                    _adjBtn(Icons.refresh, () => setState(() => _offset = 0)),
+                    _adjBtn(Icons.check, () {
+                      _persistOffset(_offset);
+                      setState(() => _showLyricAdjust = false);
+                    }),
+                    _adjBtn(Icons.content_copy, () {
+                      Clipboard.setData(
+                        ClipboardData(
+                          text: _lyrics.lines.map((l) => l.text).join('\n'),
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
                           content: Text('歌词已复制'),
-                          duration: Duration(seconds: 1)),
-                    );
-                  }),
-                ],
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1001,43 +1083,49 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (d) => _applyVolume(d.localPosition.dx),
-              onHorizontalDragUpdate: (d) =>
-                  _applyVolume(d.localPosition.dx),
-              child: Container(
-                width: 180,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF222222),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                clipBehavior: Clip.antiAlias,
-                alignment: Alignment.centerLeft,
-                child: Stack(
-                  children: [
-                    FractionallySizedBox(
-                      widthFactor: _volume.clamp(0.08, 1.0),
-                      child: ColoredBox(color: Colors.white),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          Icon(Icons.volume_up,
-                              size: 22,
-                              color:
-                                  _volume > 0.5 ? Colors.black87 : Colors.white38),
-                          const SizedBox(width: 8),
-                          Text('${(_volume * 100).round()}%',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: _volume > 0.5
-                                      ? Colors.black87
-                                      : Colors.white)),
-                        ],
+              onHorizontalDragUpdate: (d) => _applyVolume(d.localPosition.dx),
+              child: GlassSurface(
+                radius: GlassTokens.radiusPill,
+                blur: GlassTokens.blurMedium,
+                tint: GlassTokens.tint,
+                gradientBorder: true,
+                child: SizedBox(
+                  width: 180,
+                  height: 36,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      FractionallySizedBox(
+                        widthFactor: _volume.clamp(0.08, 1.0),
+                        child: const ColoredBox(color: Color(0xE6FFFFFF)),
                       ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.volume_up,
+                              size: 22,
+                              color: _volume > 0.5
+                                  ? Colors.black87
+                                  : Colors.white38,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(_volume * 100).round()}%',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: _volume > 0.5
+                                    ? Colors.black87
+                                    : Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1067,25 +1155,25 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     ref.read(audioPlayerProvider).setVolume(v);
   }
 
-  /// 双语歌词菜单行：右侧内嵌开关，点击整行同样可切换（菜单保持展开）
-  Widget _menuSwitchItem() {
+  /// 双语歌词菜单行：开启时文字高亮、关闭时置灰，点击整行切换（菜单保持展开）
+  Widget _menuBilingualItem() {
     return InkWell(
       onTap: () => _toggleBilingual(!_showBilingual),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            const Icon(Icons.translate, size: 18, color: Colors.white),
+            Icon(
+              Icons.translate,
+              size: 18,
+              color: _showBilingual ? AppTheme.primary : Colors.white38,
+            ),
             const SizedBox(width: 12),
-            const Text('双语歌词',
-                style: TextStyle(color: Colors.white, fontSize: 16)),
-            const SizedBox(width: 16),
-            Transform.scale(
-              scale: 0.75,
-              child: Switch(
-                value: _showBilingual,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: _toggleBilingual,
+            Text(
+              '双语歌词',
+              style: TextStyle(
+                color: _showBilingual ? Colors.white : Colors.white38,
+                fontSize: 16,
               ),
             ),
           ],
@@ -1101,11 +1189,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: Colors.white),
+            Icon(icon, size: 18, color: Colors.white70),
             const SizedBox(width: 12),
-            Text(label,
-                style:
-                    const TextStyle(color: Colors.white, fontSize: 16)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
           ],
         ),
       ),
@@ -1117,7 +1206,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(icon, size: 22, color: Colors.white),
+        icon: Icon(icon, size: 22, color: Colors.white70),
         onPressed: onTap,
       ),
     );
@@ -1162,13 +1251,15 @@ class _LyricRowTile extends StatelessWidget {
                 shadows: isCurrent
                     ? const [
                         Shadow(
-                            offset: Offset(0, 2),
-                            blurRadius: 4,
-                            color: Color(0x80000000)),
+                          offset: Offset(0, 2),
+                          blurRadius: 4,
+                          color: Color(0x80000000),
+                        ),
                         Shadow(
-                            offset: Offset(0, 5),
-                            blurRadius: 12,
-                            color: Color(0x59000000)),
+                          offset: Offset(0, 5),
+                          blurRadius: 12,
+                          color: Color(0x59000000),
+                        ),
                       ]
                     : const [],
               ),
@@ -1206,17 +1297,21 @@ class _BottomArea extends ConsumerWidget {
 
   /// 收藏/取消收藏：乐观更新当前歌曲（❤ 即时变色），失败回滚
   Future<void> _toggleStar(
-      BuildContext context, WidgetRef ref, Song song) async {
+    BuildContext context,
+    WidgetRef ref,
+    Song song,
+  ) async {
     final newStarred = !song.starred;
-    ref.read(currentSongProvider.notifier).state =
-        song.copyWith(starred: newStarred);
-    final ok =
-        await ref.read(serverAdapterProvider)?.setStar(song.id, newStarred);
+    ref.read(currentSongProvider.notifier).state = song.copyWith(
+      starred: newStarred,
+    );
+    final ok = await ref
+        .read(serverAdapterProvider)
+        ?.setStar(song.id, newStarred);
     if (ok != true && context.mounted) {
       ref.read(currentSongProvider.notifier).state = song;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
+        const SnackBar(content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
       );
     }
   }
@@ -1243,22 +1338,25 @@ class _BottomArea extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(song?.title ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
-                      const SizedBox(height: 2),
                       Text(
-                        song != null
-                            ? '${song.artist} - ${song.album}'
-                            : '',
+                        song?.title ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 14, color: Colors.white38),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        song != null ? '${song.artist} - ${song.album}' : '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white38,
+                        ),
                       ),
                     ],
                   ),
@@ -1278,8 +1376,11 @@ class _BottomArea extends ConsumerWidget {
                       : () => _toggleStar(context, ref, song),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.more_vert,
-                      size: 22, color: Colors.white),
+                  icon: const Icon(
+                    Icons.more_vert,
+                    size: 22,
+                    color: Colors.white,
+                  ),
                   onPressed: song == null
                       ? null
                       : () => showSongActionSheet(context, song),
@@ -1305,8 +1406,10 @@ class _ProgressSlider extends ConsumerWidget {
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
     final drag = ref.watch(sliderDragValueProvider);
     final maxMs = duration.inMilliseconds.toDouble();
-    final value = (drag ?? position.inMilliseconds.toDouble())
-        .clamp(0.0, maxMs <= 0 ? 1.0 : maxMs);
+    final value = (drag ?? position.inMilliseconds.toDouble()).clamp(
+      0.0,
+      maxMs <= 0 ? 1.0 : maxMs,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1337,14 +1440,18 @@ class _ProgressSlider extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(_formatTime(drag != null
+                Text(
+                  _formatTime(
+                    drag != null
                         ? Duration(milliseconds: drag.round())
-                        : position),
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.white38)),
-                Text(_formatTime(duration),
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.white38)),
+                        : position,
+                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.white38),
+                ),
+                Text(
+                  _formatTime(duration),
+                  style: const TextStyle(fontSize: 12, color: Colors.white38),
+                ),
               ],
             ),
           ),
@@ -1433,12 +1540,7 @@ class _PlayButton extends ConsumerWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: ShapeDecoration(
           color: Colors.white.withValues(alpha: 0.08),
-          shape: CircleBorder(
-            side: BorderSide(
-              color: Colors.white,
-              width: 2,
-            ),
-          ),
+          shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
         ),
         child: Icon(
           isPlaying ? Icons.pause : Icons.play_arrow,

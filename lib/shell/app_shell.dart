@@ -20,12 +20,23 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   // 对齐设计图首屏：搜索（首页内容）/ 音乐库（负一屏）/ 设置，默认搜索
   int _index = 0;
+  final _pageController = PageController();
 
-  static const _icons = [
-    Icons.search,
-    Icons.music_note,
-    Icons.settings,
-  ];
+  static const _icons = [Icons.search, Icons.music_note, Icons.settings];
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +64,7 @@ class _AppShellState extends State<AppShell> {
                               borderRadius: BorderRadius.circular(16),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(16),
-                                onTap: () => setState(() => _index = i),
+                                onTap: () => _goTo(i),
                                 child: SizedBox(
                                   width: 56,
                                   height: 48,
@@ -74,12 +85,13 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
               Expanded(
-                child: IndexedStack(
-                  index: _index,
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (i) => setState(() => _index = i),
                   children: const [
-                    HomeScreen(),
-                    MusicLibraryScreen(),
-                    SettingsScreen(),
+                    _KeepAlive(child: HomeScreen()),
+                    _KeepAlive(child: MusicLibraryScreen()),
+                    _KeepAlive(child: SettingsScreen()),
                   ],
                 ),
               ),
@@ -89,5 +101,27 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
     );
+  }
+}
+
+/// PageView 子页保活：等效 IndexedStack 的状态保持（页面切换零重建）
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
