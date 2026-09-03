@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/settings_prefs.dart';
 
 /// 统一页面转场：淡入 + 轻微上移（300ms easeOutCubic）。
 /// 全应用二级页一律用 `Navigator.push(context, fadeRoute(Page()))`，
@@ -88,5 +91,17 @@ class _PressableScaleState extends State<PressableScale> {
         child: widget.child,
       ),
     );
+  }
+}
+
+/// §8.5 省电模式动画工具：省电模式下将动画时长压缩为 40%，
+/// 减少 GPU 渲染压力同时保留基本过渡反馈
+abstract final class AppMotion {
+  static Duration duration(BuildContext context, Duration base) {
+    final powerSave =
+        ProviderScope.containerOf(context).read(powerSaveProvider);
+    return powerSave
+        ? Duration(milliseconds: (base.inMilliseconds * 0.4).round())
+        : base;
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import 'auth_controller.dart';
 
@@ -179,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(width: 2),
                           Switch(
                             value: _https,
-                            activeThumbColor: AppTheme.primary,
+                            activeThumbColor: Theme.of(context).colorScheme.primary,
                             onChanged: (v) => setState(() => _https = v),
                           ),
                         ],

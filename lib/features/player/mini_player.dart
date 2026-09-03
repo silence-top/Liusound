@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import 'full_screen_player.dart';
+import 'mini_bar_style.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
 
@@ -23,60 +23,94 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
     if (song == null) return const SizedBox.shrink();
+    final barStyle = ref.watch(miniBarStyleProvider);
+    final offset = ref.watch(miniBarOffsetProvider);
+
+    final inner = Row(
+      children: [
+        _SpinCover(song: song),
+        const SizedBox(width: 12),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => openFullScreenPlayer(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  song.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                _LyricSubtitle(song: song),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: () => showQueueModal(context),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.queue_music,
+              size: 28,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final content = switch (barStyle) {
+      MiniBarStyle.glass => GlassPill(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          padding:
+              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+          child: inner,
+        ),
+      MiniBarStyle.solid => Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          padding:
+              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2C3A),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: inner,
+        ),
+      MiniBarStyle.gradient => Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          padding:
+              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+                const Color(0xFF1A2C3A),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: inner,
+        ),
+    };
 
     return _SwipeToSwitch(
-      child: GlassPill(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-        child: Row(
-          children: [
-            _SpinCover(song: song),
-            const SizedBox(width: 12),
-            // 文字区：点击进入全屏播放器
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => openFullScreenPlayer(context),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      song.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    _LyricSubtitle(song: song),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // 队列按钮：打开队列弹窗
-            GestureDetector(
-              onTap: () => showQueueModal(context),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.queue_music,
-                  size: 28,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: offset != 0
+          ? Transform.translate(offset: Offset(0, -offset), child: content)
+          : content,
     );
   }
 }
@@ -166,16 +200,25 @@ class _ProgressRing extends ConsumerWidget {
 
     return CustomPaint(
       size: const Size(48, 48),
-      painter: _RingPainter(progress: progress, stroke: _stroke),
+      painter: _RingPainter(
+        progress: progress,
+        stroke: _stroke,
+        accentColor: Theme.of(context).colorScheme.primary,
+      ),
     );
   }
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.progress, required this.stroke});
+  const _RingPainter({
+    required this.progress,
+    required this.stroke,
+    required this.accentColor,
+  });
 
   final double progress;
   final double stroke;
+  final Color accentColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -189,7 +232,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = AppTheme.primary; // 进度环与全局主色一致
+      ..color = accentColor; // 进度环与全局主色一致
 
     canvas.drawCircle(center, radius, trackPaint);
     if (progress > 0) {
@@ -204,7 +247,8 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.progress != progress;
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.accentColor != accentColor;
 }
 
 /// 副标题：优先当前歌词行，其次下一行，无歌词时显示「歌手 - 专辑」（对齐 1.x）。

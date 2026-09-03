@@ -79,7 +79,7 @@ class _AppShellState extends State<AppShell> {
             Expanded(
               child: Material(
                 color: _index == i
-                    ? AppTheme.primary.withValues(alpha: 0.18)
+                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 child: InkWell(
@@ -93,7 +93,7 @@ class _AppShellState extends State<AppShell> {
                         Icon(
                           _icons[i],
                           size: 22,
-                          color: _index == i ? AppTheme.primary : Colors.white,
+                          color: _index == i ? Theme.of(context).colorScheme.primary : Colors.white,
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -102,7 +102,7 @@ class _AppShellState extends State<AppShell> {
                             fontSize: 10,
                             height: 1.2,
                             color: _index == i
-                                ? AppTheme.primary
+                                ? Theme.of(context).colorScheme.primary
                                 : Colors.white54,
                           ),
                         ),

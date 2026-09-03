@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../core/theme/accent.dart';
+import '../../core/theme/background.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/cover_style.dart';
+import '../player/mini_bar_style.dart';
 import '../player/player_controller.dart';
 import 'servers_screen.dart';
 
@@ -33,6 +37,13 @@ class SettingsScreen extends ConsumerWidget {
     final speed = ref.watch(playbackSpeedProvider);
     final glassLevel = ref.watch(glassQualityProvider);
     final coverStyle = ref.watch(coverStyleProvider);
+    final accent = ref.watch(appAccentProvider);
+    final bgConfig = ref.watch(backgroundProvider);
+    final barStyle = ref.watch(miniBarStyleProvider);
+    final barOffset = ref.watch(miniBarOffsetProvider);
+    final showIcons = ref.watch(settingsIconsProvider);
+    final endText = ref.watch(listEndTextProvider);
+    final powerSave = ref.watch(powerSaveProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
     return Scaffold(
@@ -112,6 +123,59 @@ class SettingsScreen extends ConsumerWidget {
                 title: '唱片形态',
                 subtitle: coverStyle.label,
                 onTap: () => _showCoverStylePicker(context, ref),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.palette_outlined,
+                title: '主题色',
+                subtitle: accent.label,
+                onTap: () => _showAccentPicker(context, ref),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.image_outlined,
+                title: '自定义背景',
+                subtitle: bgConfig.path != null ? '已设置' : '未设置',
+                onTap: () => _showBackgroundSettings(context, ref),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.tune,
+                title: '控制栏样式',
+                subtitle: barStyle.label,
+                onTap: () => _showMiniBarStylePicker(context, ref),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.height,
+                title: '控制栏高度偏移',
+                subtitle: barOffset == 0 ? '默认' : '${barOffset.toStringAsFixed(0)}px',
+                onTap: () => _showMiniBarOffsetPicker(context, ref),
+              ),
+              _divider,
+              _SwitchTile(
+                icon: Icons.view_list_outlined,
+                title: '设置项图标',
+                subtitle: showIcons ? '显示' : '隐藏',
+                value: showIcons,
+                onChanged: (v) =>
+                    ref.read(settingsIconsProvider.notifier).setVisible(v),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.text_fields,
+                title: '列表触底文案',
+                subtitle: endText,
+                onTap: () => _showEndTextEditor(context, ref),
+              ),
+              _divider,
+              _SwitchTile(
+                icon: Icons.battery_saver_outlined,
+                title: '省电模式',
+                subtitle: powerSave ? '已开启：关闭模糊、压缩动画' : '关闭',
+                value: powerSave,
+                onChanged: (v) =>
+                    ref.read(powerSaveProvider.notifier).setEnabled(v),
               ),
             ],
           ),
@@ -255,7 +319,7 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
         for (final level in GlassLevel.values)
           ListTile(
             leading: level == current
-                ? const Icon(Icons.check, color: AppTheme.primary)
+                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
                 : const SizedBox(width: 24),
             title: Text(
               level.label,
@@ -301,7 +365,7 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
           ListTile(
             leading: Icon(style.icon, color: Colors.white70),
             trailing: style == current
-                ? const Icon(Icons.check, color: AppTheme.primary)
+                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
                 : null,
             title: Text(
               style.label,
@@ -323,6 +387,293 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
       ],
     ),
   );
+}
+
+/// 主题色选择（§8.1）：六个预设色板，选中后立即生效并持久化
+Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(appAccentProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text('主题色',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              for (final a in AppAccent.values)
+                GestureDetector(
+                  onTap: () {
+                    ref.read(appAccentProvider.notifier).setAccent(a);
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: a.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: a == current ? Colors.white : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: a == current
+                        ? const Icon(Icons.check, color: Colors.white, size: 24)
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final a in AppAccent.values)
+          if (a == current)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(a.label,
+                  style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            ),
+      ],
+    ),
+  );
+}
+
+/// 自定义背景设置（§8.1）：选图 / 清除 + 不透明度与模糊度滑块
+Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
+  return glassBottomSheet<void>(
+    context,
+    Consumer(builder: (context, ref, _) {
+      final bg = ref.watch(backgroundProvider);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('自定义背景',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.icon(
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final img = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1920,
+                    maxHeight: 1920,
+                    imageQuality: 85,
+                  );
+                  if (img != null) {
+                    await ref
+                        .read(backgroundProvider.notifier)
+                        .setImage(img.path);
+                  }
+                },
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: const Text('选择图片'),
+              ),
+              if (bg.path != null) ...[
+                const SizedBox(width: 12),
+                TextButton.icon(
+                  onPressed: () =>
+                      ref.read(backgroundProvider.notifier).clearImage(),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('清除'),
+                ),
+              ],
+            ],
+          ),
+          if (bg.path != null) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('不透明度 ${(bg.opacity * 100).round()}%',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 13)),
+                  SliderTheme(
+                    data: const SliderThemeData(trackHeight: 2),
+                    child: Slider(
+                      value: bg.opacity,
+                      min: 0.05,
+                      max: 1.0,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      inactiveColor: Colors.white24,
+                      onChanged: (v) => ref
+                          .read(backgroundProvider.notifier)
+                          .setOpacity(v),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('模糊度 ${bg.blur.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 13)),
+                  SliderTheme(
+                    data: const SliderThemeData(trackHeight: 2),
+                    child: Slider(
+                      value: bg.blur,
+                      min: 0,
+                      max: 30,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      inactiveColor: Colors.white24,
+                      onChanged: (v) =>
+                          ref.read(backgroundProvider.notifier).setBlur(v),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text('图片仅保存在本地，不会上传到任何服务器',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ),
+        ],
+      );
+    }),
+  );
+}
+
+/// 控制栏样式选择（§8.2）：毛玻璃 / 纯色 / 渐变
+Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(miniBarStyleProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text('控制栏样式',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ),
+        for (final style in MiniBarStyle.values)
+          ListTile(
+            leading: Icon(
+              switch (style) {
+                MiniBarStyle.glass => Icons.blur_on_outlined,
+                MiniBarStyle.solid => Icons.rectangle_outlined,
+                MiniBarStyle.gradient => Icons.gradient_outlined,
+              },
+              color: Colors.white70,
+            ),
+            trailing: style == current
+                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                : null,
+            title: Text(style.label,
+                style: const TextStyle(color: Colors.white, fontSize: 16)),
+            onTap: () {
+              ref.read(miniBarStyleProvider.notifier).setStyle(style);
+              Navigator.of(context).pop();
+            },
+          ),
+        const SizedBox(height: 12),
+      ],
+    ),
+  );
+}
+
+/// 控制栏高度偏移微调（§8.2）：-20 ~ 40px，步进 2
+Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
+  return glassBottomSheet<void>(
+    context,
+    Consumer(builder: (context, ref, _) {
+      final offset = ref.watch(miniBarOffsetProvider);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('控制栏高度偏移',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Text('${offset.toStringAsFixed(0)}px',
+                    style: const TextStyle(color: Colors.white, fontSize: 20)),
+                SliderTheme(
+                  data: const SliderThemeData(trackHeight: 2),
+                  child: Slider(
+                    value: offset,
+                    min: -20,
+                    max: 40,
+                    divisions: 30,
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    inactiveColor: Colors.white24,
+                    onChanged: (v) =>
+                        ref.read(miniBarOffsetProvider.notifier).setOffset(v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text('正值上移、负值下移，用于适配不同底部导航栏高度',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ),
+        ],
+      );
+    }),
+  );
+}
+
+/// 列表触底文案编辑（§8.4）
+Future<void> _showEndTextEditor(BuildContext context, WidgetRef ref) async {
+  final current = ref.read(listEndTextProvider);
+  final controller = TextEditingController(text: current);
+  final result = await glassDialog<String>(
+    context,
+    title: '列表触底文案',
+    content: TextField(
+      controller: controller,
+      autofocus: true,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+      decoration: const InputDecoration(hintText: '留空恢复默认'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('取消'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+        child: const Text('保存'),
+      ),
+    ],
+  );
+  controller.dispose();
+  if (result != null) {
+    ref.read(listEndTextProvider.notifier).setText(result);
+  }
 }
 
 class _GroupCard extends StatelessWidget {
@@ -360,7 +711,7 @@ class _GroupCard extends StatelessWidget {
   }
 }
 
-class _SwitchTile extends StatelessWidget {
+class _SwitchTile extends ConsumerWidget {
   const _SwitchTile({
     required this.icon,
     required this.title,
@@ -376,9 +727,12 @@ class _SwitchTile extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showIcons = ref.watch(settingsIconsProvider);
     return SwitchListTile(
-      secondary: Icon(icon, color: Colors.white70),
+      secondary: showIcons
+          ? Icon(icon, color: Colors.white70)
+          : const SizedBox(width: 24),
       title: Text(
         title,
         style: const TextStyle(color: Colors.white, fontSize: 16),
@@ -388,13 +742,13 @@ class _SwitchTile extends StatelessWidget {
         style: const TextStyle(color: Colors.white38, fontSize: 12),
       ),
       value: value,
-      activeThumbColor: AppTheme.primary,
+      activeThumbColor: Theme.of(context).colorScheme.primary,
       onChanged: onChanged,
     );
   }
 }
 
-class _ActionTile extends StatelessWidget {
+class _ActionTile extends ConsumerWidget {
   const _ActionTile({
     required this.icon,
     required this.title,
@@ -412,9 +766,12 @@ class _ActionTile extends StatelessWidget {
   final Color? titleColor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showIcons = ref.watch(settingsIconsProvider);
     return ListTile(
-      leading: Icon(icon, color: iconColor ?? Colors.white70),
+      leading: showIcons
+          ? Icon(icon, color: iconColor ?? Colors.white70)
+          : const SizedBox(width: 24),
       title: Text(
         title,
         style: TextStyle(color: titleColor ?? Colors.white, fontSize: 16),
@@ -487,7 +844,7 @@ class _VolumeTile extends ConsumerWidget {
             ),
             child: Slider(
               value: volume,
-              activeColor: AppTheme.primary,
+              activeColor: Theme.of(context).colorScheme.primary,
               inactiveColor: Colors.white24,
               onChanged: (v) => player.setVolume(v),
             ),

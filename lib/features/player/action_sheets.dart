@@ -538,7 +538,7 @@ class _SpeedContent extends ConsumerWidget {
         for (final s in _speeds)
           ListTile(
             leading: s == speed
-                ? const Icon(Icons.check, color: AppTheme.primary)
+                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
                 : const SizedBox(width: 24),
             title: Text(
               s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
@@ -588,7 +588,7 @@ Future<void> downloadSongs(
       barrierDismissible: false,
       content: ValueListenableBuilder<(String, double?)>(
         valueListenable: state,
-        builder: (_, v, _) => Column(
+        builder: (dialogCtx, v, _) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -604,7 +604,7 @@ Future<void> downloadSongs(
             LinearProgressIndicator(
               value: v.$2,
               backgroundColor: Colors.white12,
-              color: AppTheme.primary,
+              color: Theme.of(dialogCtx).colorScheme.primary,
             ),
           ],
         ),

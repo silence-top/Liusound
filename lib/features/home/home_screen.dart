@@ -369,10 +369,10 @@ class _SongListSection extends ConsumerWidget {
           title: title,
           trailing: GestureDetector(
             onTap: () => _openDetail(context, list),
-            child: const Text(
+            child: Text(
               '查看更多',
               style: TextStyle(
-                color: AppTheme.primary,
+                color: Theme.of(context).colorScheme.primary,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),

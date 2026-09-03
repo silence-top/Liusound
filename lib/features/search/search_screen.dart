@@ -216,7 +216,7 @@ class _SegmentTabs extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: tab == current
-                            ? AppTheme.primary.withValues(alpha: 0.18)
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
                             : Colors.transparent,
                         borderRadius: const BorderRadius.all(
                           Radius.circular(999),
@@ -230,7 +230,7 @@ class _SegmentTabs extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.normal,
                           color: tab == current
-                              ? AppTheme.primary
+                              ? Theme.of(context).colorScheme.primary
                               : AppTheme.textDim,
                         ),
                       ),

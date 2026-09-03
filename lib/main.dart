@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/accent.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
@@ -55,7 +56,7 @@ class MusicApp extends ConsumerWidget {
       child: MaterialApp(
         title: '流声',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
+        theme: AppTheme.build(ref.watch(appAccentProvider).color),
         home: !auth.initialized
             ? const _Splash()
             : auth.isAuthenticated
