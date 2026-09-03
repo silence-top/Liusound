@@ -52,8 +52,11 @@ class ArtistDetailScreen extends ConsumerWidget {
               ),
             ),
             leading: const BackButton(),
-            title: Text(artistName,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(
+              artistName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -67,8 +70,9 @@ class ArtistDetailScreen extends ConsumerWidget {
             async: albumsAsync,
             emptyText: '暂无专辑',
             onRetry: () => ref.invalidate(artistAlbumsProvider(artistId)),
-            onData: (albums) =>
-                [SliverToBoxAdapter(child: _AlbumSection(albums: albums))],
+            onData: (albums) => [
+              SliverToBoxAdapter(child: _AlbumSection(albums: albums)),
+            ],
           ),
           ...sliverAsyncGuard<Song>(
             async: songsAsync,
@@ -78,7 +82,11 @@ class ArtistDetailScreen extends ConsumerWidget {
               SliverList.builder(
                 itemCount: songs.length,
                 itemBuilder: (context, index) => FadeSlideIn(
-                  child: SongRow(song: songs[index], index: index, songs: songs),
+                  child: SongRow(
+                    song: songs[index],
+                    index: index,
+                    songs: songs,
+                  ),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 64)),
@@ -116,16 +124,21 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text('$albumCount 张专辑 · $songCount 首歌曲',
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '$albumCount 张专辑 · $songCount 首歌曲',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
@@ -170,16 +183,23 @@ class _AlbumSection extends StatelessWidget {
                 children: [
                   CoverArt(albumId: album.id, size: 120, radius: 8),
                   const SizedBox(height: 6),
-                  Text(album.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold)),
-                  Text('${album.songCount} 首',
-                      style: const TextStyle(
-                          color: Color(0xFFB0BAC6), fontSize: 12)),
+                  Text(
+                    album.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${album.songCount} 首',
+                    style: const TextStyle(
+                      color: Color(0xFFB0BAC6),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),

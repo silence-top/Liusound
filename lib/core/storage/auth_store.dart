@@ -43,15 +43,15 @@ class AuthStore {
   }
 
   Future<void> saveSession(StoredSession session) => Future.wait([
-        _secure.write(key: _kToken, value: session.token),
-        _secure.write(key: _kSubsonicToken, value: session.subsonicToken),
-        _secure.write(key: _kSubsonicSalt, value: session.subsonicSalt),
-        () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(_kServerUrl, session.serverUrl);
-          await prefs.setString(_kUsername, session.username);
-        }(),
-      ]);
+    _secure.write(key: _kToken, value: session.token),
+    _secure.write(key: _kSubsonicToken, value: session.subsonicToken),
+    _secure.write(key: _kSubsonicSalt, value: session.subsonicSalt),
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kServerUrl, session.serverUrl);
+      await prefs.setString(_kUsername, session.username);
+    }(),
+  ]);
 
   /// 登出：清空全部会话数据（含两处敏感存储）
   Future<void> clear() async {

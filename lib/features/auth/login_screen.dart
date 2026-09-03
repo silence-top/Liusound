@@ -50,7 +50,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         host = host.substring(0, host.length - 1);
       }
       if (https != _https) _https = https;
-      await ref.read(authControllerProvider.notifier).login(
+      await ref
+          .read(authControllerProvider.notifier)
+          .login(
             widget.serverType,
             '${https ? 'https' : 'http'}://$host',
             _usernameController.text.trim(),
@@ -60,9 +62,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('登录失败：$error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('登录失败：$error')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -87,15 +88,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('登录 ${type.displayName}',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          '登录 ${type.displayName}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(type.tagline,
-                            style: const TextStyle(
-                                color: Colors.white38, fontSize: 14)),
+                        Text(
+                          type.tagline,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -110,7 +118,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _serverController,
                         keyboardType: TextInputType.url,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
                         decoration: InputDecoration(hintText: type.urlHint),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? '请输入服务器地址' : null,
@@ -120,7 +131,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _usernameController,
                         autofillHints: const [AutofillHints.username],
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
                         decoration: const InputDecoration(),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? '请输入用户名' : null,
@@ -132,25 +146,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         obscureText: _obscure,
                         autofillHints: const [AutofillHints.password],
                         onFieldSubmitted: (_) => _submit(),
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
                         decoration: InputDecoration(
                           suffixIcon: IconButton(
-                            icon: Icon(_obscure
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined),
-                            onPressed: () => setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
                           ),
                         ),
-                        validator: (v) => (v == null || v.isEmpty) ? '请输入密码' : null,
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? '请输入密码' : null,
                       ),
                       const SizedBox(height: 8),
                       // 登录按钮右上方：HTTPS 开关（默认 HTTP，局域网直连无需开启）
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text('启用 HTTPS',
-                              style: TextStyle(
-                                  color: Colors.white54, fontSize: 14)),
+                          const Text(
+                            '启用 HTTPS',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                            ),
+                          ),
                           const SizedBox(width: 2),
                           Switch(
                             value: _https,
@@ -165,16 +190,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             textStyle: const TextStyle(
-                                fontSize: 19, fontWeight: FontWeight.bold),
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           onPressed: _submitting ? null : _submit,
                           child: _submitting
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                  ),
                                 )
                               : const Text('登录'),
                         ),
@@ -201,8 +231,10 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text,
-          style: const TextStyle(color: Colors.white, fontSize: 16)),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
     );
   }
 }

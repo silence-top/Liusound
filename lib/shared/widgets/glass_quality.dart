@@ -8,10 +8,10 @@ enum GlassLevel { off, standard, enhanced }
 
 extension GlassLevelLabel on GlassLevel {
   String get label => switch (this) {
-        GlassLevel.off => '关闭（最流畅）',
-        GlassLevel.standard => '标准',
-        GlassLevel.enhanced => '增强（更通透）',
-      };
+    GlassLevel.off => '关闭（最流畅）',
+    GlassLevel.standard => '标准',
+    GlassLevel.enhanced => '增强（更通透）',
+  };
 }
 
 class GlassQualityController extends Notifier<GlassLevel> {
@@ -27,9 +27,9 @@ class GlassQualityController extends Notifier<GlassLevel> {
         'high' => GlassLevel.standard,
         'low' => GlassLevel.off,
         _ => GlassLevel.values.firstWhere(
-            (e) => e.name == saved,
-            orElse: () => GlassLevel.standard,
-          ),
+          (e) => e.name == saved,
+          orElse: () => GlassLevel.standard,
+        ),
       };
       if (level != state) state = level;
     });
@@ -45,7 +45,8 @@ class GlassQualityController extends Notifier<GlassLevel> {
 
 final glassQualityProvider =
     NotifierProvider<GlassQualityController, GlassLevel>(
-        GlassQualityController.new);
+      GlassQualityController.new,
+    );
 
 bool shouldUseBlur(BuildContext context) {
   final level = ProviderScope.containerOf(context).read(glassQualityProvider);

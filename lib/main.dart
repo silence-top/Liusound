@@ -29,7 +29,9 @@ Future<void> main() async {
   // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）
   final session = await AudioSession.instance;
   await session.configure(const AudioSessionConfiguration.music());
-  runApp(UncontrolledProviderScope(container: container, child: const MusicApp()));
+  runApp(
+    UncontrolledProviderScope(container: container, child: const MusicApp()),
+  );
 }
 
 class MusicApp extends ConsumerWidget {
@@ -57,8 +59,8 @@ class MusicApp extends ConsumerWidget {
         home: !auth.initialized
             ? const _Splash()
             : auth.isAuthenticated
-                ? const AppShell()
-                : const ServerSelectScreen(),
+            ? const AppShell()
+            : const ServerSelectScreen(),
       ),
     );
   }
@@ -78,10 +80,14 @@ class _SplashState extends State<_Splash> with SingleTickerProviderStateMixin {
     vsync: this,
     duration: const Duration(milliseconds: 600),
   )..forward();
-  late final Animation<double> _scale = Tween(begin: 0.85, end: 1.0)
-      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-  late final Animation<double> _fade =
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  late final Animation<double> _scale = Tween(
+    begin: 0.85,
+    end: 1.0,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
 
   @override
   void dispose() {
@@ -103,10 +109,12 @@ class _SplashState extends State<_Splash> with SingleTickerProviderStateMixin {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/app/logo.png',
-                        width: 96,
-                        height: 96,
-                        filterQuality: FilterQuality.medium),
+                    Image.asset(
+                      'assets/app/logo.png',
+                      width: 96,
+                      height: 96,
+                      filterQuality: FilterQuality.medium,
+                    ),
                     const SizedBox(height: AppSpacing.l),
                     Text('流声', style: AppText.h1),
                   ],

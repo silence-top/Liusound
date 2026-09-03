@@ -10,10 +10,7 @@ class JellyfinAdapter extends MediaBrowserAdapter {
   JellyfinAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  }) : super(
-          serverUrl: config.serverUrl,
-          secrets: secrets,
-        );
+  }) : super(serverUrl: config.serverUrl, secrets: secrets);
 
   @override
   ServerType get type => ServerType.jellyfin;
@@ -23,8 +20,8 @@ class JellyfinAdapter extends MediaBrowserAdapter {
 
   @override
   Map<String, String> get authHeaders => {
-        if (token.isNotEmpty) 'Authorization': 'MediaBrowser Token=$token',
-      };
+    if (token.isNotEmpty) 'Authorization': 'MediaBrowser Token=$token',
+  };
 
   @override
   Map<String, String> extractSecrets(Map<String, dynamic> loginResponse) {
@@ -35,19 +32,22 @@ class JellyfinAdapter extends MediaBrowserAdapter {
   }
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
-    final dio = Dio(BaseOptions(
-      baseUrl: request.serverUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: request.serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
     try {
       final res = await dio.post<Map<String, dynamic>>(
         '/Users/AuthenticateByName',
         data: {'Username': request.username, 'Pw': request.password},
-        options: Options(headers: {
-          'X-Emby-Authorization':
-              'MediaBrowser Client="Jellyfin", Device="Flutter", DeviceId="liusound", Version="2.0"',
-        }),
+        options: Options(
+          headers: {
+            'X-Emby-Authorization': 'MediaBrowser Client="Jellyfin", Device="Flutter", DeviceId="liusound", Version="2.0"',
+          },
+        ),
       );
       final data = res.data ?? const {};
       final accessToken = data['AccessToken']?.toString() ?? '';

@@ -54,9 +54,7 @@ final randomAlbumsProvider = FutureProvider<List<Album>>((ref) async {
 final dailySongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchSongs(
-    const SongQuery(sort: SongSort.random, limit: 50),
-  );
+  return adapter.fetchSongs(const SongQuery(sort: SongSort.random, limit: 50));
 });
 
 /// 我的歌单列表（负一屏 + 添加到歌单弹窗共用）
@@ -67,16 +65,20 @@ final playlistsProvider = FutureProvider<List<Playlist>>((ref) async {
 });
 
 /// 专辑内歌曲（详情页按 albumId 异步加载）
-final albumSongsProvider =
-    FutureProvider.family<List<Song>, String>((ref, albumId) async {
+final albumSongsProvider = FutureProvider.family<List<Song>, String>((
+  ref,
+  albumId,
+) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
   return adapter.fetchAlbumSongs(albumId);
 });
 
 /// 歌单内歌曲（详情页按 playlistId 异步加载）
-final playlistSongsProvider =
-    FutureProvider.family<List<Song>, String>((ref, playlistId) async {
+final playlistSongsProvider = FutureProvider.family<List<Song>, String>((
+  ref,
+  playlistId,
+) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
   return adapter.fetchPlaylistSongs(playlistId);
@@ -100,9 +102,7 @@ final likedSongsProvider = FutureProvider<List<Song>>((ref) async {
 final librarySongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchSongs(
-    const SongQuery(sort: SongSort.title, limit: 200),
-  );
+  return adapter.fetchSongs(const SongQuery(sort: SongSort.title, limit: 200));
 });
 
 /// 专辑列表（负一屏「专辑」入口）
@@ -115,17 +115,17 @@ final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
 });
 
 /// 艺人专辑（艺人详情页，按发行年降序）
-final artistAlbumsProvider =
-    FutureProvider.autoDispose.family<List<Album>, String>((ref, artistId) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return [];
-  return adapter.fetchArtistAlbums(artistId);
-});
+final artistAlbumsProvider = FutureProvider.autoDispose
+    .family<List<Album>, String>((ref, artistId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return [];
+      return adapter.fetchArtistAlbums(artistId);
+    });
 
 /// 艺人歌曲（艺人详情页，热门优先）
-final artistSongsProvider =
-    FutureProvider.autoDispose.family<List<Song>, String>((ref, artistId) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return [];
-  return adapter.fetchArtistSongs(artistId);
-});
+final artistSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>, String>((ref, artistId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return [];
+      return adapter.fetchArtistSongs(artistId);
+    });

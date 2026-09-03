@@ -221,7 +221,9 @@ class _AlbumRow extends ConsumerWidget {
             text: '暂无专辑',
             icon: Icons.album_outlined,
             padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.xl, horizontal: AppSpacing.l),
+              vertical: AppSpacing.xl,
+              horizontal: AppSpacing.l,
+            ),
             actions: [
               FilledButton.icon(
                 onPressed: () => ref.invalidate(provider),
@@ -292,8 +294,7 @@ class _AlbumCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               MarqueeText(
                 album.artist,
-                style:
-                    const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
               ),
             ],
           ),
@@ -358,7 +359,9 @@ class _SongListSection extends ConsumerWidget {
             child: glassEmptyState(
               text: '$title暂无内容',
               padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.l, horizontal: AppSpacing.l),
+                vertical: AppSpacing.l,
+                horizontal: AppSpacing.l,
+              ),
             ),
           );
         }

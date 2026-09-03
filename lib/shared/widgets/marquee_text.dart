@@ -80,8 +80,7 @@ class _MarqueeTextState extends State<MarqueeText>
           _distance = 0;
           return _clamped();
         }
-        final overflowBy =
-            _singleLineWidth() - constraints.maxWidth;
+        final overflowBy = _singleLineWidth() - constraints.maxWidth;
         _distance = overflowBy > 0 ? overflowBy : 0;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -95,26 +94,26 @@ class _MarqueeTextState extends State<MarqueeText>
   }
 
   Widget _clamped() => Text(
-        widget.text,
-        maxLines: widget.maxLines,
-        overflow: TextOverflow.ellipsis,
-        style: widget.style,
-      );
+    widget.text,
+    maxLines: widget.maxLines,
+    overflow: TextOverflow.ellipsis,
+    style: widget.style,
+  );
 
   Widget _marquee() => ClipRect(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(-_distance * _controller.value, 0),
-            child: child,
-          ),
-          child: Text(
-            widget.text,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.visible,
-            style: widget.style,
-          ),
-        ),
-      );
+    child: AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(-_distance * _controller.value, 0),
+        child: child,
+      ),
+      child: Text(
+        widget.text,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        style: widget.style,
+      ),
+    ),
+  );
 }

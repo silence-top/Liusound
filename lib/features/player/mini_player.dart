@@ -46,9 +46,10 @@ class MiniPlayer extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     _LyricSubtitle(song: song),
@@ -66,8 +67,11 @@ class MiniPlayer extends ConsumerWidget {
                   color: Colors.black.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.queue_music,
-                    size: 28, color: Colors.white),
+                child: const Icon(
+                  Icons.queue_music,
+                  size: 28,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -133,8 +137,11 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
               ),
             ),
             if (!isPlaying)
-              const Icon(Icons.play_circle_filled,
-                  size: 38, color: Colors.white),
+              const Icon(
+                Icons.play_circle_filled,
+                size: 38,
+                color: Colors.white,
+              ),
             const _ProgressRing(),
           ],
         ),
@@ -237,10 +244,8 @@ class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
     if (_lines.isEmpty) {
       text = '${widget.song.artist} - ${widget.song.album}';
     } else {
-      final position =
-          ref.watch(positionProvider).valueOrNull ?? Duration.zero;
-      final idx =
-          findLyricIndex(_lines, position.inMilliseconds / 1000.0);
+      final position = ref.watch(positionProvider).valueOrNull ?? Duration.zero;
+      final idx = findLyricIndex(_lines, position.inMilliseconds / 1000.0);
       // 前奏（-1）时显示第一句（对齐 1.x currentLyric→nextLyric 回退）
       text = idx >= 0 ? _lines[idx].text : _lines.first.text;
     }
