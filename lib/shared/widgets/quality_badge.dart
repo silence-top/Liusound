@@ -37,12 +37,22 @@ class QualityBadge extends StatelessWidget {
   final double trailingGap;
 
   static const _losslessFormats = {
-    'flac', 'alac', 'wav', 'wave', 'aiff', 'aif',
-    'ape', 'wv', 'tak', 'tta', 'dsf', 'dff',
+    'flac',
+    'alac',
+    'wav',
+    'wave',
+    'aiff',
+    'aif',
+    'ape',
+    'wv',
+    'tak',
+    'tta',
+    'dsf',
+    'dff',
   };
 
   /// 格式名：优先容器后缀，其次解码器名；兼容 audio/flac 这类 MIME 写法
-  String? get _format {
+  static String? formatOf(Song song) {
     final raw = (song.suffix ?? song.codec)?.toLowerCase().trim();
     if (raw == null || raw.isEmpty) return null;
     final slash = raw.lastIndexOf('/');
@@ -51,7 +61,7 @@ class QualityBadge extends StatelessWidget {
   }
 
   /// 码率 kbps：后端给了就用，没给按 文件大小÷时长 估算（对齐 1.x 算法）
-  int? get _kbps {
+  static int? kbpsOf(Song song) {
     final reported = song.bitRate;
     if (reported != null && reported > 0) return reported;
     if (song.size > 0 && song.duration > 0) {
@@ -60,15 +70,28 @@ class QualityBadge extends StatelessWidget {
     return null;
   }
 
-  bool get _isLossless {
-    final format = _format;
+  static bool isLossless(Song song) {
+    final format = formatOf(song);
     return format != null && _losslessFormats.contains(format);
   }
 
   /// Hi-Res 判定必须同时满足「无损容器」，否则 24bit 的 AAC 也会被误判成金色
-  bool get _isHiRes =>
-      _isLossless &&
+  static bool isHiRes(Song song) =>
+      isLossless(song) &&
       ((song.bitDepth ?? 0) >= 24 || (song.sampleRate ?? 0) >= 96000);
+
+  /// 音质等级文案；格式与码率全缺时返回 null（信息弹窗据此隐藏该行）
+  static String? gradeLabel(Song song) {
+    if (formatOf(song) == null && kbpsOf(song) == null) return null;
+    if (isHiRes(song)) return 'Hi-Res 高解析';
+    return isLossless(song) ? '无损' : '有损';
+  }
+
+  String? get _format => formatOf(song);
+
+  int? get _kbps => kbpsOf(song);
+
+  bool get _isHiRes => isHiRes(song);
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +101,9 @@ class QualityBadge extends StatelessWidget {
 
     final grade = _isHiRes
         ? _Grade.hiRes
-        : _isLossless
-            ? _Grade.lossless
-            : _Grade.lossy;
+        : isLossless(song)
+        ? _Grade.lossless
+        : _Grade.lossy;
 
     final badge = GlassSurface(
       radius: GlassTokens.radiusPill,
@@ -101,7 +124,10 @@ class QualityBadge extends StatelessWidget {
     );
 
     return trailingGap > 0
-        ? Padding(padding: EdgeInsets.only(right: trailingGap), child: badge)
+        ? Padding(
+            padding: EdgeInsets.only(right: trailingGap),
+            child: badge,
+          )
         : badge;
   }
 
@@ -112,9 +138,7 @@ class QualityBadge extends StatelessWidget {
       final hz = song.sampleRate;
       final khz = hz == null || hz <= 0
           ? null
-          : (hz % 1000 == 0
-              ? '${hz ~/ 1000}'
-              : (hz / 1000).toStringAsFixed(1));
+          : (hz % 1000 == 0 ? '${hz ~/ 1000}' : (hz / 1000).toStringAsFixed(1));
       final parts = [
         if (depth != null && depth > 0) '${depth}bit',
         if (khz != null) '${khz}kHz',

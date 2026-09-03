@@ -10,17 +10,21 @@ import '../server_adapter.dart';
 import '../server_type.dart';
 
 class NavidromeAdapter implements ServerAdapter {
-  NavidromeAdapter({required ServerConfig config, required Map<String, String> secrets})
-      : _config = config,
-        _secrets = secrets {
+  NavidromeAdapter({
+    required ServerConfig config,
+    required Map<String, String> secrets,
+  }) : _config = config,
+       _secrets = secrets {
     _client = NavidromeClient();
-    _client.setSession(StoredSession(
-      serverUrl: config.serverUrl,
-      username: config.username,
-      token: secrets['token'] ?? '',
-      subsonicToken: secrets['subsonicToken'] ?? '',
-      subsonicSalt: secrets['subsonicSalt'] ?? '',
-    ));
+    _client.setSession(
+      StoredSession(
+        serverUrl: config.serverUrl,
+        username: config.username,
+        token: secrets['token'] ?? '',
+        subsonicToken: secrets['subsonicToken'] ?? '',
+        subsonicSalt: secrets['subsonicSalt'] ?? '',
+      ),
+    );
   }
 
   final ServerConfig _config;
@@ -28,23 +32,24 @@ class NavidromeAdapter implements ServerAdapter {
   late final NavidromeClient _client;
 
   SubsonicAuth get _subsonicAuth => SubsonicAuth(
-        serverUrl: _config.serverUrl,
-        username: _config.username,
-        subsonicToken: _secrets['subsonicToken'] ?? '',
-        subsonicSalt: _secrets['subsonicSalt'] ?? '',
-      );
+    serverUrl: _config.serverUrl,
+    username: _config.username,
+    subsonicToken: _secrets['subsonicToken'] ?? '',
+    subsonicSalt: _secrets['subsonicSalt'] ?? '',
+  );
 
   @override
   ServerType get type => ServerType.navidrome;
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
-        ratings: true,
-        similarSongs: true,
-        likedSongs: true,
-        download: true,
-        lyrics: true,
-      );
+    ratings: true,
+    similarSongs: true,
+    likedSongs: true,
+    download: true,
+    lyrics: true,
+    artistBio: true,
+  );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final client = NavidromeClient();
@@ -119,12 +124,11 @@ class NavidromeAdapter implements ServerAdapter {
       _client.getAlbumSongs(albumId);
 
   @override
-  Future<List<Album>> fetchArtistAlbums(String artistId) =>
-      _client.getAlbums({
-        'artist_id': artistId,
-        '_sort': 'max_year',
-        '_order': 'DESC',
-      });
+  Future<List<Album>> fetchArtistAlbums(String artistId) => _client.getAlbums({
+    'artist_id': artistId,
+    '_sort': 'max_year',
+    '_order': 'DESC',
+  });
 
   @override
   Future<List<Song>> fetchArtistSongs(String artistId, {int limit = 30}) =>
@@ -152,6 +156,10 @@ class NavidromeAdapter implements ServerAdapter {
       _client.getSimilarSongs(songId, count: count);
 
   @override
+  Future<String?> fetchArtistBio(String artistId) =>
+      _client.getArtistBio(artistId);
+
+  @override
   Future<SearchResult> search(String query) => _client.search(query);
 
   @override
@@ -167,6 +175,9 @@ class NavidromeAdapter implements ServerAdapter {
   @override
   Future<bool> addToPlaylist(String playlistId, String songId) =>
       _client.addToPlaylist(playlistId, songId);
+
+  @override
+  Future<bool> createPlaylist(String name) => _client.createPlaylist(name);
 
   @override
   Future<PlaybackSource> resolveStream(Song song) async {

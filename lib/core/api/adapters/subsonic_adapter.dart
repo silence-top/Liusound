@@ -15,55 +15,62 @@ class SubsonicAdapter implements ServerAdapter {
   SubsonicAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  })  : _config = config,
-        _secrets = secrets {
+  }) : _config = config,
+       _secrets = secrets {
     _dio.options.baseUrl = config.serverUrl;
   }
 
   final ServerConfig _config;
   final Map<String, String> _secrets;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+    ),
+  );
 
   SubsonicAuth get _auth => SubsonicAuth(
-        serverUrl: _config.serverUrl,
-        username: _config.username,
-        subsonicToken: _secrets['subsonicToken'] ?? '',
-        subsonicSalt: _secrets['subsonicSalt'] ?? '',
-      );
+    serverUrl: _config.serverUrl,
+    username: _config.username,
+    subsonicToken: _secrets['subsonicToken'] ?? '',
+    subsonicSalt: _secrets['subsonicSalt'] ?? '',
+  );
 
   @override
   ServerType get type => ServerType.subsonic;
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
-        ratings: true,
-        similarSongs: true,
-        likedSongs: true,
-        download: true,
-        lyrics: true,
-      );
+    ratings: true,
+    similarSongs: true,
+    likedSongs: true,
+    download: true,
+    lyrics: true,
+    artistBio: true,
+  );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final salt = _randomHex(8);
     final token = md5.convert('${request.password}$salt'.codeUnits).toString();
-    final dio = Dio(BaseOptions(
-      baseUrl: request.serverUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: request.serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
     try {
-      final res = await dio.get<Map<String, dynamic>>('/rest/ping',
-          queryParameters: {
-            'u': request.username,
-            't': token,
-            's': salt,
-            'f': 'json',
-            'v': Subsonic.apiVersion,
-            'c': Subsonic.client,
-          });
+      final res = await dio.get<Map<String, dynamic>>(
+        '/rest/ping',
+        queryParameters: {
+          'u': request.username,
+          't': token,
+          's': salt,
+          'f': 'json',
+          'v': Subsonic.apiVersion,
+          'c': Subsonic.client,
+        },
+      );
       final status =
           res.data?['subsonic-response']?['status']?.toString() ?? '';
       if (status != 'ok') throw Exception('Subsonic 认证失败');
@@ -98,7 +105,10 @@ class SubsonicAdapter implements ServerAdapter {
     }
     final data = await _api('getAlbumList2', params);
     final list = data['albumList2']?['album'] as List<dynamic>?;
-    return (list ?? const []).whereType<Map<String, dynamic>>().map(_toAlbum).toList();
+    return (list ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toAlbum)
+        .toList();
   }
 
   @override
@@ -106,7 +116,10 @@ class SubsonicAdapter implements ServerAdapter {
     final data = await _api('getArtist', {'id': artistId});
     final artist = data['artist'] as Map<String, dynamic>?;
     final albums = artist?['album'] as List<dynamic>?;
-    return (albums ?? const []).whereType<Map<String, dynamic>>().map(_toAlbum).toList();
+    return (albums ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toAlbum)
+        .toList();
   }
 
   // ---------- 歌曲 ----------
@@ -123,11 +136,12 @@ class SubsonicAdapter implements ServerAdapter {
         query.sort == SongSort.mostPlayed) {
       return const [];
     }
-    final data = await _api('getRandomSongs', {
-      'size': '${query.limit}',
-    });
+    final data = await _api('getRandomSongs', {'size': '${query.limit}'});
     final list = data['randomSongs']?['song'] as List<dynamic>?;
-    return (list ?? const []).whereType<Map<String, dynamic>>().map(_toSong).toList();
+    return (list ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toSong)
+        .toList();
   }
 
   @override
@@ -135,7 +149,10 @@ class SubsonicAdapter implements ServerAdapter {
     final data = await _api('getAlbum', {'id': albumId});
     final album = data['album'] as Map<String, dynamic>?;
     final songs = album?['song'] as List<dynamic>?;
-    return (songs ?? const []).whereType<Map<String, dynamic>>().map(_toSong).toList();
+    return (songs ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toSong)
+        .toList();
   }
 
   @override
@@ -144,7 +161,10 @@ class SubsonicAdapter implements ServerAdapter {
     if (name == null) return const [];
     final data = await _api('getTopSongs', {'artist': name, 'count': '$limit'});
     final list = data['topSongs']?['song'] as List<dynamic>?;
-    return (list ?? const []).whereType<Map<String, dynamic>>().map(_toSong).toList();
+    return (list ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toSong)
+        .toList();
   }
 
   // ---------- 歌单 / 喜欢 / 总数 ----------
@@ -167,7 +187,10 @@ class SubsonicAdapter implements ServerAdapter {
     final data = await _api('getPlaylist', {'id': playlistId});
     final playlist = data['playlist'] as Map<String, dynamic>?;
     final songs = playlist?['entry'] as List<dynamic>?;
-    return (songs ?? const []).whereType<Map<String, dynamic>>().map(_toSong).toList();
+    return (songs ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toSong)
+        .toList();
   }
 
   @override
@@ -183,9 +206,30 @@ class SubsonicAdapter implements ServerAdapter {
 
   @override
   Future<List<Song>> fetchSimilarSongs(String songId, {int count = 20}) async {
-    final data = await _api('getSimilarSongs2', {'id': songId, 'count': '$count'});
+    final data = await _api('getSimilarSongs2', {
+      'id': songId,
+      'count': '$count',
+    });
     final list = data['similarSongs2']?['song'] as List<dynamic>?;
-    return (list ?? const []).whereType<Map<String, dynamic>>().map(_toSong).toList();
+    return (list ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(_toSong)
+        .toList();
+  }
+
+  @override
+  Future<String?> fetchArtistBio(String artistId) async {
+    try {
+      final data = await _api('getArtistInfo', {'id': artistId});
+      final info =
+          (data['artistInfo'] ?? data['artistInfo2'])
+              as Map<String, dynamic>? ??
+          const {};
+      final bio = info['biography']?.toString().trim() ?? '';
+      return bio.isEmpty ? null : bio;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -217,12 +261,14 @@ class SubsonicAdapter implements ServerAdapter {
           .toList(),
       artists: ((s3['artist'] as List<dynamic>?) ?? const [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => Artist(
-                id: _str(e, 'id'),
-                name: _str(e, 'name', '未知歌手'),
-                albumCount: _int(e, 'albumCount'),
-                songCount: _int(e, 'songCount'),
-              ))
+          .map(
+            (e) => Artist(
+              id: _str(e, 'id'),
+              name: _str(e, 'name', '未知歌手'),
+              albumCount: _int(e, 'albumCount'),
+              songCount: _int(e, 'songCount'),
+            ),
+          )
           .toList(),
     );
   }
@@ -240,6 +286,11 @@ class SubsonicAdapter implements ServerAdapter {
   @override
   Future<bool> addToPlaylist(String playlistId, String songId) =>
       _action('createPlaylist', {'playlistId': playlistId, 'songId': songId});
+
+  /// Subsonic 的 createPlaylist 只传 name（不带 playlistId）即为新建
+  @override
+  Future<bool> createPlaylist(String name) =>
+      _action('createPlaylist', {'name': name});
 
   // ---------- 媒体 ----------
 
@@ -262,8 +313,10 @@ class SubsonicAdapter implements ServerAdapter {
     if (!_auth.isValid || albumId.isEmpty) return null;
     try {
       final url = Subsonic.coverArtUrl(_auth, albumId);
-      final resp = await _dio.get<Uint8List>(url,
-          options: Options(responseType: ResponseType.bytes));
+      final resp = await _dio.get<Uint8List>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
       return resp.data;
     } catch (_) {
       return null;
@@ -290,7 +343,9 @@ class SubsonicAdapter implements ServerAdapter {
   Map<String, String> get _baseParams => Subsonic.params(_auth);
 
   Future<Map<String, dynamic>> _api(
-      String endpoint, Map<String, String> extra) async {
+    String endpoint,
+    Map<String, String> extra,
+  ) async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/rest/$endpoint',
       queryParameters: {..._baseParams, ...extra},
@@ -328,35 +383,35 @@ class SubsonicAdapter implements ServerAdapter {
   // ---------- JSON 映射 ----------
 
   Song _toSong(Map<String, dynamic> j) => Song(
-        id: _str(j, 'id'),
-        title: _str(j, 'title', '未知歌曲'),
-        artist: _str(j, 'artist', '未知歌手'),
-        album: _str(j, 'album'),
-        albumId: _str(j, 'albumId'),
-        artistId: _str(j, 'artistId'),
-        duration: _num(j, 'duration'),
-        playCount: _int(j, 'playCount'),
-        starred: j['starred'] != null,
-        size: _int(j, 'size'),
-        rating: _int(j, 'rating'),
-        suffix: _firstStr(j, const ['suffix', 'transcodedSuffix']),
-        codec: _firstStr(j, const ['contentType', 'transcodedContentType']),
-        bitRate: _intOrNull(j, 'bitRate'),
-        sampleRate: _khzToHz(_num(j, 'samplingRate')),
-      );
+    id: _str(j, 'id'),
+    title: _str(j, 'title', '未知歌曲'),
+    artist: _str(j, 'artist', '未知歌手'),
+    album: _str(j, 'album'),
+    albumId: _str(j, 'albumId'),
+    artistId: _str(j, 'artistId'),
+    duration: _num(j, 'duration'),
+    playCount: _int(j, 'playCount'),
+    starred: j['starred'] != null,
+    size: _int(j, 'size'),
+    rating: _int(j, 'rating'),
+    suffix: _firstStr(j, const ['suffix', 'transcodedSuffix']),
+    codec: _firstStr(j, const ['contentType', 'transcodedContentType']),
+    bitRate: _intOrNull(j, 'bitRate'),
+    sampleRate: _khzToHz(_num(j, 'samplingRate')),
+  );
 
   Album _toAlbum(Map<String, dynamic> j) => Album(
-        id: _str(j, 'id'),
-        name: _str(j, 'name', '未知专辑'),
-        artist: _str(j, 'artist', '未知歌手'),
-        artistId: _str(j, 'artistId'),
-        songCount: _int(j, 'songCount'),
-        duration: _num(j, 'duration'),
-        playCount: _int(j, 'playCount'),
-        starred: j['starred'] != null,
-        rating: _int(j, 'rating'),
-        year: _intOrNull(j, 'year'),
-      );
+    id: _str(j, 'id'),
+    name: _str(j, 'name', '未知专辑'),
+    artist: _str(j, 'artist', '未知歌手'),
+    artistId: _str(j, 'artistId'),
+    songCount: _int(j, 'songCount'),
+    duration: _num(j, 'duration'),
+    playCount: _int(j, 'playCount'),
+    starred: j['starred'] != null,
+    rating: _int(j, 'rating'),
+    year: _intOrNull(j, 'year'),
+  );
 
   static String _str(Map<String, dynamic> j, String k, [String d = '']) =>
       j[k]?.toString() ?? d;
@@ -381,8 +436,9 @@ class SubsonicAdapter implements ServerAdapter {
 
   static String _randomHex(int bytes) {
     final r = Random.secure();
-    return List.generate(bytes, (_) => r.nextInt(256))
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return List.generate(
+      bytes,
+      (_) => r.nextInt(256),
+    ).map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }
