@@ -34,9 +34,14 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
+/// 搜索分类 Tab：纯前端过滤（ServerAdapter.search 是单次聚合调用），
+/// 切 Tab 零网络零闪烁
+enum _SearchTab { all, songs, albums, artists }
+
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   Timer? _debounce;
+  _SearchTab _tab = _SearchTab.all;
 
   @override
   void dispose() {
@@ -93,7 +98,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         border: InputBorder.none,
                         filled: false,
                         contentPadding:
-                            EdgeInsets.symmetric(vertical: 14),
+                            EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
                   ),
@@ -107,7 +112,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ],
               ),
             ),
-            Expanded(child: _Results(query: query)),
+            _SegmentTabs(
+              current: _tab,
+              onChanged: (t) => setState(() => _tab = t),
+            ),
+            Expanded(child: _Results(query: query, tab: _tab)),
           ],
         ),
       ),
@@ -117,9 +126,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
 /// 结果区：区分「未输入」/「无结果」/「有结果」三种状态
 class _Results extends ConsumerWidget {
-  const _Results({required this.query});
+  const _Results({required this.query, required this.tab});
 
   final String query;
+  final _SearchTab tab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,27 +152,126 @@ class _Results extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Text('未找到与"$query"相关的内容',
                         style: const TextStyle(
-                            color: AppTheme.textDim, fontSize: 15)),
+                            color: AppTheme.textDim, fontSize: 16)),
                   ],
                 ),
               );
             }
-            return _ResultList(results: results);
+            return _ResultList(results: results, tab: tab);
           },
         );
   }
 }
 
-/// 结果列表：艺人（前 3）→ 专辑（前 5）→ 歌曲（全部）
+/// 搜索分段条（对齐 app_shell Tab 语言）：4 等分 pill，激活项 primary 18% 底
+class _SegmentTabs extends StatelessWidget {
+  const _SegmentTabs({required this.current, required this.onChanged});
+
+  final _SearchTab current;
+  final ValueChanged<_SearchTab> onChanged;
+
+  static const _labels = {
+    _SearchTab.all: '全部',
+    _SearchTab.songs: '歌曲',
+    _SearchTab.albums: '专辑',
+    _SearchTab.artists: '歌手',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: GlassSurface(
+        radius: GlassTokens.radiusPill,
+        blur: 0,
+        tint: Colors.white.withValues(alpha: 0.06),
+        gradientBorder: true,
+        shadow: false,
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            for (final tab in _SearchTab.values)
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius:
+                        const BorderRadius.all(Radius.circular(999)),
+                    onTap: () => onChanged(tab),
+                    child: Container(
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: tab == current
+                            ? AppTheme.primary.withValues(alpha: 0.18)
+                            : Colors.transparent,
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(999)),
+                      ),
+                      child: Text(
+                        _labels[tab]!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: tab == current
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color:
+                              tab == current ? AppTheme.primary : AppTheme.textDim,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 结果列表：Tab 纯前端过滤 —— 全部视图艺人前 3 / 专辑前 5 / 歌曲全部，
+/// 单类 Tab 放开截断渲染对应组
 class _ResultList extends ConsumerWidget {
-  const _ResultList({required this.results});
+  const _ResultList({required this.results, required this.tab});
 
   final SearchResult results;
+  final _SearchTab tab;
+
+  static const _emptyText = {
+    _SearchTab.all: '未找到相关内容',
+    _SearchTab.songs: '未找到相关歌曲',
+    _SearchTab.albums: '未找到相关专辑',
+    _SearchTab.artists: '未找到相关歌手',
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final artists = results.artists.take(3).toList();
-    final albums = results.albums.take(5).toList();
+    final isAll = tab == _SearchTab.all;
+    final artists = (isAll || tab == _SearchTab.artists)
+        ? (isAll ? results.artists.take(3).toList() : results.artists.toList())
+        : const <Artist>[];
+    final albums = (isAll || tab == _SearchTab.albums)
+        ? (isAll ? results.albums.take(5).toList() : results.albums.toList())
+        : const <Album>[];
+    final songs = (isAll || tab == _SearchTab.songs)
+        ? results.songs
+        : const <Song>[];
+
+    if (artists.isEmpty && albums.isEmpty && songs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.music_off, size: 48, color: AppTheme.textFaint),
+            const SizedBox(height: 12),
+            Text(_emptyText[tab]!,
+                style: const TextStyle(
+                    color: AppTheme.textDim, fontSize: 16)),
+          ],
+        ),
+      );
+    }
 
     return CustomScrollView(
       slivers: [
@@ -205,7 +314,7 @@ class _SectionTitle extends StatelessWidget {
       child: Text(title,
           style: const TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 19,
               fontWeight: FontWeight.bold)),
     );
   }
@@ -242,13 +351,13 @@ class _ArtistRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          const TextStyle(color: Colors.white, fontSize: 15)),
+                          const TextStyle(color: Colors.white, fontSize: 16)),
                   const SizedBox(height: 2),
                   Text('${artist.albumCount} 张专辑 · ${artist.songCount} 首',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: AppTheme.textDim, fontSize: 13)),
+                          color: AppTheme.textDim, fontSize: 14)),
                 ],
               ),
             ),
@@ -281,13 +390,13 @@ class _AlbumRowCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:
-                        const TextStyle(color: Colors.white, fontSize: 15)),
+                        const TextStyle(color: Colors.white, fontSize: 16)),
                 const SizedBox(height: 2),
                 Text(album.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        color: AppTheme.textDim, fontSize: 13)),
+                        color: AppTheme.textDim, fontSize: 14)),
               ],
             ),
           ),
@@ -324,13 +433,13 @@ class _SongRow extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 15)),
+                          color: Colors.white, fontSize: 16)),
                   const SizedBox(height: 2),
                   Text('${song.artist} - ${song.album}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: AppTheme.textDim, fontSize: 13)),
+                          color: AppTheme.textDim, fontSize: 14)),
                 ],
               ),
             ),

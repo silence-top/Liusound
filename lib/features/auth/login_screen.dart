@@ -77,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
                 const SizedBox(height: 32),
                 Row(
@@ -95,14 +95,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 2),
                         Text(type.tagline,
                             style: const TextStyle(
-                                color: Colors.white38, fontSize: 13)),
+                                color: Colors.white38, fontSize: 14)),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 32),
                 GlassCard(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -163,11 +163,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         width: double.infinity,
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             textStyle: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                                fontSize: 19, fontWeight: FontWeight.bold),
                           ),
                           onPressed: _submitting ? null : _submit,
                           child: _submitting

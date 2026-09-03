@@ -11,7 +11,8 @@ abstract final class GlassTokens {
   static const borderBottom = Color(0x0AFFFFFF);
   static const shadow = Color(0x40000000);
 
-  static const radiusCard = 18.0;
-  static const radiusPill = 28.0;
+  // 圆角对齐 AppRadius 档位：l 16 / pill 999 / xl 24
+  static const radiusCard = 16.0;
+  static const radiusPill = 999.0;
   static const radiusSheet = 24.0;
 }

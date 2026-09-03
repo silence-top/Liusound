@@ -107,7 +107,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
           CoverArt(albumId: artistId, size: 96, radius: 48),
@@ -147,7 +147,7 @@ class _AlbumSection extends StatelessWidget {
       height: 188,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         itemCount: albums.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
@@ -175,11 +175,11 @@ class _AlbumSection extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold)),
                   Text('${album.songCount} 首',
                       style: const TextStyle(
-                          color: Color(0xFFB0BAC6), fontSize: 11)),
+                          color: Color(0xFFB0BAC6), fontSize: 12)),
                 ],
               ),
             ),

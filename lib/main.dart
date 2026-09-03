@@ -9,6 +9,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
 import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
+import 'shared/widgets/glass.dart';
 import 'shell/app_shell.dart';
 
 Future<void> main() async {
@@ -63,14 +64,58 @@ class MusicApp extends ConsumerWidget {
   }
 }
 
-/// 冷启动恢复会话期间的启动屏
-class _Splash extends StatelessWidget {
+/// 冷启动恢复会话期间的启动屏：品牌 logo 入场动效（点击可跳过动效，
+/// 但会话初始化本身不可跳过——时长由真实 init 决定，无人为 delay）
+class _Splash extends StatefulWidget {
   const _Splash();
 
   @override
+  State<_Splash> createState() => _SplashState();
+}
+
+class _SplashState extends State<_Splash> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  )..forward();
+  late final Animation<double> _scale = Tween(begin: 0.85, end: 1.0)
+      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  late final Animation<double> _fade =
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    return GestureDetector(
+      onTap: () => _controller.value = 1, // 点击跳过入场动效
+      child: Scaffold(
+        body: AmbientBackground(
+          child: Center(
+            child: FadeTransition(
+              opacity: _fade,
+              child: ScaleTransition(
+                scale: _scale,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/app/logo.png',
+                        width: 96,
+                        height: 96,
+                        filterQuality: FilterQuality.medium),
+                    const SizedBox(height: AppSpacing.l),
+                    Text('流声', style: AppText.h1),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

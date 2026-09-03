@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/server_type.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
+import '../auth/login_screen.dart';
 
 class ServersScreen extends ConsumerWidget {
   const ServersScreen({super.key});
@@ -17,12 +19,36 @@ class ServersScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          GlassCard(
+            onTap: () => _showAddServerSheet(context),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.s),
+                  ),
+                  child: const Icon(Icons.add,
+                      size: 20, color: AppTheme.primary),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text('添加服务器',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 20, color: Colors.white38),
+              ],
+            ),
+          ),
           if (auth.servers.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(
                 child: Text('暂无已保存的服务器',
-                    style: TextStyle(color: Colors.white38, fontSize: 15)),
+                    style: TextStyle(color: Colors.white38, fontSize: 16)),
               ),
             )
           else
@@ -37,6 +63,44 @@ class ServersScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// 选择要添加的服务器类型（未实现的后端置灰），选后进登录页
+  void _showAddServerSheet(BuildContext context) {
+    glassBottomSheet(
+      context,
+      SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final type in ServerType.values)
+              ListTile(
+                leading: _ServerIcon(type: type),
+                title: Text(
+                  type.displayName,
+                  style: TextStyle(
+                      color:
+                          type.implemented ? Colors.white : Colors.white38),
+                ),
+                trailing: type.implemented
+                    ? null
+                    : const Text('即将推出',
+                        style:
+                            TextStyle(color: Colors.white38, fontSize: 12)),
+                onTap: type.implemented
+                    ? () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          fadeRoute<void>(
+                              LoginScreen(serverType: type)),
+                        );
+                      }
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ServerCard extends ConsumerWidget {
@@ -48,7 +112,7 @@ class _ServerCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GlassCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -73,12 +137,12 @@ class _ServerCard extends ConsumerWidget {
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppTheme.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text('当前连接',
                                 style: TextStyle(
                                     color: AppTheme.primary,
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w600)),
                           ),
                       ],
@@ -86,7 +150,7 @@ class _ServerCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(config.serverUrl,
                         style: const TextStyle(
-                            color: Colors.white38, fontSize: 13)),
+                            color: Colors.white38, fontSize: 14)),
                   ],
                 ),
               ),
@@ -107,7 +171,7 @@ class _ServerCard extends ConsumerWidget {
                 TextButton.icon(
                   onPressed: () => _switchTo(ref),
                   icon: const Icon(Icons.swap_horiz, size: 16),
-                  label: const Text('切换', style: TextStyle(fontSize: 13)),
+                  label: const Text('切换', style: TextStyle(fontSize: 14)),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -80,7 +80,7 @@ class _ServerCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.album, color: AppTheme.primary, size: 28),
           ),
@@ -104,12 +104,12 @@ class _ServerCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Text('歌曲总数',
-                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  style: TextStyle(color: Colors.white38, fontSize: 12)),
               const SizedBox(height: 2),
               Text('$total',
                   style: const TextStyle(
                       color: AppTheme.primary,
-                      fontSize: 20,
+                      fontSize: 19,
                       fontWeight: FontWeight.bold)),
             ],
           ),
@@ -164,7 +164,7 @@ class _Entry extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(12),
@@ -203,7 +203,7 @@ class _PlaylistSection extends ConsumerWidget {
           child: Text('我的歌单',
               style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 19,
                   fontWeight: FontWeight.bold)),
         ),
         playlists.when(
@@ -300,7 +300,7 @@ class _PlaylistRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 4),
                   Text('${playlist.songCount} 首歌曲',

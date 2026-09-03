@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import 'player_controller.dart';
 
@@ -56,20 +57,21 @@ class _QueueSheet extends ConsumerWidget {
             Container(
               width: 40,
               height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.35),
+                // 圆角豁免：弹窗顶部拖动条 4px 高，仅 2px 圆角
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             // 标题 + 播放模式切换
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Row(
                 children: [
                   Text('播放列表(${queue.length})',
                       style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold)),
+                          fontSize: 19, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   // 清空队列（现代播放器标配）
                   GestureDetector(
@@ -122,7 +124,7 @@ class _QueueSheet extends ConsumerWidget {
             ),
             if (queue.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
+                padding: EdgeInsets.symmetric(vertical: 48),
                 child: Text('队列为空',
                     style: TextStyle(color: Colors.white38, fontSize: 14)),
               )
@@ -132,6 +134,8 @@ class _QueueSheet extends ConsumerWidget {
                 child: ReorderableListView.builder(
                   shrinkWrap: true,
                   buildDefaultDragHandles: false,
+                  // 固定行高：惰性构建 + 滚动确定性
+                  itemExtent: 64,
                   // onReorderItem 的 newIndex 已完成移除位修正，直接插入
                   onReorderItem: (oldIndex, newIndex) =>
                       ref.read(playerActionsProvider).reorderQueue(
@@ -140,7 +144,8 @@ class _QueueSheet extends ConsumerWidget {
                     animation: animation,
                     builder: (_, child) => Material(
                       color: const Color(0x2E1EB4FF),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius:
+                          const BorderRadius.all(Radius.circular(AppRadius.s)),
                       elevation: animation.value * 6,
                       child: child,
                     ),
@@ -154,10 +159,10 @@ class _QueueSheet extends ConsumerWidget {
                       key: ValueKey(song.id),
                       decoration: BoxDecoration(
                         color: isCurrent
-                            ? const Color(0x141EB4FF) // rgba(30,180,255,0.08)
+                            ? AppTheme.queueActive.withValues(alpha: 0.08)
                             : Colors.transparent,
                         border: const Border(
-                          bottom: BorderSide(color: Color(0xFF333333), width: 0.5),
+                          bottom: BorderSide(color: Color(0x14FFFFFF), width: 0.5),
                         ),
                       ),
                       child: InkWell(
@@ -166,21 +171,45 @@ class _QueueSheet extends ConsumerWidget {
                           ref.read(playerActionsProvider).play(song);
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              // 拖动把手
-                              ReorderableDragStartListener(
-                                index: i,
-                                child: const Padding(
-                                  padding: EdgeInsets.only(right: 6),
-                                  child: Icon(Icons.drag_indicator,
+                              // 拖动把手：热区扩为 40×48（≥36dp 触控标准）
+                              SizedBox(
+                                width: 40,
+                                height: 48,
+                                child: ReorderableDragStartListener(
+                                  index: i,
+                                  child: const Icon(Icons.drag_indicator,
                                       size: 22, color: Colors.white38),
                                 ),
                               ),
+                              // 序号：当前行 queueActive 高亮
+                              SizedBox(
+                                width: 28,
+                                child: Text(
+                                  '${i + 1}',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
+                                    color: isCurrent
+                                        ? AppTheme.queueActive
+                                        : Colors.white38,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              CoverArt(
+                                  albumId: song.albumId,
+                                  size: 48,
+                                  radius: AppRadius.s),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -188,7 +217,7 @@ class _QueueSheet extends ConsumerWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 16,
                                         color: isCurrent
                                             ? AppTheme.queueActive
                                             : Colors.white,
@@ -202,7 +231,8 @@ class _QueueSheet extends ConsumerWidget {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                            fontSize: 13, color: Colors.white54)),
+                                            fontSize: 12,
+                                            color: Colors.white54)),
                                   ],
                                 ),
                               ),

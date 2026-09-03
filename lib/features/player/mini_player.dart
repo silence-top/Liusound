@@ -46,7 +46,7 @@ class MiniPlayer extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.white),
                     ),
@@ -182,7 +182,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = AppTheme.queueActive; // #1DB954
+      ..color = AppTheme.primary; // 进度环与全局主色一致
 
     canvas.drawCircle(center, radius, trackPaint);
     if (progress > 0) {

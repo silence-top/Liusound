@@ -104,7 +104,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
         children: [
           // 头部：封面 + 标题/歌手 + 收藏
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 12, 4),
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 4),
             child: Row(
               children: [
                 _Cover(song: song),
@@ -118,14 +118,14 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 17,
+                              fontSize: 19,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(song.artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white54, fontSize: 13)),
+                              color: Colors.white54, fontSize: 14)),
                       const SizedBox(height: 4),
                       if (canRate)
                         StarRating(rating: song.rating, onRating: _rate),
@@ -146,7 +146,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
           ),
           // 操作网格（2 行 × 3 列）
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
@@ -207,7 +207,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Text(label,
@@ -263,7 +263,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('正在下载「${song.title}」',
-                  style: const TextStyle(color: Colors.white, fontSize: 15)),
+                  style: const TextStyle(color: Colors.white, fontSize: 16)),
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: value,
@@ -365,7 +365,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
   }
 
   Widget _infoLine(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -463,7 +463,7 @@ class _SleepTimerContent extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 14),
+          padding: EdgeInsets.symmetric(vertical: 16),
           child: Text('定时停止播放',
               style: TextStyle(
                   color: Colors.white,
@@ -473,7 +473,7 @@ class _SleepTimerContent extends ConsumerWidget {
         for (final m in _minutes)
           ListTile(
             title: Text('$m 分钟',
-                style: const TextStyle(color: Colors.white, fontSize: 15)),
+                style: const TextStyle(color: Colors.white, fontSize: 16)),
             onTap: () {
               ref
                   .read(sleepTimerProvider.notifier)
@@ -491,7 +491,7 @@ class _SleepTimerContent extends ConsumerWidget {
           ListTile(
             title: Text(
                 '取消定时（剩余 ${remain.inMinutes}:${(remain.inSeconds % 60).toString().padLeft(2, '0')}）',
-                style: const TextStyle(color: AppTheme.heartRed, fontSize: 15)),
+                style: const TextStyle(color: AppTheme.heartRed, fontSize: 16)),
             onTap: () {
               ref.read(sleepTimerProvider.notifier).cancel();
               Navigator.of(context).pop();
@@ -525,7 +525,7 @@ class _SpeedContent extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 14),
+          padding: EdgeInsets.symmetric(vertical: 16),
           child: Text('播放速度',
               style: TextStyle(
                   color: Colors.white,
@@ -539,7 +539,7 @@ class _SpeedContent extends ConsumerWidget {
                 : const SizedBox(width: 24),
             title: Text(
                 s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
-                style: const TextStyle(color: Colors.white, fontSize: 15)),
+                style: const TextStyle(color: Colors.white, fontSize: 16)),
             onTap: () {
               ref.read(playbackSpeedProvider.notifier).state = s;
               Navigator.of(context).pop();
@@ -579,7 +579,7 @@ class _PlaylistPickerSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
+              padding: EdgeInsets.symmetric(vertical: 16),
               child: Text('添加到歌单',
                   style: TextStyle(
                       color: Colors.white,
@@ -596,7 +596,7 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                   padding: const EdgeInsets.all(32),
                   child: Text('加载失败: $e',
                       style:
-                          const TextStyle(color: Colors.white38, fontSize: 13)),
+                          const TextStyle(color: Colors.white38, fontSize: 14)),
                 ),
                 data: (list) {
                   if (list.isEmpty) {
@@ -617,7 +617,7 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 15)),
+                              color: Colors.white, fontSize: 16)),
                       subtitle: Text('${list[i].songCount} 首歌曲',
                           style: const TextStyle(
                               color: Colors.white38, fontSize: 12)),
