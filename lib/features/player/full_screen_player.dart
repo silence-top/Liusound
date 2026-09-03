@@ -793,30 +793,40 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               ),
             ),
             // LRC / 音量按钮行（对齐 1.x lrcRow）
+            // 命中区域用 InkWell/IconButton（不透明命中），避免裸 GestureDetector
+            // 只能命中文字本身导致的小目标点击失败
             Container(
               height: 42,
               margin: const EdgeInsets.only(left: 28, bottom: 6),
+              alignment: Alignment.centerLeft,
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _showLrcMenu = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white),
-                        borderRadius: BorderRadius.circular(4),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: () => setState(() => _showLrcMenu = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('LRC',
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 13)),
                       ),
-                      child: const Text('LRC',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 13)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () =>
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 36, minHeight: 36),
+                    onPressed: () =>
                         setState(() => _showVolume = !_showVolume),
-                    child: const Icon(Icons.volume_up,
+                    icon: const Icon(Icons.volume_up,
                         size: 20, color: Colors.white),
                   ),
                 ],
