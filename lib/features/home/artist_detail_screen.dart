@@ -38,10 +38,22 @@ class ArtistDetailScreen extends ConsumerWidget {
           SliverAppBar(
             pinned: true,
             toolbarHeight: 56,
-            backgroundColor: AppTheme.detailBg,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.detailBg,
+                    AppTheme.detailBg.withValues(alpha: 0.85),
+                  ],
+                ),
+              ),
+            ),
             leading: const BackButton(),
             title: Text(artistName,
-                maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           SliverToBoxAdapter(
             child: _Header(

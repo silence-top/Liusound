@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/glass.dart';
 import 'player_controller.dart';
 
 /// 打开播放队列弹窗（对标 1.x QueueModal：底部滑出 + 下拉关闭）。
 void showQueueModal(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppTheme.queuePanel,
+    backgroundColor: Colors.transparent,
     barrierColor: Colors.black45,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
     ),
     builder: (_) => const _QueueSheet(),
   );
@@ -39,14 +40,16 @@ class _QueueSheet extends ConsumerWidget {
       PlayMode.repeatOne => Icons.repeat_one,
     };
 
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: 320,
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
-        child: Column(
+    return GlassSurface(
+      radius: GlassTokens.radiusSheet,
+      blur: GlassTokens.blurHeavy,
+      tint: Colors.black.withValues(alpha: 0.35),
+      gradientBorder: true,
+      shadow: false,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+      ),
+      child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // 顶部拖动条
@@ -221,7 +224,6 @@ class _QueueSheet extends ConsumerWidget {
             const SizedBox(height: 8),
           ],
         ),
-      ),
     );
   }
 }

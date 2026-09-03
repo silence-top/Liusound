@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/player_controller.dart';
+import 'servers_screen.dart';
 
 /// 设置页（对齐设计图「设置」分组卡片样式）：
 /// 播放（循环播放 / 启动后自动播放 / 定时停止 / 播放速度 / 音量）
@@ -16,11 +19,12 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(authControllerProvider).session;
+    final config = ref.watch(authControllerProvider).activeConfig;
     final loop = ref.watch(loopPlaybackProvider);
     final autoPlay = ref.watch(autoPlayProvider);
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
+    final glassHigh = ref.watch(glassQualityProvider) == GlassLevel.high;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -86,17 +90,34 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _GroupCard(
+            title: '外观',
+            children: [
+              _SwitchTile(
+                icon: Icons.auto_awesome,
+                title: '玻璃模糊效果',
+                subtitle: '关闭后在低端设备上可提升流畅度',
+                value: glassHigh,
+                onChanged: (v) => ref
+                    .read(glassQualityProvider.notifier)
+                    .setLevel(v ? GlassLevel.high : GlassLevel.low),
+              ),
+            ],
+          ),
+          _GroupCard(
             title: '服务器',
             children: [
-              _InfoTile(
-                  icon: Icons.dns_outlined,
-                  title: '服务器',
-                  subtitle: session?.serverUrl ?? '-'),
-              _divider,
-              _InfoTile(
-                  icon: Icons.person_outline,
-                  title: '用户',
-                  subtitle: session?.username ?? '-'),
+              _ActionTile(
+                icon: Icons.dns_outlined,
+                title: config?.type.displayName ?? '未连接',
+                subtitle: config != null
+                    ? '${config.serverUrl} · ${config.username}'
+                    : '点击添加服务器',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ServersScreen(),
+                  ),
+                ),
+              ),
             ],
           ),
           _GroupCard(
@@ -218,10 +239,8 @@ class _GroupCard extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.bold)),
             ),
-          Material(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            clipBehavior: Clip.antiAlias,
+          GlassCard(
+            padding: EdgeInsets.zero,
             child: Column(children: children),
           ),
         ],

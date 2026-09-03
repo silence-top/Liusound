@@ -39,7 +39,7 @@ class MusicApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
-      if (prev?.session != null && next.session == null) {
+      if (prev?.activeServerId != next.activeServerId) {
         ref.read(playerActionsProvider).stop();
       }
     });

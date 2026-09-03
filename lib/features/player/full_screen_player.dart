@@ -7,11 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/server_adapter.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
-import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/glass.dart';
 import '../auth/auth_controller.dart';
 import 'action_sheets.dart';
 import 'player_controller.dart';
@@ -23,11 +24,13 @@ import 'queue_modal.dart';
 final albumDominantColorProvider =
     FutureProvider.autoDispose.family<Color?, String>((ref, albumId) async {
   if (albumId.isEmpty) return null;
-  final auth = ref.watch(subsonicAuthProvider);
-  if (!auth.isValid) return null;
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return null;
   try {
+    final ImageSource? cover = adapter.coverImage(albumId, size: 64);
+    if (cover == null) return null;
     final palette = await PaletteGenerator.fromImageProvider(
-      NetworkImage(Subsonic.coverArtUrl(auth, albumId)),
+      NetworkImage(cover.url),
       size: const Size(64, 64),
       maximumColorCount: 16,
     );
@@ -42,22 +45,17 @@ final albumDominantColorProvider =
 /// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
 final similarSongsProvider =
     FutureProvider.autoDispose.family<List<Song>, String>((ref, songId) {
-  return ref.watch(navidromeClientProvider).getSimilarSongs(songId);
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return <Song>[];
+  return adapter.fetchSimilarSongs(songId);
 });
 
 /// 热门歌曲（同歌手按 rating 取前 30，对标 1.x 推荐 Tab 的热门分区）
 final hotSongsProvider =
     FutureProvider.autoDispose.family<List<Song>, String>((ref, artistId) {
-  return ref
-      .watch(navidromeClientProvider)
-      .getSongs({
-        '_end': 30,
-        '_order': 'DESC',
-        '_sort': 'rating',
-        '_start': 0,
-        'artist_id': artistId,
-      })
-      .catchError((_) => <Song>[]);
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return <Song>[];
+  return adapter.fetchArtistSongs(artistId).catchError((_) => <Song>[]);
 });
 
 /// 进度条拖动中的临时值（非 null 表示拖动中；歌词高亮跟随拖动位置，
@@ -152,13 +150,28 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                             GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _tab.animateTo(i),
-                              child: Padding(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 2, vertical: 6),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 6),
+                                    horizontal: 18, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _tab.index == i
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: _tab.index == i
+                                      ? Border.all(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                          width: 0.5,
+                                        )
+                                      : null,
+                                ),
                                 child: Text(
                                   tabs[i],
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: _tab.index == i
                                         ? FontWeight.bold
                                         : FontWeight.w400,
@@ -215,7 +228,11 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
     final song = ref.watch(currentSongProvider);
     if (song == null) return const SizedBox.shrink();
 
-    final similar = ref.watch(similarSongsProvider(song.id));
+    final canSimilar =
+        ref.watch(serverAdapterProvider)?.capabilities.similarSongs ?? false;
+    final similar = canSimilar
+        ? ref.watch(similarSongsProvider(song.id))
+        : null;
     final hot = song.artistId.isEmpty
         ? null
         : ref.watch(hotSongsProvider(song.artistId));
@@ -223,7 +240,8 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        _SongSection(title: '相似歌曲', async: similar),
+        if (canSimilar)
+          _SongSection(title: '相似歌曲', async: similar),
         _SongSection(title: '热门歌曲', async: hot),
       ],
     );
@@ -1062,8 +1080,8 @@ class _BottomArea extends ConsumerWidget {
     ref.read(currentSongProvider.notifier).state =
         song.copyWith(starred: newStarred);
     final ok =
-        await ref.read(navidromeClientProvider).setStar(song.id, newStarred);
-    if (!ok && context.mounted) {
+        await ref.read(serverAdapterProvider)?.setStar(song.id, newStarred);
+    if (ok != true && context.mounted) {
       ref.read(currentSongProvider.notifier).state = song;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1076,12 +1094,16 @@ class _BottomArea extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
 
-    return Padding(
+    return GlassSurface(
+      radius: 0,
+      blur: GlassTokens.blurHeavy,
+      tint: Colors.black.withValues(alpha: 0.25),
+      gradientBorder: false,
+      shadow: false,
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 歌曲信息行 + 收藏 / 更多（无绑定动作，对齐 1.x）
           Padding(
             padding: const EdgeInsets.fromLTRB(28, 8, 12, 8),
             child: Row(

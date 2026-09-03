@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
-import '../../core/subsonic/subsonic.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
+import '../../shared/widgets/glass.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/mini_player.dart';
@@ -63,7 +63,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final before = _rating;
     setState(() => _rating = rating);
     final ok =
-        await ref.read(navidromeClientProvider).setRating(widget.albumId, rating);
+        await ref.read(serverAdapterProvider)?.setRating(widget.albumId, rating) ?? false;
     if (!ok && mounted) {
       setState(() => _rating = before);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,6 +78,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final songsAsync = ref.watch(albumSongsProvider(widget.albumId));
     final all = songsAsync.value ?? const <Song>[];
     final songs = _filterSongs(all, _search);
+    final canRate =
+        ref.watch(serverAdapterProvider)?.capabilities.ratings ?? false;
     return Scaffold(
       backgroundColor: AppTheme.detailBg,
       bottomNavigationBar: const MiniPlayer(),
@@ -89,8 +91,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               title: widget.title,
               subtitle: widget.subtitle,
               coverAlbumId: widget.coverAlbumId ?? widget.albumId,
-              rating: _rating,
-              onRating: _rate,
+              rating: canRate ? _rating : null,
+              onRating: canRate ? _rate : null,
             ),
           ),
           SliverToBoxAdapter(
@@ -117,10 +119,22 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     return SliverAppBar(
       pinned: true,
       toolbarHeight: 56,
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.detailBg,
+              AppTheme.detailBg.withValues(alpha: 0.85),
+            ],
+          ),
+        ),
+      ),
       leading: const BackButton(),
       title: Text(widget.title,
-          maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题 titleTextStyle
+          maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 
@@ -197,10 +211,22 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
           SliverAppBar(
             pinned: true,
             toolbarHeight: 56,
-            backgroundColor: AppTheme.detailBg,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.detailBg,
+                    AppTheme.detailBg.withValues(alpha: 0.85),
+                  ],
+                ),
+              ),
+            ),
             leading: const BackButton(),
             title: Text(widget.title,
-                maxLines: 1, overflow: TextOverflow.ellipsis), // 样式走主题
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           SliverToBoxAdapter(
             child: _Header(
@@ -278,19 +304,21 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ProviderScope.containerOf(context).read(subsonicAuthProvider);
+    final adapter = ProviderScope.containerOf(context).read(serverAdapterProvider);
     final hasCover =
-        coverAlbumId != null && coverAlbumId!.isNotEmpty && auth.isValid;
+        coverAlbumId != null && coverAlbumId!.isNotEmpty && adapter != null;
+    final imageSource = hasCover ? adapter.coverImage(coverAlbumId!, size: 180) : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          hasCover
+          (hasCover && imageSource != null)
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
-                    imageUrl: Subsonic.coverArtUrl(auth, coverAlbumId!),
+                    imageUrl: imageSource.url,
+                    httpHeaders: imageSource.headers.isNotEmpty ? imageSource.headers : null,
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,
@@ -369,9 +397,20 @@ class _ListTop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.bar,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.08),
+            Colors.white.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusCard)),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 0.5),
+        ),
       ),
       child: Column(
         children: [

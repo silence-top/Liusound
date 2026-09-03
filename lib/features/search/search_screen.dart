@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
@@ -18,7 +19,9 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final searchResultProvider = FutureProvider<SearchResult>((ref) async {
   final query = ref.watch(searchQueryProvider).trim();
   if (query.isEmpty) return const SearchResult();
-  return ref.watch(navidromeClientProvider).search(query);
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return const SearchResult();
+  return adapter.search(query);
 });
 
 /// 搜索页（对标 1.x SearchScreen）：
@@ -62,13 +65,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
+            GlassSurface(
+              radius: GlassTokens.radiusCard,
+              blur: 0,
+              tint: Colors.white.withValues(alpha: 0.06),
+              gradientBorder: true,
+              shadow: false,
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(8),
-              ),
               child: Row(
                 children: [
                   const Icon(Icons.search, size: 24, color: AppTheme.textDim),

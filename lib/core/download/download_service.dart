@@ -3,14 +3,15 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../api/server_adapter.dart';
 import '../models/models.dart';
-import '../subsonic/subsonic.dart';
 
-/// 歌曲离线下载：Subsonic download 端点 → 应用文档目录 Music/ 下保存。
+/// 歌曲离线下载：通过 adapter.resolveDownload 获取的 PlaybackSource 下载
+/// 到应用文档目录 Music/ 下保存。
 /// 文件名优先取响应 Content-Disposition（服务端原始文件名），
 /// 回退「歌手 - 标题.mp3」；返回保存的完整路径。
 Future<String> downloadSongFile({
-  required SubsonicAuth auth,
+  required PlaybackSource source,
   required Song song,
   void Function(int received, int total)? onProgress,
 }) async {
@@ -20,13 +21,13 @@ Future<String> downloadSongFile({
 
   final dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 10),
-    // 下载完整音质原始文件，接收超时放宽（大文件/慢网络）
     receiveTimeout: const Duration(minutes: 5),
+    headers: source.headers.isNotEmpty ? source.headers : null,
   ));
   final fallback = '${_safeName('${song.artist} - ${song.title}')}.mp3';
   final path = '${musicDir.path}${Platform.pathSeparator}$fallback';
   final res = await dio.download(
-    Subsonic.downloadUrl(auth, song.id),
+    source.url,
     path,
     onReceiveProgress: onProgress,
   );

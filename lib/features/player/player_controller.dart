@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/server_adapter.dart';
 import '../../core/models/models.dart';
-import '../../core/subsonic/subsonic.dart';
 import '../auth/auth_controller.dart';
 
 /// 全局唯一 AudioPlayer（App 生命周期持有，页面切换不销毁）
@@ -169,16 +169,18 @@ class PlayerActions {
   final _random = Random();
 
   AudioPlayer get _player => _ref.read(audioPlayerProvider);
-  SubsonicAuth get _auth => _ref.read(subsonicAuthProvider);
+  ServerAdapter? get _adapter => _ref.read(serverAdapterProvider);
 
   // ---------- 播放控制 ----------
 
   /// 播放指定歌曲（替换当前曲目）
   Future<void> play(Song song) async {
-    if (!_auth.isValid) return;
+    final adapter = _adapter;
+    if (adapter == null) return;
     _ref.read(currentSongProvider.notifier).state = song;
     try {
-      await _player.setUrl(Subsonic.streamUrl(_auth, song.id));
+      final source = await adapter.resolveStream(song);
+      await _player.setUrl(source.url, headers: source.headers);
       await _player.play();
     } catch (_) {
       // 流加载失败不中断 UI（网络抖动场景，状态保持可重试）
@@ -195,7 +197,7 @@ class PlayerActions {
     if (_resumePositionMs > 0 &&
         player.processingState == ProcessingState.idle) {
       final song = _ref.read(currentSongProvider);
-      if (song != null && _auth.isValid) {
+      if (song != null && _adapter != null) {
         final resumeMs = _resumePositionMs;
         _resumePositionMs = 0;
         await play(song);
@@ -375,7 +377,7 @@ class PlayerActions {
         // 启动后自动播放：直接播放恢复的歌曲并跳到上次进度
         if (_ref.read(autoPlayProvider.notifier).state) {
           final song = _ref.read(currentSongProvider);
-          if (song != null && _auth.isValid) {
+          if (song != null && _adapter != null) {
             final resumeMs = _resumePositionMs;
             _resumePositionMs = 0;
             await play(song);
