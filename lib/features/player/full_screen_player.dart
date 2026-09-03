@@ -178,7 +178,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                                     decoration: BoxDecoration(
                                       color: Colors.white
                                           .withValues(alpha: 0.12 * t),
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(20), // 圆角豁免：Tab 胶囊需随高度全圆贴合
                                       border: t > 0
                                           ? Border.all(
                                               color: Colors.white
@@ -190,7 +190,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                                     child: Text(
                                       tabs[i],
                                       style: TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 16,
                                         fontWeight: t >= 0.5
                                             ? FontWeight.bold
                                             : FontWeight.w400,
@@ -338,13 +338,13 @@ class _SongRow extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          const TextStyle(fontSize: 15, color: Colors.white)),
+                          const TextStyle(fontSize: 16, color: Colors.white)),
                   const SizedBox(height: 2),
                   Text('${song.artist} - ${song.album}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 13, color: Colors.white38)),
+                          fontSize: 14, color: Colors.white38)),
                 ],
               ),
             ),
@@ -811,11 +811,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.white),
+                          // 圆角豁免：LRC 徽章沿用 1.x 小圆角
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text('LRC',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 13)),
+                                color: Colors.white, fontSize: 14)),
                       ),
                     ),
                   ),
@@ -853,7 +854,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xF51E1E1E),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -897,7 +898,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xF51E1E1E),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1011,7 +1012,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                           const SizedBox(width: 8),
                           Text('${(_volume * 100).round()}%',
                               style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: _volume > 0.5
                                       ? Colors.black87
@@ -1060,7 +1061,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             const Icon(Icons.translate, size: 18, color: Colors.white),
             const SizedBox(width: 12),
             const Text('双语歌词',
-                style: TextStyle(color: Colors.white, fontSize: 15)),
+                style: TextStyle(color: Colors.white, fontSize: 16)),
             const SizedBox(width: 16),
             Transform.scale(
               scale: 0.75,
@@ -1087,7 +1088,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             const SizedBox(width: 12),
             Text(label,
                 style:
-                    const TextStyle(color: Colors.white, fontSize: 15)),
+                    const TextStyle(color: Colors.white, fontSize: 16)),
           ],
         ),
       ),
@@ -1168,7 +1169,7 @@ class _LyricRowTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   color: isCurrent
                       ? Colors.white.withValues(alpha: 0.75)
                       : Colors.white24,
@@ -1240,7 +1241,7 @@ class _BottomArea extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 13, color: Colors.white38),
+                            fontSize: 14, color: Colors.white38),
                       ),
                     ],
                   ),

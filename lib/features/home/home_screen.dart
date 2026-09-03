@@ -40,6 +40,7 @@ class HomeScreen extends ConsumerWidget {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            const SliverToBoxAdapter(child: _Greeting()),
             const SliverToBoxAdapter(child: _SearchBar()),
             SliverToBoxAdapter(
               child: _Section(
@@ -75,6 +76,32 @@ class HomeScreen extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 时段问候语（对齐设计图「Good Morning」）：
+/// build 内一次性求值，无 Timer / 无 provider 订阅，保持本页零重建
+String _greetingForNow() {
+  final hour = DateTime.now().hour;
+  if (hour >= 5 && hour < 11) return '早上好';
+  if (hour >= 11 && hour < 13) return '中午好';
+  if (hour >= 13 && hour < 18) return '下午好';
+  if (hour >= 18 && hour < 23) return '晚上好';
+  return '夜深了';
+}
+
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeSlideIn(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.l, AppSpacing.xl, AppSpacing.l, 0),
+        child: Text(_greetingForNow(), style: AppText.h1),
       ),
     );
   }
@@ -141,7 +168,7 @@ class _Section extends StatelessWidget {
                 Text(title,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
                 ?trailing,
@@ -369,7 +396,7 @@ class _SongCardRow extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),

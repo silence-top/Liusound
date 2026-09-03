@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api/server_adapter.dart';
+import '../core/theme/app_theme.dart';
 import '../features/auth/auth_controller.dart';
 
 /// 统一封面组件：
@@ -15,7 +16,7 @@ class CoverArt extends ConsumerWidget {
     super.key,
     required this.albumId,
     this.size = 120,
-    this.radius = 10,
+    this.radius = AppRadius.m,
   });
 
   final String albumId;

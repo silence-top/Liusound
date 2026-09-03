@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// 异步列表三态统一渲染（loading / error 可重试 / 空态 / 数据）。
 ///
 /// 语义：`data == null` 时才显示 loading/error（刷新时保留旧数据）；
 /// data 非空直接交给 onData 渲染，data 为空列表显示 emptyText。
 /// 所有列表页共用同一套视觉，避免每个页面手写三态块。
 
-const _kStatePadding = EdgeInsets.all(48);
+const _kStatePadding = EdgeInsets.all(AppSpacing.xxxl);
+// 弱化态辅助文本（辅助字阶 14，仅降透明度）
 const _kStateStyle = TextStyle(color: Colors.white38, fontSize: 14);
 
 Widget _loading() => const Padding(
@@ -75,6 +78,6 @@ Widget asyncStateBox<T>({
 
 /// 过滤框搜不到结果时的紧凑空态（区别于整页空态的 48 padding）。
 Widget noMatchBox() => Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Center(child: Text('没有匹配的歌曲', style: _kStateStyle)),
     );

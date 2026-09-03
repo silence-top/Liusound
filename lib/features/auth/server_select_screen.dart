@@ -19,7 +19,7 @@ class ServerSelectScreen extends ConsumerWidget {
       body: AmbientBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
             children: [
               const SizedBox(height: 48),
               Center(
@@ -39,7 +39,7 @@ class ServerSelectScreen extends ConsumerWidget {
                 child: Text('支持 Navidrome / Subsonic / Jellyfin / Emby 等',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 13)),
+                        fontSize: 14)),
               ),
               const SizedBox(height: 32),
               if (auth.servers.isNotEmpty) ...[
@@ -60,7 +60,7 @@ class ServerSelectScreen extends ConsumerWidget {
                     label: const Text('管理服务器'),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.white54,
-                      textStyle: const TextStyle(fontSize: 13),
+                      textStyle: const TextStyle(fontSize: 14),
                     ),
                   ),
                 ),
@@ -90,7 +90,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(label,
         style: const TextStyle(
             color: Colors.white38,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.bold));
   }
 }
@@ -107,7 +107,7 @@ class _SavedServerTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       margin: const EdgeInsets.only(bottom: 12),
       onTap: isActive
           ? null
@@ -126,7 +126,7 @@ class _SavedServerTile extends ConsumerWidget {
               children: [
                 Text(config.name,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 15)),
+                        color: Colors.white, fontSize: 16)),
                 const SizedBox(height: 2),
                 Text('${config.serverUrl} · ${config.username}',
                     style: const TextStyle(
@@ -138,15 +138,15 @@ class _SavedServerTile extends ConsumerWidget {
           ),
           if (isActive)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: AppTheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Text('当前',
                   style: TextStyle(
                       color: AppTheme.primary,
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600)),
             )
           else
@@ -169,7 +169,7 @@ class _BackendTypeCard extends StatelessWidget {
     return Opacity(
       opacity: available ? 1.0 : 0.45,
       child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         onTap: available
             ? () => Navigator.of(context).push(
                   fadeRoute<void>(LoginScreen(serverType: type)),
@@ -206,7 +206,7 @@ class _BackendTypeCard extends StatelessWidget {
                           ),
                           child: const Text('即将推出',
                               style: TextStyle(
-                                  color: Colors.white38, fontSize: 10)),
+                                  color: Colors.white38, fontSize: 12)),
                         ),
                       ],
                     ],
@@ -238,7 +238,7 @@ class _TypeIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     if (type.hasLogoAsset) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         child: Image.asset(type.iconAsset, width: size, height: size),
       );
     }
@@ -247,7 +247,7 @@ class _TypeIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(type.fallbackIcon,
           size: size * 0.65, color: Colors.white70),

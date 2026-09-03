@@ -310,7 +310,7 @@ class _Header extends StatelessWidget {
         coverAlbumId != null && coverAlbumId!.isNotEmpty && adapter != null;
     final imageSource = hasCover ? adapter.coverImage(coverAlbumId!, size: 180) : null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -339,7 +339,7 @@ class _Header extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold)),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -347,7 +347,7 @@ class _Header extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          const TextStyle(color: Color(0xFFBBBBBB), fontSize: 13)),
+                          const TextStyle(color: Color(0xFFBBBBBB), fontSize: 14)),
                 ],
                 if (rating != null && onRating != null) ...[
                   const SizedBox(height: 8),
@@ -459,10 +459,10 @@ class _FilterBar extends StatelessWidget {
           Expanded(
             child: TextField(
               onChanged: onChanged,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
               decoration: const InputDecoration(
                 hintText: '搜索歌曲/专辑/歌手',
-                hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 15),
+                hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16),
                 border: InputBorder.none,
                 filled: false,
                 isDense: true,
@@ -520,12 +520,12 @@ class _PlayAllBar extends StatelessWidget {
                 const Text('全部播放',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 17,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(width: 6),
                 Text('（共$count首）',
                     style: const TextStyle(
-                        color: Color(0xFFBBBBBB), fontSize: 13)),
+                        color: Color(0xFFBBBBBB), fontSize: 14)),
               ],
             ),
           ),
@@ -586,7 +586,7 @@ class SongRow extends ConsumerWidget {
       },
       onLongPress: () => showSongActionSheet(context, song),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             SizedBox(
@@ -596,7 +596,7 @@ class SongRow extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: AppTheme.indexGreen,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold),
               ),
             ),
@@ -611,7 +611,7 @@ class SongRow extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5),
                   ),
@@ -624,7 +624,7 @@ class SongRow extends ConsumerWidget {
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppTheme.formatBg,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppTheme.formatBorder),
                           ),
                           child: Text('flac ${kbps}K',
@@ -673,7 +673,7 @@ class _EndMark extends StatelessWidget {
       child: Center(
         child: Text(
           '- 到底啦 -',
-          style: TextStyle(color: Colors.white24, fontSize: 13),
+          style: TextStyle(color: Colors.white24, fontSize: 14),
         ),
       ),
     );

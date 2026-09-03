@@ -299,11 +299,8 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
           if (title != null)
             Expanded(
               child: DefaultTextStyle(
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
+                // H3 字阶，与 AppBar titleTextStyle 保持一致
+                style: Theme.of(context).textTheme.titleMedium!,
                 child: title!,
               ),
             ),
@@ -343,6 +340,7 @@ Future<T?> glassBottomSheet<T>(
               height: 4,
               decoration: BoxDecoration(
                 color: Colors.white24,
+                // 圆角豁免：sheet 顶部拖动条 4px 高，仅 2px 圆角
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

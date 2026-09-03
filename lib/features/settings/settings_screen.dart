@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -10,6 +11,10 @@ import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/player_controller.dart';
 import 'servers_screen.dart';
+
+/// 版本号读自 pubspec（package_info_plus），避免手写常量与发布版本脱节
+final _packageInfoProvider = FutureProvider<PackageInfo>(
+    (_) => PackageInfo.fromPlatform());
 
 /// 设置页（对齐设计图「设置」分组卡片样式）：
 /// 播放（循环播放 / 启动后自动播放 / 定时停止 / 播放速度 / 音量）
@@ -25,6 +30,7 @@ class SettingsScreen extends ConsumerWidget {
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
     final glassLevel = ref.watch(glassQualityProvider);
+    final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -119,10 +125,12 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _GroupCard(
             children: [
-              const _InfoTile(
+              _InfoTile(
                   icon: Icons.info_outline,
                   title: '版本',
-                  subtitle: '2.0.0+1 (Flutter)'),
+                  subtitle: appVersion == null
+                      ? '读取中…'
+                      : '${appVersion.version}+${appVersion.buildNumber}'),
               _divider,
               _ActionTile(
                 icon: Icons.logout,
@@ -223,7 +231,7 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 14),
+          padding: EdgeInsets.symmetric(vertical: 16),
           child: Text('液态玻璃效果',
               style: TextStyle(
                   color: Colors.white,
@@ -236,7 +244,7 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
                 ? const Icon(Icons.check, color: AppTheme.primary)
                 : const SizedBox(width: 24),
             title: Text(level.label,
-                style: const TextStyle(color: Colors.white, fontSize: 15)),
+                style: const TextStyle(color: Colors.white, fontSize: 16)),
             onTap: () {
               ref.read(glassQualityProvider.notifier).setLevel(level);
               Navigator.of(context).pop();
@@ -271,7 +279,7 @@ class _GroupCard extends StatelessWidget {
               child: Text(title!,
                   style: const TextStyle(
                       color: Colors.white38,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold)),
             ),
           GlassCard(
@@ -304,7 +312,7 @@ class _SwitchTile extends StatelessWidget {
     return SwitchListTile(
       secondary: Icon(icon, color: Colors.white70),
       title: Text(title,
-          style: const TextStyle(color: Colors.white, fontSize: 15)),
+          style: const TextStyle(color: Colors.white, fontSize: 16)),
       subtitle: Text(subtitle,
           style: const TextStyle(color: Colors.white38, fontSize: 12)),
       value: value,
@@ -337,7 +345,7 @@ class _ActionTile extends StatelessWidget {
       leading: Icon(icon, color: iconColor ?? Colors.white70),
       title: Text(title,
           style: TextStyle(
-              color: titleColor ?? Colors.white, fontSize: 15)),
+              color: titleColor ?? Colors.white, fontSize: 16)),
       subtitle: Text(subtitle,
           style: const TextStyle(color: Colors.white38, fontSize: 12)),
       trailing:
@@ -363,7 +371,7 @@ class _InfoTile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: Colors.white70),
       title: Text(title,
-          style: const TextStyle(color: Colors.white, fontSize: 15)),
+          style: const TextStyle(color: Colors.white, fontSize: 16)),
       subtitle: Text(subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -387,7 +395,7 @@ class _VolumeTile extends ConsumerWidget {
         return ListTile(
           leading: const Icon(Icons.volume_up, color: Colors.white70),
           title: const Text('音量',
-              style: TextStyle(color: Colors.white, fontSize: 15)),
+              style: TextStyle(color: Colors.white, fontSize: 16)),
           subtitle: SliderTheme(
             data: const SliderThemeData(
               trackHeight: 2,
@@ -404,7 +412,7 @@ class _VolumeTile extends ConsumerWidget {
             width: 42,
             child: Text('${(volume * 100).round()}%',
                 textAlign: TextAlign.end,
-                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                style: const TextStyle(color: Colors.white54, fontSize: 14)),
           ),
         );
       },
