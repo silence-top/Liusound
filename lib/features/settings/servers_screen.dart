@@ -21,6 +21,8 @@ class ServersScreen extends ConsumerWidget {
         children: [
           GlassCard(
             onTap: () => _showAddServerSheet(context),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            margin: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
                 Container(
@@ -30,16 +32,24 @@ class ServersScreen extends ConsumerWidget {
                     color: AppTheme.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppRadius.s),
                   ),
-                  child: const Icon(Icons.add,
-                      size: 20, color: AppTheme.primary),
+                  child: const Icon(
+                    Icons.add,
+                    size: 20,
+                    color: AppTheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
-                  child: Text('添加服务器',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                  child: Text(
+                    '添加服务器',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                 ),
-                const Icon(Icons.chevron_right,
-                    size: 20, color: Colors.white38),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Colors.white38,
+                ),
               ],
             ),
           ),
@@ -47,18 +57,22 @@ class ServersScreen extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(
-                child: Text('暂无已保存的服务器',
-                    style: TextStyle(color: Colors.white38, fontSize: 16)),
+                child: Text(
+                  '暂无已保存的服务器',
+                  style: TextStyle(color: Colors.white38, fontSize: 16),
+                ),
               ),
             )
           else
-            ...auth.servers.map((config) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _ServerCard(
-                    config: config,
-                    isActive: config.id == auth.activeServerId,
-                  ),
-                )),
+            ...auth.servers.map(
+              (config) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ServerCard(
+                  config: config,
+                  isActive: config.id == auth.activeServerId,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -78,21 +92,21 @@ class ServersScreen extends ConsumerWidget {
                 title: Text(
                   type.displayName,
                   style: TextStyle(
-                      color:
-                          type.implemented ? Colors.white : Colors.white38),
+                    color: type.implemented ? Colors.white : Colors.white38,
+                  ),
                 ),
                 trailing: type.implemented
                     ? null
-                    : const Text('即将推出',
-                        style:
-                            TextStyle(color: Colors.white38, fontSize: 12)),
+                    : const Text(
+                        '即将推出',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                      ),
                 onTap: type.implemented
                     ? () {
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          fadeRoute<void>(
-                              LoginScreen(serverType: type)),
-                        );
+                        Navigator.of(
+                          context,
+                        ).push(fadeRoute<void>(LoginScreen(serverType: type)));
                       }
                     : null,
               ),
@@ -127,30 +141,43 @@ class _ServerCard extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(config.name,
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 16)),
+                          child: Text(
+                            config.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
                         ),
                         if (isActive)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Text('当前连接',
-                                style: TextStyle(
-                                    color: AppTheme.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600)),
+                            child: const Text(
+                              '当前连接',
+                              style: TextStyle(
+                                color: AppTheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(config.serverUrl,
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 14)),
+                    Text(
+                      config.serverUrl,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -159,13 +186,19 @@ class _ServerCard extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.person_outline,
-                  size: 14, color: Colors.white.withValues(alpha: 0.3)),
+              Icon(
+                Icons.person_outline,
+                size: 14,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
               const SizedBox(width: 4),
-              Text(config.username,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 12)),
+              Text(
+                config.username,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
               const Spacer(),
               if (!isActive)
                 TextButton.icon(
@@ -180,10 +213,12 @@ class _ServerCard extends ConsumerWidget {
                   ),
                 ),
               PopupMenuButton<_Action>(
-                onSelected: (action) =>
-                    _onAction(action, context, ref),
-                icon: const Icon(Icons.more_vert,
-                    size: 20, color: Colors.white38),
+                onSelected: (action) => _onAction(action, context, ref),
+                icon: const Icon(
+                  Icons.more_vert,
+                  size: 20,
+                  color: Colors.white38,
+                ),
                 itemBuilder: (_) => [
                   if (!isActive)
                     const PopupMenuItem(
@@ -210,11 +245,13 @@ class _ServerCard extends ConsumerWidget {
                     value: _Action.delete,
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline,
-                            size: 18, color: Colors.redAccent),
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.redAccent,
+                        ),
                         SizedBox(width: 8),
-                        Text('删除',
-                            style: TextStyle(color: Colors.redAccent)),
+                        Text('删除', style: TextStyle(color: Colors.redAccent)),
                       ],
                     ),
                   ),
@@ -232,7 +269,10 @@ class _ServerCard extends ConsumerWidget {
   }
 
   Future<void> _onAction(
-      _Action action, BuildContext context, WidgetRef ref) async {
+    _Action action,
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     switch (action) {
       case _Action.switchTo:
         await _switchTo(ref);
@@ -247,9 +287,7 @@ class _ServerCard extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     final adapter = ref.read(serverAdapterProvider);
     if (adapter == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('无法创建适配器')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('无法创建适配器')));
       return;
     }
     try {

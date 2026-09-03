@@ -19,11 +19,11 @@ class LoginResult {
   final String username;
 
   factory LoginResult.fromJson(Map<String, dynamic> j) => LoginResult(
-        token: j['token']?.toString() ?? '',
-        subsonicToken: j['subsonicToken']?.toString() ?? '',
-        subsonicSalt: j['subsonicSalt']?.toString() ?? '',
-        username: j['username']?.toString() ?? '',
-      );
+    token: j['token']?.toString() ?? '',
+    subsonicToken: j['subsonicToken']?.toString() ?? '',
+    subsonicSalt: j['subsonicSalt']?.toString() ?? '',
+    username: j['username']?.toString() ?? '',
+  );
 }
 
 /// Navidrome REST 客户端（对标 1.x services/navidromeApi.ts）
@@ -45,10 +45,12 @@ class NavidromeClient {
     );
   }
 
-  final dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+    ),
+  );
 
   StoredSession? _session;
 
@@ -79,7 +81,11 @@ class NavidromeClient {
   }
 
   /// 登录（临时将 baseUrl 指向目标服务器，成功后由调用方保存会话）
-  Future<LoginResult> login(String serverUrl, String username, String password) async {
+  Future<LoginResult> login(
+    String serverUrl,
+    String username,
+    String password,
+  ) async {
     final saved = dio.options.baseUrl;
     dio.options.baseUrl = serverUrl;
     try {
@@ -89,7 +95,9 @@ class NavidromeClient {
       );
       final map = res.data ?? const {};
       final result = LoginResult.fromJson(map);
-      if (result.token.isEmpty || result.subsonicToken.isEmpty || result.subsonicSalt.isEmpty) {
+      if (result.token.isEmpty ||
+          result.subsonicToken.isEmpty ||
+          result.subsonicSalt.isEmpty) {
         throw Exception('登录响应缺少必要的认证信息');
       }
       return result;
@@ -100,7 +108,10 @@ class NavidromeClient {
 
   // ---------- 专辑 ----------
   Future<List<Album>> getAlbums(Map<String, Object?> query) async {
-    final res = await dio.get<List<dynamic>>('/api/album', queryParameters: query);
+    final res = await dio.get<List<dynamic>>(
+      '/api/album',
+      queryParameters: query,
+    );
     return (res.data ?? const [])
         .map((e) => Album.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -108,7 +119,10 @@ class NavidromeClient {
 
   // ---------- 歌曲 ----------
   Future<List<Song>> getSongs(Map<String, Object?> query) async {
-    final res = await dio.get<List<dynamic>>('/api/song', queryParameters: query);
+    final res = await dio.get<List<dynamic>>(
+      '/api/song',
+      queryParameters: query,
+    );
     return (res.data ?? const [])
         .map((e) => Song.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -132,7 +146,8 @@ class NavidromeClient {
       final response = res.data?['subsonic-response'] as Map<String, dynamic>?;
       if (response == null || response['status'] != 'ok') return const [];
       final container =
-          (response['similarSongs2'] ?? response['similarSongs']) as Map<String, dynamic>?;
+          (response['similarSongs2'] ?? response['similarSongs'])
+              as Map<String, dynamic>?;
       final songs = container?['song'] as List<dynamic>?;
       return (songs ?? const [])
           .whereType<Map<String, dynamic>>()
@@ -159,8 +174,9 @@ class NavidromeClient {
 
   /// 歌单内歌曲（对标 1.x GET /api/playlist/{id}/tracks）
   Future<List<Song>> getPlaylistSongs(String playlistId) async {
-    final res =
-        await dio.get<List<dynamic>>('/api/playlist/$playlistId/tracks');
+    final res = await dio.get<List<dynamic>>(
+      '/api/playlist/$playlistId/tracks',
+    );
     return (res.data ?? const [])
         .map((e) => Song.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -173,8 +189,10 @@ class NavidromeClient {
   /// 曲库歌曲总数（读 X-Total-Count 响应头，负一屏服务器卡片展示）
   Future<int> getSongTotal() async {
     try {
-      final res =
-          await dio.get<dynamic>('/api/song', queryParameters: {'_end': 1});
+      final res = await dio.get<dynamic>(
+        '/api/song',
+        queryParameters: {'_end': 1},
+      );
       return int.tryParse(res.headers.value('x-total-count') ?? '') ?? 0;
     } catch (_) {
       return 0;
@@ -183,7 +201,9 @@ class NavidromeClient {
 
   /// Subsonic 简单动作（star/unstar/setRating），未登录或失败返回 false
   Future<bool> _subsonicAction(
-      String endpoint, Map<String, String> extra) async {
+    String endpoint,
+    Map<String, String> extra,
+  ) async {
     if (_session == null) return false;
     try {
       final res = await dio.get<Map<String, dynamic>>(
@@ -209,7 +229,9 @@ class NavidromeClient {
     try {
       final res = await dio.post<dynamic>(
         '/api/playlist/$playlistId/tracks',
-        data: {'ids': [songId]},
+        data: {
+          'ids': [songId],
+        },
       );
       return res.statusCode == 200;
     } catch (_) {
@@ -218,13 +240,28 @@ class NavidromeClient {
   }
 
   // ---------- 搜索 ----------
+  /// Subsonic search3：Navidrome 原生 API 无 /search 路由，
+  /// 未知路径会兜底返回 SPA HTML，导致响应体强转 Map 崩溃
   Future<SearchResult> search(String query) async {
-    final res = await dio.get<Map<String, dynamic>>('/search', queryParameters: {'q': query});
-    final data = res.data ?? const {};
+    final res = await dio.get<Map<String, dynamic>>(
+      '/rest/search3',
+      queryParameters: {
+        ...Subsonic.params(_subsonicAuth),
+        'query': query,
+        'songCount': '20',
+        'albumCount': '20',
+        'artistCount': '20',
+      },
+    );
+    final response = res.data?['subsonic-response'] as Map<String, dynamic>?;
+    if (response == null || response['status'] != 'ok') {
+      return const SearchResult();
+    }
+    final s3 = response['searchResult3'] as Map<String, dynamic>? ?? const {};
     return SearchResult(
-      songs: Song.listFromJson(data['songs'] ?? const []),
-      albums: Album.listFromJson(data['albums'] ?? const []),
-      artists: Artist.listFromJson(data['artists'] ?? const []),
+      songs: Song.listFromJson(s3['song'] ?? const []),
+      albums: Album.listFromJson(s3['album'] ?? const []),
+      artists: Artist.listFromJson(s3['artist'] ?? const []),
     );
   }
 }

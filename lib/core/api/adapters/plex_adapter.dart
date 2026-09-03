@@ -14,10 +14,10 @@ class PlexAdapter implements ServerAdapter {
   PlexAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  })  : _config = config,
-        _token = secrets['plexToken'] ?? '',
-        _machineId = secrets['machineId'] ?? '',
-        _musicSectionKey = secrets['musicSectionKey'] ?? '' {
+  }) : _config = config,
+       _token = secrets['plexToken'] ?? '',
+       _machineId = secrets['machineId'] ?? '',
+       _musicSectionKey = secrets['musicSectionKey'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
   }
 
@@ -25,63 +25,78 @@ class PlexAdapter implements ServerAdapter {
   final String _token;
   final String _machineId;
   final String _musicSectionKey;
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 20),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 20),
+    ),
+  );
 
   @override
   ServerType get type => ServerType.plex;
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
-        ratings: true,
-        similarSongs: false,
-        likedSongs: true,
-        download: true,
-        lyrics: true,
-      );
+    ratings: true,
+    similarSongs: false,
+    likedSongs: true,
+    download: true,
+    lyrics: true,
+  );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
     try {
-      final credentials =
-          base64Encode(utf8.encode('${request.username}:${request.password}'));
+      final credentials = base64Encode(
+        utf8.encode('${request.username}:${request.password}'),
+      );
       final res = await dio.post<Map<String, dynamic>>(
         'https://plex.tv/users/sign_in.json',
-        options: Options(headers: {
-          'Authorization': 'Basic $credentials',
-          'X-Plex-Client-Identifier': 'liusound-${DateTime.now().millisecondsSinceEpoch}',
-          'X-Plex-Product': 'LiuSound',
-          'X-Plex-Device': 'Flutter',
-        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Basic $credentials',
+            'X-Plex-Client-Identifier':
+                'liusound-${DateTime.now().millisecondsSinceEpoch}',
+            'X-Plex-Product': 'LiuSound',
+            'X-Plex-Device': 'Flutter',
+          },
+        ),
       );
       final data = res.data ?? const {};
       final user = data['user'] as Map<String, dynamic>?;
       final token = user?['authToken']?.toString() ?? '';
       if (token.isEmpty) throw Exception('Plex 认证失败');
 
-      final plexDio = Dio(BaseOptions(
-        baseUrl: request.serverUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-      ));
+      final plexDio = Dio(
+        BaseOptions(
+          baseUrl: request.serverUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
       try {
         final serverRes = await plexDio.get<Map<String, dynamic>>(
           '/identity',
           queryParameters: {'X-Plex-Token': token},
+          options: Options(headers: const {'Accept': 'application/json'}),
         );
         final machineId =
-            serverRes.data?['MediaContainer']?['machineIdentifier']?.toString() ?? '';
+            serverRes.data?['MediaContainer']?['machineIdentifier']
+                ?.toString() ??
+            '';
 
         final sectionsRes = await plexDio.get<Map<String, dynamic>>(
           '/library/sections',
           queryParameters: {'X-Plex-Token': token},
+          options: Options(headers: const {'Accept': 'application/json'}),
         );
-        final dirs = (sectionsRes.data?['MediaContainer']?['Directory']
+        final dirs =
+            (sectionsRes.data?['MediaContainer']?['Directory']
                 as List<dynamic>?) ??
             const [];
         String musicKey = '';
@@ -98,8 +113,8 @@ class PlexAdapter implements ServerAdapter {
             'machineId': machineId,
             'musicSectionKey': musicKey,
           },
-          displayName: user?['username']?.toString() ??
-              user?['title']?.toString(),
+          displayName:
+              user?['username']?.toString() ?? user?['title']?.toString(),
         );
       } finally {
         plexDio.close();
@@ -156,7 +171,10 @@ class PlexAdapter implements ServerAdapter {
       };
     }
     if (query.starredOnly) {
-      final data = await _api('/library/sections/$_musicSectionKey/stars', params);
+      final data = await _api(
+        '/library/sections/$_musicSectionKey/stars',
+        params,
+      );
       return _parseSongs(data);
     }
     final data = await _api('/library/sections/$_musicSectionKey/all', {
@@ -245,12 +263,14 @@ class PlexAdapter implements ServerAdapter {
         case 'album':
           albums.add(_toAlbum(e));
         case 'artist':
-          artists.add(Artist(
-            id: _s(e, 'ratingKey'),
-            name: _s(e, 'title', '未知歌手'),
-            albumCount: _i(e, 'albumCount'),
-            songCount: 0,
-          ));
+          artists.add(
+            Artist(
+              id: _s(e, 'ratingKey'),
+              name: _s(e, 'title', '未知歌手'),
+              albumCount: _i(e, 'albumCount'),
+              songCount: 0,
+            ),
+          );
       }
     }
     return SearchResult(songs: songs, albums: albums, artists: artists);
@@ -262,9 +282,17 @@ class PlexAdapter implements ServerAdapter {
   Future<bool> setStar(String id, bool rating) async {
     try {
       if (rating) {
-        await _api('/:/rate', {'key': id, 'rating': '10', 'identifier': 'com.plexapp.plugins.library'});
+        await _api('/:/rate', {
+          'key': id,
+          'rating': '10',
+          'identifier': 'com.plexapp.plugins.library',
+        });
       } else {
-        await _api('/:/rate', {'key': id, 'rating': '0', 'identifier': 'com.plexapp.plugins.library'});
+        await _api('/:/rate', {
+          'key': id,
+          'rating': '0',
+          'identifier': 'com.plexapp.plugins.library',
+        });
       }
       return true;
     } catch (_) {
@@ -276,7 +304,11 @@ class PlexAdapter implements ServerAdapter {
   Future<bool> setRating(String id, int rating) async {
     try {
       final plexRating = (rating * 2).toString();
-      await _api('/:/rate', {'key': id, 'rating': plexRating, 'identifier': 'com.plexapp.plugins.library'});
+      await _api('/:/rate', {
+        'key': id,
+        'rating': plexRating,
+        'identifier': 'com.plexapp.plugins.library',
+      });
       return true;
     } catch (_) {
       return false;
@@ -287,7 +319,8 @@ class PlexAdapter implements ServerAdapter {
   Future<bool> addToPlaylist(String playlistId, String songId) async {
     try {
       await _api('/playlists/$playlistId/items', {
-        'uri': 'server://$_machineId/com.plexapp.plugins.library/library/metadata/$songId',
+        'uri':
+            'server://$_machineId/com.plexapp.plugins.library/library/metadata/$songId',
       });
       return true;
     } catch (_) {
@@ -300,14 +333,16 @@ class PlexAdapter implements ServerAdapter {
   @override
   Future<PlaybackSource> resolveStream(Song song) async {
     return PlaybackSource(
-      url: '${_config.serverUrl}/library/metadata/${song.id}?X-Plex-Token=$_token',
+      url:
+          '${_config.serverUrl}/library/metadata/${song.id}?X-Plex-Token=$_token',
     );
   }
 
   @override
   Future<PlaybackSource> resolveDownload(Song song) async {
     return PlaybackSource(
-      url: '${_config.serverUrl}/library/metadata/${song.id}?download=1&X-Plex-Token=$_token',
+      url:
+          '${_config.serverUrl}/library/metadata/${song.id}?download=1&X-Plex-Token=$_token',
     );
   }
 
@@ -315,7 +350,8 @@ class PlexAdapter implements ServerAdapter {
   ImageSource? coverImage(String albumId, {int size = 300}) {
     if (albumId.isEmpty) return null;
     return ImageSource(
-      url: '${_config.serverUrl}/library/metadata/$albumId/thumb?X-Plex-Token=$_token&width=$size',
+      url:
+          '${_config.serverUrl}/library/metadata/$albumId/thumb?X-Plex-Token=$_token&width=$size',
     );
   }
 
@@ -325,8 +361,10 @@ class PlexAdapter implements ServerAdapter {
     try {
       final url =
           '${_config.serverUrl}/library/metadata/$albumId/thumb?X-Plex-Token=$_token&width=$size';
-      final resp = await _dio.get<Uint8List>(url,
-          options: Options(responseType: ResponseType.bytes));
+      final resp = await _dio.get<Uint8List>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
       return resp.data;
     } catch (_) {
       return null;
@@ -351,9 +389,14 @@ class PlexAdapter implements ServerAdapter {
   // ========== 内部工具 ==========
 
   Future<Map<String, dynamic>> _api(
-      String path, Map<String, String> params) async {
-    final res = await _dio.get<Map<String, dynamic>>(path,
-        queryParameters: {...params, 'X-Plex-Token': _token});
+    String path,
+    Map<String, String> params,
+  ) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: {...params, 'X-Plex-Token': _token},
+      options: Options(headers: const {'Accept': 'application/json'}),
+    );
     return res.data ?? const {};
   }
 

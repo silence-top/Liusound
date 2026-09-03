@@ -40,44 +40,45 @@ class GlassSurface extends StatelessWidget {
 
     // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
     Widget tinted(Widget child) => Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: useBlur
-                ? effectiveTint
-                : Color.lerp(effectiveTint, Colors.black, 0.15)!,
-            borderRadius: borderRadius,
-          ),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: borderRadius,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.45],
-            ),
-          ),
-          child: child,
-        );
+      padding: padding,
+      decoration: BoxDecoration(
+        color: useBlur
+            ? effectiveTint
+            : Color.lerp(effectiveTint, Colors.black, 0.15)!,
+        borderRadius: borderRadius,
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: borderRadius,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.10),
+            Colors.white.withValues(alpha: 0),
+          ],
+          stops: const [0.0, 0.45],
+        ),
+      ),
+      // 透明 Material：让内部 ListTile/InkWell 的墨水落在自身 Material 上，
+      // 否则会被外层带背景色的 DecoratedBox 挡住（debug 断言 + 水波纹不可见）
+      child: Material(type: MaterialType.transparency, child: child),
+    );
 
     Widget result = ClipRRect(
       borderRadius: borderRadius,
       child: useBlur
           ? BackdropFilter(
               filter: ui.ImageFilter.blur(
-                  sigmaX: blur * blurScale, sigmaY: blur * blurScale),
+                sigmaX: blur * blurScale,
+                sigmaY: blur * blurScale,
+              ),
               child: tinted(child),
             )
           : tinted(child),
     );
 
     if (gradientBorder) {
-      result = _GradientBorderWrapper(
-        radius: radius,
-        child: result,
-      );
+      result = _GradientBorderWrapper(radius: radius, child: result);
     }
 
     if (shadow) {
@@ -104,10 +105,7 @@ class GlassSurface extends StatelessWidget {
 }
 
 class _GradientBorderWrapper extends StatelessWidget {
-  const _GradientBorderWrapper({
-    required this.radius,
-    required this.child,
-  });
+  const _GradientBorderWrapper({required this.radius, required this.child});
 
   final double radius;
   final Widget child;
@@ -130,8 +128,10 @@ class _GradientBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect =
-        RRect.fromRectAndRadius(rect.deflate(0.5), Radius.circular(radius));
+    final rrect = RRect.fromRectAndRadius(
+      rect.deflate(0.5),
+      Radius.circular(radius),
+    );
     canvas.drawRRect(
       rrect,
       Paint()
@@ -279,10 +279,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
               decoration: BoxDecoration(
                 color: AppTheme.background.withValues(alpha: 0.95),
                 border: Border(
-                  bottom: BorderSide(
-                    color: GlassTokens.borderTop,
-                    width: 0.5,
-                  ),
+                  bottom: BorderSide(color: GlassTokens.borderTop, width: 0.5),
                 ),
               ),
               child: _buildBar(context),
@@ -352,20 +349,17 @@ Future<T?> glassBottomSheet<T>(
           ],
         ),
       );
-      return Padding(
-        padding: const EdgeInsets.all(8),
-        child: content,
-      );
+      return Padding(padding: const EdgeInsets.all(8), child: content);
     },
   );
 }
 
 /// 为自定义 showModalBottomSheet 提供玻璃容器约束。
 /// 用于内容含独立滚动（ReorderableListView / GridView 等）而不适合 glassBottomSheet 的场景。
-BoxConstraints glassSheetConstraints(BuildContext context, {double factor = 0.7}) =>
-    BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * factor,
-    );
+BoxConstraints glassSheetConstraints(
+  BuildContext context, {
+  double factor = 0.7,
+}) => BoxConstraints(maxHeight: MediaQuery.of(context).size.height * factor);
 
 class AmbientBackground extends StatelessWidget {
   const AmbientBackground({super.key, this.child});
@@ -379,9 +373,7 @@ class AmbientBackground extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [color, color.withValues(alpha: 0)],
-          ),
+          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
         ),
       ),
     );
@@ -393,17 +385,20 @@ class AmbientBackground extends StatelessWidget {
       children: [
         // 大尺度彩色光斑：为玻璃模糊提供可折射的内容，太淡则 blur 几乎不可见
         Positioned(
-            top: -140,
-            left: -100,
-            child: _blob(340, const Color(0x332196F3))),
+          top: -140,
+          left: -100,
+          child: _blob(340, const Color(0x332196F3)),
+        ),
         Positioned(
-            top: 80,
-            right: -120,
-            child: _blob(300, const Color(0x2E1EB4FF))),
+          top: 80,
+          right: -120,
+          child: _blob(300, const Color(0x2E1EB4FF)),
+        ),
         Positioned(
-            bottom: -80,
-            left: 20,
-            child: _blob(300, const Color(0x267ECFFF))),
+          bottom: -80,
+          left: 20,
+          child: _blob(300, const Color(0x267ECFFF)),
+        ),
         ?child,
       ],
     );
