@@ -36,7 +36,7 @@ class MiniPlayer extends ConsumerWidget {
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => _openFullScreen(context),
+                onTap: () => openFullScreenPlayer(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -72,16 +72,6 @@ class MiniPlayer extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _openFullScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) =>
-            FullScreenPlayer(onClose: () => Navigator.of(context).pop()),
       ),
     );
   }

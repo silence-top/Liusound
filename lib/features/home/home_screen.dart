@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
+import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
 import 'detail_screen.dart';
@@ -49,13 +50,13 @@ class HomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: _Section(
                 title: '最近播放',
-                child: _AlbumRow(recentlyPlayedProvider),
+                child: _AlbumRow(recentlyPlayedProvider, playDirectly: true),
               ),
             ),
             SliverToBoxAdapter(
               child: _Section(
                 title: '最常播放',
-                child: _AlbumRow(mostPlayedProvider),
+                child: _AlbumRow(mostPlayedProvider, playDirectly: true),
               ),
             ),
             SliverToBoxAdapter(
@@ -148,11 +149,13 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// 横向专辑行（四个专辑分区共用）
+/// 横向专辑行（四个专辑分区共用）：playDirectly 为 true 时点击直接整张播放
+/// （最近播放 / 最常播放），否则进入专辑详情页。
 class _AlbumRow extends ConsumerWidget {
-  const _AlbumRow(this.provider);
+  const _AlbumRow(this.provider, {this.playDirectly = false});
 
   final FutureProvider<List<Album>> provider;
+  final bool playDirectly;
 
   static const _cardWidth = 140.0;
 
@@ -182,7 +185,10 @@ class _AlbumRow extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: list.length,
             itemExtent: _cardWidth + 8, // 卡片宽 + 左右 margin 4
-            itemBuilder: (context, index) => _AlbumCard(album: list[index]),
+            itemBuilder: (context, index) => _AlbumCard(
+              album: list[index],
+              playDirectly: playDirectly,
+            ),
           ),
         );
       },
@@ -190,27 +196,54 @@ class _AlbumRow extends ConsumerWidget {
   }
 }
 
-/// 专辑卡（140 封面 + 名称 + 歌手，点击进入专辑详情）
-class _AlbumCard extends StatelessWidget {
-  const _AlbumCard({required this.album});
+/// 专辑卡（140 封面 + 名称 + 歌手，点击进详情或直接播放）
+class _AlbumCard extends ConsumerWidget {
+  const _AlbumCard({required this.album, this.playDirectly = false});
 
   final Album album;
+  final bool playDirectly;
+
+  /// 直接播放：拉取专辑歌曲 → 替换队列并从首曲开播
+  Future<void> _playAlbum(BuildContext context, WidgetRef ref) async {
+    try {
+      final songs = await ref.read(albumSongsProvider(album.id).future);
+      if (songs.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('该专辑暂无歌曲'), duration: Duration(seconds: 2)),
+          );
+        }
+        return;
+      }
+      final actions = ref.read(playerActionsProvider);
+      actions.replaceQueue(songs);
+      await actions.play(songs.first);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载专辑歌曲失败'), duration: Duration(seconds: 2)),
+        );
+      }
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: PressableScale(
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            AlbumDetailScreen(
-              albumId: album.id,
-              title: album.name,
-              subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-              rating: album.rating,
-            ),
-          ),
-        ),
+        onTap: playDirectly
+            ? () => _playAlbum(context, ref)
+            : () => Navigator.of(context).push(
+                  fadeRoute<void>(
+                    AlbumDetailScreen(
+                      albumId: album.id,
+                      title: album.name,
+                      subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+                      rating: album.rating,
+                    ),
+                  ),
+                ),
         child: SizedBox(
           width: _AlbumRow._cardWidth,
           child: Column(
@@ -351,7 +384,10 @@ class _DailyRow extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           IconButton(
-            onPressed: () => ref.read(playerActionsProvider).play(song),
+            onPressed: () {
+              ref.read(playerActionsProvider).play(song);
+              openFullScreenPlayer(context);
+            },
             icon: const Icon(Icons.play_circle_outline,
                 size: 32, color: Colors.white),
           ),

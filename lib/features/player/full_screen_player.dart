@@ -66,6 +66,18 @@ const double _lyricRowHeight = 36; // 单语歌词行高（对齐 1.x LYRIC_LINE
 const double _lyricDualHeight = 56; // 双语歌词行高（原文 + 译文）
 const Color _lyricFade = Color(0xEE0A1428); // 歌词渐变遮罩色（#0a1428ee）
 
+/// 从任意入口打开全屏播放器（fullscreenDialog 上滑转场，
+/// 返回键 / onClose 均回到原页面）
+void openFullScreenPlayer(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) =>
+          FullScreenPlayer(onClose: () => Navigator.of(context).pop()),
+    ),
+  );
+}
+
 /// 全屏播放器（对标 1.x FullScreenPlayer + QueueModal）：
 /// 顶部三 Tab（推荐 / 歌曲 / 歌词）+ 底部固定控制区。
 ///

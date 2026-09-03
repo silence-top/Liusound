@@ -4,6 +4,17 @@ abstract final class _Json {
   static String str(Map<String, dynamic> j, String key, [String fallback = '']) =>
       j[key]?.toString() ?? fallback;
 
+  /// 依次取第一个非空字段（新版 Navidrome /api/album 已移除 artist/artistId，
+  /// 只返回 albumArtist/albumArtistId，需回退兼容旧版）
+  static String strOf(Map<String, dynamic> j, List<String> keys,
+          [String fallback = '']) {
+    for (final k in keys) {
+      final v = j[k]?.toString();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return fallback;
+  }
+
   static int intOf(Map<String, dynamic> j, String key, [int fallback = 0]) =>
       (j[key] as num?)?.toInt() ?? fallback;
 
@@ -121,8 +132,8 @@ class Album {
   factory Album.fromJson(Map<String, dynamic> j) => Album(
         id: _Json.str(j, 'id'),
         name: _Json.str(j, 'name', '未知专辑'),
-        artist: _Json.str(j, 'artist', '未知歌手'),
-        artistId: _Json.str(j, 'artistId'),
+        artist: _Json.strOf(j, const ['artist', 'albumArtist'], '未知歌手'),
+        artistId: _Json.strOf(j, const ['artistId', 'albumArtistId']),
         songCount: _Json.intOf(j, 'songCount'),
         duration: _Json.doubleOf(j, 'duration'),
         playCount: _Json.intOf(j, 'playCount'),

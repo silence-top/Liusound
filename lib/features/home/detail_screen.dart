@@ -9,6 +9,7 @@ import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/glass.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
+import '../player/full_screen_player.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import '../player/widgets/star_rating.dart';
@@ -581,6 +582,7 @@ class SongRow extends ConsumerWidget {
         if (identical(songs, const [])) return;
         actions.replaceQueue(songs);
         actions.play(song);
+        openFullScreenPlayer(context);
       },
       onLongPress: () => showSongActionSheet(context, song),
       child: Padding(

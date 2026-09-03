@@ -10,6 +10,7 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
+import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
 
 /// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）
@@ -305,7 +306,10 @@ class _SongRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
-      onTap: () => ref.read(playerActionsProvider).play(song),
+      onTap: () {
+        ref.read(playerActionsProvider).play(song);
+        openFullScreenPlayer(context);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
