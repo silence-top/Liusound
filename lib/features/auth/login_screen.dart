@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
+import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import 'auth_controller.dart';
 
@@ -20,6 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
+  bool _https = false;
   bool _submitting = false;
 
   @override
@@ -34,9 +36,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
+      var host = _serverController.text.trim();
+      var https = _https;
+      // 直接粘贴完整 URL 时自动识别协议并同步开关
+      if (host.startsWith('https://')) {
+        https = true;
+        host = host.substring(8);
+      } else if (host.startsWith('http://')) {
+        https = false;
+        host = host.substring(7);
+      }
+      while (host.endsWith('/')) {
+        host = host.substring(0, host.length - 1);
+      }
+      if (https != _https) _https = https;
       await ref.read(authControllerProvider.notifier).login(
             widget.serverType,
-            _serverController.text,
+            '${https ? 'https' : 'http'}://$host',
             _usernameController.text.trim(),
             _passwordController.text,
           );
@@ -127,7 +143,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         validator: (v) => (v == null || v.isEmpty) ? '请输入密码' : null,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 8),
+                      // 登录按钮右上方：HTTPS 开关（默认 HTTP，局域网直连无需开启）
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text('启用 HTTPS',
+                              style: TextStyle(
+                                  color: Colors.white54, fontSize: 14)),
+                          const SizedBox(width: 2),
+                          Switch(
+                            value: _https,
+                            activeThumbColor: AppTheme.primary,
+                            onChanged: (v) => setState(() => _https = v),
+                          ),
+                        ],
+                      ),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(

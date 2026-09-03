@@ -32,7 +32,9 @@ class GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useBlur = shouldUseBlur(context);
+    // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer
+    final useBlur = shouldUseBlur(context) && blur > 0;
+    final blurScale = glassBlurScale(context);
     final effectiveTint = tint ?? GlassTokens.tint;
     final borderRadius = BorderRadius.circular(radius);
 
@@ -64,7 +66,8 @@ class GlassSurface extends StatelessWidget {
       borderRadius: borderRadius,
       child: useBlur
           ? BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              filter: ui.ImageFilter.blur(
+                  sigmaX: blur * blurScale, sigmaY: blur * blurScale),
               child: tinted(child),
             )
           : tinted(child),
@@ -248,6 +251,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final useBlur = shouldUseBlur(context);
+    final blurScale = glassBlurScale(context);
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(
         bottom: Radius.circular(GlassTokens.radiusCard),
@@ -255,8 +259,8 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
       child: useBlur
           ? BackdropFilter(
               filter: ui.ImageFilter.blur(
-                sigmaX: GlassTokens.blurMedium,
-                sigmaY: GlassTokens.blurMedium,
+                sigmaX: GlassTokens.blurMedium * blurScale,
+                sigmaY: GlassTokens.blurMedium * blurScale,
               ),
               child: Container(
                 decoration: BoxDecoration(

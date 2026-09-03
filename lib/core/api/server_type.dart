@@ -26,12 +26,12 @@ enum ServerType {
       };
 
   String get urlHint => switch (this) {
-        ServerType.navidrome => '例如 http://192.168.1.10:4533',
-        ServerType.subsonic => '例如 http://192.168.1.10:4040',
-        ServerType.jellyfin => '例如 http://192.168.1.10:8096',
-        ServerType.emby => '例如 http://192.168.1.10:8096',
-        ServerType.audioStation => '例如 http://192.168.1.10:5000',
-        ServerType.plex => '例如 http://192.168.1.10:32400',
+        ServerType.navidrome => '例如 192.168.1.10:4533',
+        ServerType.subsonic => '例如 192.168.1.10:4040',
+        ServerType.jellyfin => '例如 192.168.1.10:8096',
+        ServerType.emby => '例如 192.168.1.10:8096',
+        ServerType.audioStation => '例如 192.168.1.10:5000',
+        ServerType.plex => '例如 192.168.1.10:32400',
       };
 
   String get tagline => switch (this) {

@@ -24,7 +24,7 @@ class SettingsScreen extends ConsumerWidget {
     final autoPlay = ref.watch(autoPlayProvider);
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
-    final glassHigh = ref.watch(glassQualityProvider) == GlassLevel.high;
+    final glassLevel = ref.watch(glassQualityProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -92,14 +92,11 @@ class SettingsScreen extends ConsumerWidget {
           _GroupCard(
             title: '外观',
             children: [
-              _SwitchTile(
+              _ActionTile(
                 icon: Icons.auto_awesome,
-                title: '玻璃模糊效果',
-                subtitle: '关闭后在低端设备上可提升流畅度',
-                value: glassHigh,
-                onChanged: (v) => ref
-                    .read(glassQualityProvider.notifier)
-                    .setLevel(v ? GlassLevel.high : GlassLevel.low),
+                title: '液态玻璃效果',
+                subtitle: glassLevel.label,
+                onTap: () => _showGlassLevelPicker(context, ref),
               ),
             ],
           ),
@@ -216,6 +213,44 @@ class SettingsScreen extends ConsumerWidget {
 // ---------- 分组卡片组件 ----------
 
 const _divider = Divider(height: 1, indent: 56);
+
+/// 液态玻璃档位选择（关闭 / 标准 / 增强），选择后立即生效并持久化
+Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(glassQualityProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Text('液态玻璃效果',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
+        ),
+        for (final level in GlassLevel.values)
+          ListTile(
+            leading: level == current
+                ? const Icon(Icons.check, color: AppTheme.primary)
+                : const SizedBox(width: 24),
+            title: Text(level.label,
+                style: const TextStyle(color: Colors.white, fontSize: 15)),
+            onTap: () {
+              ref.read(glassQualityProvider.notifier).setLevel(level);
+              Navigator.of(context).pop();
+            },
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Text('关闭在低端设备上更流畅；增强提高模糊强度，高配设备体验更佳',
+              style: TextStyle(color: Colors.white38, fontSize: 12)),
+        ),
+      ],
+    ),
+  );
+}
 
 class _GroupCard extends StatelessWidget {
   const _GroupCard({this.title, required this.children});
