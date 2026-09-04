@@ -21,6 +21,7 @@ class MainActivity : AudioServiceActivity() {
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var overlayText: TextView? = null
+    private val effects = AudioEffects()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -50,6 +51,42 @@ class MainActivity : AudioServiceActivity() {
                     result.success(null)
                 }
                 else -> result.notImplemented()
+            }
+        }
+        // EQ/低音/空间音效：挂载到 just_audio 的 Android 音频会话
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.silencetop.liusound/audio_effects",
+        ).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "init" -> result.success(effects.init(call.arguments as Int))
+                    "setEq" -> {
+                        val args = call.arguments as Map<*, *>
+                        effects.setEq(args["enabled"] as Boolean)
+                        result.success(null)
+                    }
+                    "setBandLevel" -> {
+                        val args = call.arguments as Map<*, *>
+                        effects.setBandLevel(args["index"] as Int, args["level"] as Int)
+                        result.success(null)
+                    }
+                    "setBass" -> {
+                        effects.setBass(call.arguments as Int)
+                        result.success(null)
+                    }
+                    "setVirtualizer" -> {
+                        effects.setVirtualizer(call.arguments as Int)
+                        result.success(null)
+                    }
+                    "release" -> {
+                        effects.release()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("EFFECT_ERROR", e.message, null)
             }
         }
     }
