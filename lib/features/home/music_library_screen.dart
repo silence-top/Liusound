@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/list_end_mark.dart';
@@ -590,7 +591,8 @@ class _AlbumGridBody extends ConsumerWidget {
         itemBuilder: (context, index) {
           final album = albums[index];
           return FadeSlideIn(
-            child: PressableScale(
+            child: AlbumCard(
+              album: album,
               onTap: () => Navigator.of(context).push(
                 fadeRoute<void>(
                   AlbumDetailScreen(
@@ -600,30 +602,6 @@ class _AlbumGridBody extends ConsumerWidget {
                     rating: album.rating,
                   ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CoverArt(albumId: album.id, size: 170, radius: 10),
-                  const SizedBox(height: 6),
-                  Text(
-                    album.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    album.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                ],
               ),
             ),
           );

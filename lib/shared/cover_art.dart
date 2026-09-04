@@ -79,3 +79,110 @@ class CoverArt extends ConsumerWidget {
     );
   }
 }
+
+/// 无图实体的封面回退：实体（歌手等）本身取不到图时，
+/// 用其第一首歌的专辑封面。仅由 [EntityCover] 的加载失败分支触发，
+/// 有图的实体不会产生额外请求。
+final entityFallbackCoverProvider = FutureProvider.family<ImageSource?, String>(
+  (ref, entityId) async {
+    final adapter = ref.watch(serverAdapterProvider);
+    if (adapter == null) return null;
+    final songs = await adapter.fetchArtistSongs(entityId, limit: 1);
+    final albumId = songs.isEmpty ? '' : songs.first.albumId;
+    if (albumId.isEmpty) return null;
+    return adapter.coverImage(albumId);
+  },
+);
+
+/// 实体封面组件（歌手/专辑艺术家等）：优先展示实体自身图片，
+/// 加载失败（服务端没配图返回 404）时回退第一首歌的专辑封面。
+class EntityCover extends ConsumerWidget {
+  const EntityCover({
+    super.key,
+    required this.entityId,
+    this.size = 120,
+    this.radius = AppRadius.m,
+  });
+
+  final String entityId;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final adapter = ref.watch(serverAdapterProvider);
+    final placeholder = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.asset(
+        'assets/app/default-album.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      ),
+    );
+
+    if (entityId.isEmpty || adapter == null) return placeholder;
+
+    final ImageSource? coverSrc = adapter.coverImage(entityId);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: CachedNetworkImage(
+        imageUrl: coverSrc?.url ?? '',
+        httpHeaders: coverSrc?.headers,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+            .round()
+            .clamp(80, 300),
+        fadeInDuration: const Duration(milliseconds: 150),
+        placeholder: (_, _) => placeholder,
+        errorWidget: (_, _, _) => _EntityFallbackCover(
+          entityId: entityId,
+          size: size,
+          radius: radius,
+        ),
+      ),
+    );
+  }
+}
+
+class _EntityFallbackCover extends ConsumerWidget {
+  const _EntityFallbackCover({
+    required this.entityId,
+    required this.size,
+    required this.radius,
+  });
+
+  final String entityId;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final placeholder = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.asset(
+        'assets/app/default-album.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      ),
+    );
+    final src = ref.watch(entityFallbackCoverProvider(entityId)).valueOrNull;
+    if (src == null) return placeholder;
+    return CachedNetworkImage(
+      imageUrl: src.url,
+      httpHeaders: src.headers.isNotEmpty ? src.headers : null,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+          .round()
+          .clamp(80, 300),
+      placeholder: (_, _) => placeholder,
+      errorWidget: (_, _, _) => placeholder,
+    );
+  }
+}

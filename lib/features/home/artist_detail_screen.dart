@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../player/mini_player.dart';
@@ -160,7 +161,7 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
-          CoverArt(albumId: artistId, size: 96, radius: 48),
+          EntityCover(entityId: artistId, size: 96, radius: 48),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -207,7 +208,9 @@ class _AlbumSection extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final album = albums[i];
-          return PressableScale(
+          return AlbumCard(
+            album: album,
+            size: 120,
             onTap: () => Navigator.of(context).push(
               fadeRoute<void>(
                 AlbumDetailScreen(
@@ -216,33 +219,6 @@ class _AlbumSection extends StatelessWidget {
                   subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
                   rating: album.rating,
                 ),
-              ),
-            ),
-            child: SizedBox(
-              width: 120,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CoverArt(albumId: album.id, size: 120, radius: 8),
-                  const SizedBox(height: 6),
-                  Text(
-                    album.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '${album.songCount} 首',
-                    style: const TextStyle(
-                      color: Color(0xFFB0BAC6),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
               ),
             ),
           );
