@@ -212,6 +212,10 @@ final durationProvider = StreamProvider<Duration?>(
   (ref) => ref.watch(audioPlayerProvider).durationStream,
 );
 
+/// 当前曲目实际生效的音质档（含转码失败回退无损后的真实档）。
+/// 本地/离线播放为 null，UI 不显示标签
+final currentQualityProvider = StateProvider<StreamQuality?>((ref) => null);
+
 /// 播放状态持久化 key（对标 1.x STORAGE_KEYS.PLAYER_STATE）
 const _playerStateKey = 'player_state';
 
@@ -290,6 +294,7 @@ class PlayerActions {
       final source = await adapter.resolveStream(song, quality: hint);
       await _setStreamSource(source);
       _ref.read(currentSongProvider.notifier).state = song;
+      _ref.read(currentQualityProvider.notifier).state = hint.quality;
       await _player.play();
       unawaited(
         AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
@@ -313,6 +318,8 @@ class PlayerActions {
         final source = await adapter.resolveStream(song);
         await _setStreamSource(source);
         _ref.read(currentSongProvider.notifier).state = song;
+        _ref.read(currentQualityProvider.notifier).state =
+            StreamQuality.lossless;
         await _player.play();
         unawaited(
           AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
@@ -349,6 +356,7 @@ class PlayerActions {
 
   /// 本地文件播放（本地扫描歌曲 / 已离线下载歌曲）
   Future<void> _playLocal(Song song, String path) async {
+    _ref.read(currentQualityProvider.notifier).state = null;
     await _saveLongTrackBreakpoint();
     try {
       await _player.setAudioSource(AudioSource.file(path));
