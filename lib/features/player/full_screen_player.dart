@@ -643,12 +643,36 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     );
   }
 
-  /// 四种唱片形态（§4.2）；方形卡片与全屏大图共用同一张静态玻璃卡
-  Widget _coverBlock(String albumId, CoverStyle style) => switch (style) {
-    CoverStyle.vinyl => _VinylDisc(albumId: albumId, spin: _spin, arm: _arm),
-    CoverStyle.cd => _CdDisc(albumId: albumId, spin: _spin),
-    CoverStyle.square || CoverStyle.fullBlur => _SquareCover(albumId: albumId),
-  };
+  /// 四种唱片形态（§4.2）；方形卡片与全屏大图共用同一张静态玻璃卡。
+  /// 双击封面 = 收藏/取消收藏（乐观更新，失败回滚，与底部爱心一致）
+  Widget _coverBlock(String albumId, CoverStyle style) => GestureDetector(
+    onDoubleTap: () {
+      final song = ref.read(currentSongProvider);
+      if (song != null) _toggleStar(song);
+    },
+    child: switch (style) {
+      CoverStyle.vinyl => _VinylDisc(albumId: albumId, spin: _spin, arm: _arm),
+      CoverStyle.cd => _CdDisc(albumId: albumId, spin: _spin),
+      CoverStyle.square ||
+      CoverStyle.fullBlur => _SquareCover(albumId: albumId),
+    },
+  );
+
+  Future<void> _toggleStar(Song song) async {
+    final newStarred = !song.starred;
+    ref.read(currentSongProvider.notifier).state = song.copyWith(
+      starred: newStarred,
+    );
+    final ok = await ref
+        .read(serverAdapterProvider)
+        ?.setStar(song.id, newStarred);
+    if (ok != true && mounted) {
+      ref.read(currentSongProvider.notifier).state = song;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
+      );
+    }
+  }
 }
 
 const double _discSize = 280;
@@ -1246,6 +1270,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                                     : null,
                                 onTap: () => _handleRowTap(i),
                                 onPreviewTap: () => _seekToLine(i),
+                                onDoubleTap: () =>
+                                    _toggleBilingual(!_showBilingual),
                               ),
                             ),
                           ),
@@ -1577,7 +1603,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             Icon(
               Icons.translate,
               size: 18,
-              color: _showBilingual ? Theme.of(context).colorScheme.primary : Colors.white38,
+              color: _showBilingual
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.white38,
             ),
             const SizedBox(width: 12),
             Text(
@@ -1661,6 +1689,7 @@ class _LyricRowTile extends StatelessWidget {
     required this.distance,
     required this.onTap,
     required this.onPreviewTap,
+    this.onDoubleTap,
     this.previewTime,
   });
 
@@ -1671,6 +1700,9 @@ class _LyricRowTile extends StatelessWidget {
   final int distance;
   final VoidCallback onTap;
   final VoidCallback onPreviewTap;
+
+  /// 双击歌词行 = 切换双语翻译
+  final VoidCallback? onDoubleTap;
 
   /// 非 null 表示该行处于待跳播预览态，值为该行时间戳（秒）
   final double? previewTime;
@@ -1689,6 +1721,7 @@ class _LyricRowTile extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      onDoubleTap: onDoubleTap,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1747,7 +1780,10 @@ class _LyricRowTile extends StatelessWidget {
             ),
           ),
           if (previewTime != null)
-            Align(alignment: Alignment.centerRight, child: _previewChip(context)),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _previewChip(context),
+            ),
         ],
       ),
     );

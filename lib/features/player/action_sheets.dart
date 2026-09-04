@@ -538,7 +538,10 @@ class _SpeedContent extends ConsumerWidget {
         for (final s in _speeds)
           ListTile(
             leading: s == speed
-                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
                 : const SizedBox(width: 24),
             title: Text(
               s == 1.0 ? '1.0x（正常）' : '${s.toStringAsFixed(2)}x',
@@ -546,6 +549,58 @@ class _SpeedContent extends ConsumerWidget {
             ),
             onTap: () {
               ref.read(playbackSpeedProvider.notifier).state = s;
+              Navigator.of(context).pop();
+            },
+          ),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+}
+
+// ---------- 交叉淡入淡出 ----------
+
+/// 交叉淡化时长选择弹窗（设置页），0 表示关闭，选择后立即生效并持久化。
+Future<void> showCrossfadePicker(BuildContext context) {
+  return glassBottomSheet<void>(context, const _CrossfadeContent());
+}
+
+class _CrossfadeContent extends ConsumerWidget {
+  const _CrossfadeContent();
+
+  static const _options = [0, 1, 2, 3, 5, 8, 10];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(crossfadeSecondsProvider);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '交叉淡入淡出',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        for (final s in _options)
+          ListTile(
+            leading: s == current
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : const SizedBox(width: 24),
+            title: Text(
+              s == 0 ? '关闭' : '$s 秒',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            onTap: () {
+              ref.read(crossfadeSecondsProvider.notifier).set(s);
               Navigator.of(context).pop();
             },
           ),
