@@ -275,8 +275,14 @@ class PlayerActions {
     final settings = _ref.read(streamingSettingsProvider);
     final quality = await resolveCurrentQuality(settings);
     if (quality == null) return;
+    // 服务端不支持转码时直接走无损，省一次注定失败的转码请求
+    final effectiveQuality = quality == StreamQuality.lossless
+        ? quality
+        : (await adapter.supportsTranscode()
+              ? quality
+              : StreamQuality.lossless);
     final hint = QualityHint(
-      quality: quality,
+      quality: effectiveQuality,
       format: settings.transcodeFormat,
     );
     await _saveLongTrackBreakpoint();

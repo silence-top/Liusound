@@ -377,6 +377,9 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   }
 
   @override
+  Future<bool> supportsTranscode() async => capabilities.transcoding;
+
+  @override
   Future<PlaybackSource> resolveDownload(Song song) async {
     return PlaybackSource(
       url: '$_serverUrl/Items/${song.id}/Download',

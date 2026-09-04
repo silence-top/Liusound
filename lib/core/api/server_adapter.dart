@@ -45,6 +45,12 @@ abstract class ServerAdapter {
   /// [quality] 为当前网络的质量提示；null 或 lossless 时返回原始流。
   /// 支持转码的后端（capabilities.transcoding）按提示追加服务端转码参数
   Future<PlaybackSource> resolveStream(Song song, {QualityHint? quality});
+
+  /// 服务端转码能力运行时探测（静默，可缓存）。
+  /// 默认信任 [capabilities] 的静态声明；Subsonic 系覆写为真实探测
+  /// （Navidrome 等需要服务器装有 ffmpeg，声明支持不代表真能转码）。
+  /// 探测本身失败（网络抖动等）应放行返回 true，播放侧另有回退兜底
+  Future<bool> supportsTranscode() async => capabilities.transcoding;
   Future<PlaybackSource> resolveDownload(Song song);
   ImageSource? coverImage(String albumId, {int size = 300});
   Future<Uint8List?> fetchCoverBytes(String albumId, {int size = 64});

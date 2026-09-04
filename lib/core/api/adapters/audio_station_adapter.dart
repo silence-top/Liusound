@@ -344,6 +344,9 @@ class AudioStationAdapter implements ServerAdapter {
   }
 
   @override
+  Future<bool> supportsTranscode() async => capabilities.transcoding;
+
+  @override
   Future<PlaybackSource> resolveDownload(Song song) async {
     await _ensureSid();
     return PlaybackSource(
