@@ -372,7 +372,7 @@ class _ArtistRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            CoverArt(albumId: artist.id, size: 48, radius: 24),
+            EntityCover(entityId: artist.id, size: 48, radius: 24),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
