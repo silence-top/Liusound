@@ -50,167 +50,175 @@ class _QueueSheet extends ConsumerWidget {
       PlayMode.repeatOne => Icons.repeat_one,
     };
 
-    return GlassSurface(
-      radius: GlassTokens.radiusSheet,
-      blur: GlassTokens.blurHeavy,
-      gradientBorder: true,
-      shadow: false,
-      // 顶部避开状态栏：isScrollControlled 全高弹层必须自己吃掉顶部安全区
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        bottom: MediaQuery.of(context).padding.bottom + 8,
+    // 弹层不拉满全屏：队列很长时最高到 6 成屏高，短队列随内容收缩
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
       ),
-      child: Column(
-        children: [
-          // 顶部拖动条
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 4),
-            decoration: BoxDecoration(
-              color: tokens.textFaint,
-              // 圆角豁免：弹窗顶部拖动条 4px 高，仅 2px 圆角
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // 标题 + 播放模式切换
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              children: [
-                Text(
-                  '播放列表(${queue.length})',
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                // 清空队列（现代播放器标配）
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    ref.read(playerActionsProvider).clearQueue();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('已清空播放队列'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tokens.tintLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text('清空', style: TextStyle(fontSize: 14)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => ref.read(playerActionsProvider).cyclePlayMode(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tokens.tintLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(modeIcon, size: 22),
-                        const SizedBox(width: 6),
-                        Text(
-                          _modeText[mode] ?? '',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (queue.isEmpty)
-            Expanded(
-              child: Center(
-                child: glassEmptyState(
-                  text: '队列为空\n去首页挑几首歌开始播放',
-                  icon: Icons.queue_music_outlined,
-                  padding: const EdgeInsets.all(16),
-                ),
+      child: GlassSurface(
+        radius: GlassTokens.radiusSheet,
+        blur: GlassTokens.blurHeavy,
+        gradientBorder: true,
+        shadow: false,
+        // 弹层底部锚定，不会顶到状态栏，顶部只需给拖动条留白
+        padding: EdgeInsets.only(
+          top: 8,
+          bottom: MediaQuery.of(context).padding.bottom + 8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 顶部拖动条
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              decoration: BoxDecoration(
+                color: tokens.textFaint,
+                // 圆角豁免：弹窗顶部拖动条 4px 高，仅 2px 圆角
+                borderRadius: BorderRadius.circular(2),
               ),
-            )
-          else
-            Expanded(
-              // 拖动排序（现代播放器标配）：行首把手拖动 + 拖动中浮起高亮
-              child: ReorderableListView.builder(
-                shrinkWrap: true,
-                buildDefaultDragHandles: false,
-                // 固定行高：惰性构建 + 滚动确定性
-                itemExtent: 64,
-                // onReorderItem 的 newIndex 已完成移除位修正，直接插入
-                onReorderItem: (oldIndex, newIndex) => ref
-                    .read(playerActionsProvider)
-                    .reorderQueue(oldIndex, newIndex),
-                proxyDecorator: (child, index, animation) => AnimatedBuilder(
-                  animation: animation,
-                  builder: (_, child) => Material(
-                    color: primary.withValues(alpha: 0.18),
-                    borderRadius: const BorderRadius.all(
-                      Radius.circular(AppRadius.s),
+            ),
+            // 标题 + 播放模式切换
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    '播放列表(${queue.length})',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
                     ),
-                    elevation: animation.value * 6,
+                  ),
+                  const Spacer(),
+                  // 清空队列（现代播放器标配）
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      ref.read(playerActionsProvider).clearQueue();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('已清空播放队列'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tokens.tintLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('清空', style: TextStyle(fontSize: 14)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () =>
+                        ref.read(playerActionsProvider).cyclePlayMode(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tokens.tintLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(modeIcon, size: 22),
+                          const SizedBox(width: 6),
+                          Text(
+                            _modeText[mode] ?? '',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (queue.isEmpty)
+              Flexible(
+                child: Center(
+                  child: glassEmptyState(
+                    text: '队列为空\n去首页挑几首歌开始播放',
+                    icon: Icons.queue_music_outlined,
+                    padding: const EdgeInsets.all(16),
+                  ),
+                ),
+              )
+            else
+              Flexible(
+                // 拖动排序（现代播放器标配）：行首把手拖动 + 拖动中浮起高亮
+                child: ReorderableListView.builder(
+                  shrinkWrap: true,
+                  buildDefaultDragHandles: false,
+                  // 固定行高：惰性构建 + 滚动确定性
+                  itemExtent: 64,
+                  // onReorderItem 的 newIndex 已完成移除位修正，直接插入
+                  onReorderItem: (oldIndex, newIndex) => ref
+                      .read(playerActionsProvider)
+                      .reorderQueue(oldIndex, newIndex),
+                  proxyDecorator: (child, index, animation) => AnimatedBuilder(
+                    animation: animation,
+                    builder: (_, child) => Material(
+                      color: primary.withValues(alpha: 0.18),
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(AppRadius.s),
+                      ),
+                      elevation: animation.value * 6,
+                      child: child,
+                    ),
                     child: child,
                   ),
-                  child: child,
-                ),
-                itemCount: queue.length,
-                itemBuilder: (_, i) {
-                  final song = queue[i];
-                  final isCurrent = current?.id == song.id;
-                  final row = _row(context, ref, song, i, isCurrent, playing);
-                  // key 必须留在 itemBuilder 返回的最外层，ReorderableListView 才认得
-                  return Dismissible(
-                    key: ValueKey(song.id),
-                    direction: DismissDirection.endToStart,
-                    background: _removeBackground(),
-                    onDismissed: (_) => ref
-                        .read(playerActionsProvider)
-                        .removeFromQueue(song.id),
-                    child: isCurrent
-                        ? GlassSurface(
-                            radius: AppRadius.m,
-                            blur: 0,
-                            tint: primary.withValues(alpha: 0.14),
-                            shadow: false,
-                            margin: const EdgeInsets.fromLTRB(8, 3, 8, 3),
-                            child: row,
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: tokens.divider,
-                                  width: 0.5,
+                  itemCount: queue.length,
+                  itemBuilder: (_, i) {
+                    final song = queue[i];
+                    final isCurrent = current?.id == song.id;
+                    final row = _row(context, ref, song, i, isCurrent, playing);
+                    // key 必须留在 itemBuilder 返回的最外层，ReorderableListView 才认得
+                    return Dismissible(
+                      key: ValueKey(song.id),
+                      direction: DismissDirection.endToStart,
+                      background: _removeBackground(),
+                      onDismissed: (_) => ref
+                          .read(playerActionsProvider)
+                          .removeFromQueue(song.id),
+                      child: isCurrent
+                          ? GlassSurface(
+                              radius: AppRadius.m,
+                              blur: 0,
+                              tint: primary.withValues(alpha: 0.14),
+                              shadow: false,
+                              margin: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                              child: row,
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: tokens.divider,
+                                    width: 0.5,
+                                  ),
                                 ),
                               ),
+                              child: row,
                             ),
-                            child: row,
-                          ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
