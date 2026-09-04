@@ -12,8 +12,10 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
+import '../../core/download/auto_download.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
+import '../../core/settings/prefs.dart';
 import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
@@ -696,7 +698,9 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
       );
+      return;
     }
+    maybeAutoDownload(ref.read);
   }
 }
 
@@ -1237,9 +1241,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     if (mounted) setState(() => _offset = v);
   }
 
-  /// 读取双语歌词开关（全局，默认开）
-  Future<void> _loadBilingual() async {
-    final prefs = await SharedPreferences.getInstance();
+  /// 读取双语歌词开关（全局，默认开）；main() 已预载 prefs，这里同步读取，
+  /// 避免异步回读覆盖用户刚切换的值
+  void _loadBilingual() {
+    final prefs = ref.read(sharedPrefsProvider);
     final v = prefs.getBool(bilingualLyricsKey) ?? true;
     if (mounted) {
       setState(() {

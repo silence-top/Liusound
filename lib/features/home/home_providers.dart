@@ -121,10 +121,82 @@ final artistAlbumsProvider = FutureProvider.autoDispose
       return adapter.fetchArtistAlbums(artistId);
     });
 
-/// 艺人歌曲（艺人详情页，热门优先）
-final artistSongsProvider = FutureProvider.autoDispose
-    .family<List<Song>, String>((ref, artistId) async {
-      final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return [];
-      return adapter.fetchArtistSongs(artistId);
-    });
+/// 艺人歌曲（艺人详情页，热门优先）分页状态
+class ArtistSongsState {
+  const ArtistSongsState({
+    this.songs = const [],
+    this.loading = true,
+    this.error = false,
+    this.noMore = false,
+    this.limit = 30,
+  });
+
+  final List<Song> songs;
+  final bool loading;
+  final bool error;
+  final bool noMore;
+  final int limit;
+
+  ArtistSongsState copyWith({
+    List<Song>? songs,
+    bool? loading,
+    bool? error,
+    bool? noMore,
+    int? limit,
+  }) => ArtistSongsState(
+    songs: songs ?? this.songs,
+    loading: loading ?? this.loading,
+    error: error ?? this.error,
+    noMore: noMore ?? this.noMore,
+    limit: limit ?? this.limit,
+  );
+}
+
+/// 艺人歌曲分页控制器：「加载更多」采用累计 limit 策略——部分后端
+/// （如 Subsonic getTopSongs）没有 offset，只能放大 count 重取后按 id 去重合并；
+/// 返回条数少于请求量或没有新增时判定无更多。
+class ArtistSongsController
+    extends AutoDisposeFamilyNotifier<ArtistSongsState, String> {
+  static const _pageSize = 30;
+
+  @override
+  ArtistSongsState build(String arg) {
+    _fetch(_pageSize);
+    return const ArtistSongsState();
+  }
+
+  Future<void> _fetch(int limit) async {
+    final adapter = ref.read(serverAdapterProvider);
+    state = state.copyWith(loading: true, error: false, limit: limit);
+    final prevCount = state.songs.length;
+    try {
+      final fetched = adapter == null
+          ? const <Song>[]
+          : await adapter.fetchArtistSongs(arg, limit: limit);
+      final merged = <String, Song>{
+        for (final s in state.songs) s.id: s,
+        for (final s in fetched) s.id: s,
+      };
+      final songs = merged.values.toList(growable: false);
+      state = state.copyWith(
+        songs: songs,
+        loading: false,
+        noMore: fetched.length < limit || songs.length == prevCount,
+      );
+    } catch (_) {
+      state = state.copyWith(loading: false, error: true);
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.loading || state.error || state.noMore) return;
+    await _fetch(state.limit + _pageSize);
+  }
+
+  Future<void> retry() => _fetch(state.limit);
+}
+
+final artistSongsProvider = NotifierProvider.autoDispose
+    .family<ArtistSongsController, ArtistSongsState, String>(
+      ArtistSongsController.new,
+    );

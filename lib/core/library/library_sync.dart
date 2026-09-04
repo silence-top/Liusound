@@ -61,6 +61,7 @@ abstract final class LibrarySync {
   }) async {
     final adapter = read(serverAdapterProvider)!;
     if (!adapter.capabilities.incrementalSync) return fetch();
+    String? cachedPayload;
     try {
       final serverId = read(authControllerProvider).activeServerId ?? 'none';
       final db = await AppDb.instance();
@@ -71,7 +72,7 @@ abstract final class LibrarySync {
       );
       final cached = rows.isEmpty ? null : rows.first;
       final cachedVersion = cached?['version'] as String?;
-      final cachedPayload = cached?['payload'] as String?;
+      cachedPayload = cached?['payload'] as String?;
 
       // 轻量校验（5s 超时）；离线/慢网查不到标记时退回快照
       String? current;
@@ -82,9 +83,9 @@ abstract final class LibrarySync {
       } catch (_) {
         current = null;
       }
+      // 弱网或离线时版本标记不可用，已有快照就是最可靠的可用数据。
       if (cachedPayload != null &&
-          current != null &&
-          current == cachedVersion) {
+          (current == null || current == cachedVersion)) {
         return decode(cachedPayload);
       }
       final fresh = await fetch();
@@ -96,7 +97,12 @@ abstract final class LibrarySync {
       }, conflictAlgorithm: ConflictAlgorithm.replace);
       return fresh;
     } catch (_) {
-      // 快照链路任何异常（无库/离线且无快照）回退全量拉取，可用性优先
+      // 数据库/网络任一环节失败时优先旧快照，避免离线时发起第二次全量请求。
+      if (cachedPayload != null) {
+        try {
+          return decode(cachedPayload);
+        } catch (_) {}
+      }
       return fetch();
     }
   }

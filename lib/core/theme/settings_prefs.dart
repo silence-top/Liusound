@@ -1,17 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/prefs.dart';
+
 /// 设置项图标显隐开关（§8.3）：关闭后所有设置页 ListTile 的 leading 图标隐藏
 class SettingsIconsController extends Notifier<bool> {
   static const _key = 'settings_icons_visible';
 
   @override
   bool build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.getBool(_key);
-      if (v != null && v != state) state = v;
-    });
-    return true;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(_key) ?? true;
   }
 
   Future<void> setVisible(bool v) async {
@@ -32,11 +31,8 @@ class ListEndTextController extends Notifier<String> {
 
   @override
   String build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.getString(_key);
-      if (v != null && v != state) state = v;
-    });
-    return defaultText;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getString(_key) ?? defaultText;
   }
 
   Future<void> setText(String v) async {
@@ -60,11 +56,8 @@ class PowerSaveController extends Notifier<bool> {
 
   @override
   bool build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.getBool(_key);
-      if (v != null && v != state) state = v;
-    });
-    return false;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(_key) ?? false;
   }
 
   Future<void> setEnabled(bool v) async {
@@ -85,11 +78,8 @@ class FloatingLyricsController extends Notifier<bool> {
 
   @override
   bool build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.getBool(_key);
-      if (v != null && v != state) state = v;
-    });
-    return false;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(_key) ?? false;
   }
 
   Future<void> setEnabled(bool v) async {
@@ -144,14 +134,13 @@ class HeadsetClicksController extends Notifier<HeadsetClicksState> {
 
   @override
   HeadsetClicksState build() {
-    SharedPreferences.getInstance().then((prefs) {
-      state = HeadsetClicksState(
-        single: _decode(prefs.getString(_keySingle), state.single),
-        doubleTap: _decode(prefs.getString(_keyDouble), state.doubleTap),
-        triple: _decode(prefs.getString(_keyTriple), state.triple),
-      );
-    });
-    return const HeadsetClicksState();
+    final prefs = ref.watch(sharedPrefsProvider);
+    const fallback = HeadsetClicksState();
+    return HeadsetClicksState(
+      single: _decode(prefs.getString(_keySingle), fallback.single),
+      doubleTap: _decode(prefs.getString(_keyDouble), fallback.doubleTap),
+      triple: _decode(prefs.getString(_keyTriple), fallback.triple),
+    );
   }
 
   static HeadsetAction _decode(String? raw, HeadsetAction fallback) =>

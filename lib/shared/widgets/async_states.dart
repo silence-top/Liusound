@@ -133,3 +133,40 @@ Widget noMatchBox() => Padding(
   padding: const EdgeInsets.all(AppSpacing.xl),
   child: Center(child: Text('没有匹配的歌曲', style: _kStateStyle)),
 );
+
+/// 列表「加载更多」行（P1）：idle 可点 / loading 转圈 / 失败重试。
+/// 仅数据源支持分页的列表插入；[noMore] 时隐藏行，由「列表结束提示」收尾。
+class LoadMoreRow extends StatelessWidget {
+  const LoadMoreRow({
+    super.key,
+    required this.onLoadMore,
+    this.loading = false,
+    this.failed = false,
+    this.noMore = false,
+  });
+
+  final VoidCallback onLoadMore;
+  final bool loading;
+  final bool failed;
+  final bool noMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (noMore) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+      child: Center(
+        child: loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : TextButton(
+                onPressed: onLoadMore,
+                child: Text(failed ? '加载失败，点击重试' : '加载更多', style: _kStateStyle),
+              ),
+      ),
+    );
+  }
+}

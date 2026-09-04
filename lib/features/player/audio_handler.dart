@@ -5,6 +5,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/download/auto_download.dart';
 import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/settings_prefs.dart';
@@ -138,7 +139,9 @@ class AppAudioHandler extends BaseAudioHandler {
       // 服务端失败回滚乐观更新
       _ref.read(currentSongProvider.notifier).state = before;
       _ref.read(queueProvider.notifier).replaceSong(song.id, before);
+      return;
     }
+    maybeAutoDownload(_ref.read);
   }
 
   // ---------- 状态广播 ----------

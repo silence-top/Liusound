@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/settings/prefs.dart';
+
 /// 播放页唱片形态（§4.2）：
 /// vinyl 经典黑胶（含唱针动画）｜cd 唱片｜square 方形玻璃卡片｜fullBlur 全屏模糊大图。
 enum CoverStyle { vinyl, cd, square, fullBlur }
@@ -30,12 +32,11 @@ class CoverStyleController extends Notifier<CoverStyle> {
 
   @override
   CoverStyle build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getString(_key);
-      if (saved == null) return;
-      final style = CoverStyle.values.where((e) => e.name == saved).firstOrNull;
-      if (style != null && style != state) state = style;
-    });
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getString(_key);
+    if (saved == null) return CoverStyle.vinyl;
+    final style = CoverStyle.values.where((e) => e.name == saved).firstOrNull;
+    if (style != null) return style;
     return CoverStyle.vinyl;
   }
 

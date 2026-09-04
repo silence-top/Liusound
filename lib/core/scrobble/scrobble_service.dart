@@ -54,17 +54,23 @@ class ScrobbleService {
 
   Future<void> _report(String songId) async {
     final adapter = _read(serverAdapterProvider);
-    if (adapter == null || !adapter.capabilities.scrobbling) return;
+    final serverId = _read(authControllerProvider).activeServerId;
+    if (adapter == null ||
+        serverId == null ||
+        !adapter.capabilities.scrobbling) {
+      return;
+    }
     try {
       if (await adapter.scrobble(songId)) return;
     } catch (_) {}
-    await _enqueue(songId);
+    await _enqueue(serverId, songId);
   }
 
-  Future<void> _enqueue(String songId) async {
+  Future<void> _enqueue(String serverId, String songId) async {
     try {
       final db = await AppDb.instance();
       await db.insert('scrobble_queue', {
+        'server_id': serverId,
         'song_id': songId,
         'created_at': DateTime.now().millisecondsSinceEpoch,
       });
@@ -76,11 +82,18 @@ class ScrobbleService {
   /// 按时间戳顺序补发；成功即删行，失败保留待下轮（避免重复上报丢失）
   Future<void> _flush() async {
     final adapter = _read(serverAdapterProvider);
-    if (adapter == null || !adapter.capabilities.scrobbling) return;
+    final serverId = _read(authControllerProvider).activeServerId;
+    if (adapter == null ||
+        serverId == null ||
+        !adapter.capabilities.scrobbling) {
+      return;
+    }
     try {
       final db = await AppDb.instance();
       final rows = await db.query(
         'scrobble_queue',
+        where: 'server_id = ?',
+        whereArgs: [serverId],
         orderBy: 'created_at ASC',
         limit: 50,
       );

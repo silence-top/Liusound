@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,25 @@ abstract final class FloatingLyrics {
   static const _channel = MethodChannel(
     'com.silencetop.liusound/floating_lyrics',
   );
+  static final _closed = StreamController<void>.broadcast();
+  static final _permissionChanges = StreamController<bool>.broadcast();
+  static bool _initialized = false;
+
+  static Stream<void> get closed => _closed.stream;
+  static Stream<bool> get permissionChanges => _permissionChanges.stream;
+
+  static void initialize() {
+    if (_initialized) return;
+    _initialized = true;
+    _channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'closed':
+          _closed.add(null);
+        case 'permissionChanged':
+          _permissionChanges.add(call.arguments == true);
+      }
+    });
+  }
 
   static bool get supported => Platform.isAndroid;
 

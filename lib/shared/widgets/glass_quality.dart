@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/settings/prefs.dart';
 import '../../core/theme/settings_prefs.dart';
 
 /// 液态玻璃档位：off 关闭模糊（低端设备流畅）；
@@ -21,21 +22,20 @@ class GlassQualityController extends Notifier<GlassLevel> {
 
   @override
   GlassLevel build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getString(_key);
-      if (saved == null || saved == state.name) return;
-      // 迁移旧档位名：high→standard / low→off
-      final level = switch (saved) {
-        'high' => GlassLevel.standard,
-        'low' => GlassLevel.off,
-        _ => GlassLevel.values.firstWhere(
-          (e) => e.name == saved,
-          orElse: () => GlassLevel.standard,
-        ),
-      };
-      if (level != state) state = level;
-    });
-    return GlassLevel.standard;
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getString(_key);
+    if (saved == null || saved == GlassLevel.standard.name) {
+      return GlassLevel.standard;
+    }
+    // 迁移旧档位名：high→standard / low→off
+    return switch (saved) {
+      'high' => GlassLevel.standard,
+      'low' => GlassLevel.off,
+      _ => GlassLevel.values.firstWhere(
+        (e) => e.name == saved,
+        orElse: () => GlassLevel.standard,
+      ),
+    };
   }
 
   Future<void> setLevel(GlassLevel level) async {

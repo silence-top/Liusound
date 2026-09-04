@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'app_skin.dart';
 
+/// 主题决定组件如何绘制，而不仅是替换一组颜色。
+/// 业务页面只使用语义 token；容器/弹层/舞台由此选择各自的视觉实现。
+enum SurfaceLanguage {
+  liquidGlass,
+  deepSpace,
+  minimal,
+  materialYou,
+  highContrast,
+}
+
 /// 每主题 token 束（ThemeExtension 注入 ThemeData，组件层经 context 读取）。
 /// 尺寸类 token（blur/radius）与主题无关，留在 GlassTokens 常量；
 /// 颜色/发光/模糊缩放随皮肤切换。
@@ -24,6 +34,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     required this.blurScale,
     required this.blurEnabled,
     required this.highlightStrength,
+    required this.language,
   });
 
   final Color background; // 页面背景（scaffold/appbar）
@@ -43,6 +54,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
   final double blurScale; // 模糊强度缩放
   final bool blurEnabled; // 极简/高对比强制关模糊
   final double highlightStrength; // 镜面高光强度（0 = 无高光，改实色描边）
+  final SurfaceLanguage language;
 
   static SkinTokens of(BuildContext c) => Theme.of(c).extension<SkinTokens>()!;
 
@@ -64,6 +76,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 1.0,
     blurEnabled: true,
     highlightStrength: 1.0,
+    language: SurfaceLanguage.liquidGlass,
   );
 
   static const deepSpace = SkinTokens(
@@ -82,8 +95,9 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     textFaint: Color(0xFF4A5A72),
     glow: Color(0x3800E5FF),
     blurScale: 1.1,
-    blurEnabled: true,
-    highlightStrength: 0.9,
+    blurEnabled: false,
+    highlightStrength: 0,
+    language: SurfaceLanguage.deepSpace,
   );
 
   static const minimal = SkinTokens(
@@ -104,6 +118,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 0,
     blurEnabled: false,
     highlightStrength: 0.2,
+    language: SurfaceLanguage.minimal,
   );
 
   static const materialYou = SkinTokens(
@@ -122,8 +137,9 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     textFaint: Color(0xFF79747E),
     glow: Color(0x00000000),
     blurScale: 1.0,
-    blurEnabled: true,
-    highlightStrength: 0.8,
+    blurEnabled: false,
+    highlightStrength: 0,
+    language: SurfaceLanguage.materialYou,
   );
 
   static const highContrast = SkinTokens(
@@ -144,6 +160,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 0,
     blurEnabled: false,
     highlightStrength: 0.0,
+    language: SurfaceLanguage.highContrast,
   );
 
   static SkinTokens forSkin(AppSkin skin) => switch (skin) {
@@ -173,6 +190,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     double? blurScale,
     bool? blurEnabled,
     double? highlightStrength,
+    SurfaceLanguage? language,
   }) => SkinTokens(
     background: background ?? this.background,
     shell: shell ?? this.shell,
@@ -191,6 +209,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: blurScale ?? this.blurScale,
     blurEnabled: blurEnabled ?? this.blurEnabled,
     highlightStrength: highlightStrength ?? this.highlightStrength,
+    language: language ?? this.language,
   );
 
   @override
@@ -216,6 +235,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
       blurEnabled: t < 0.5 ? blurEnabled : other.blurEnabled,
       highlightStrength:
           highlightStrength + (other.highlightStrength - highlightStrength) * t,
+      language: t < 0.5 ? language : other.language,
     );
   }
 }

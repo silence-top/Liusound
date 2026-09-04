@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/prefs.dart';
+
 /// 主题色预设（§8.1）：每个选项是一个明确的 Color，不走 M3 tone-mapping，
 /// 保证切换后按钮/激活态颜色与用户选择的色值完全一致。
 enum AppAccent {
@@ -22,16 +24,13 @@ class AccentController extends Notifier<AppAccent> {
 
   @override
   AppAccent build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getString(_key);
-      if (saved == null) return;
-      final v = AppAccent.values.firstWhere(
-        (e) => e.name == saved,
-        orElse: () => AppAccent.blue,
-      );
-      if (v != state) state = v;
-    });
-    return AppAccent.blue;
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getString(_key);
+    if (saved == null) return AppAccent.blue;
+    return AppAccent.values.firstWhere(
+      (e) => e.name == saved,
+      orElse: () => AppAccent.blue,
+    );
   }
 
   Future<void> setAccent(AppAccent accent) async {
@@ -51,11 +50,8 @@ final appAccentProvider = NotifierProvider<AccentController, AppAccent>(
 class AccentExplicitController extends Notifier<bool> {
   @override
   bool build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.containsKey('app_accent');
-      if (v != state) state = v;
-    });
-    return false;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.containsKey('app_accent');
   }
 }
 

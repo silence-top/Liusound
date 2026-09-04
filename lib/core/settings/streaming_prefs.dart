@@ -2,6 +2,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'prefs.dart';
+
 /// 在线音质档位（附录·四）：lossless 不转码播原文件，其余为服务端转码目标码率
 enum StreamQuality {
   lossless('无损', 0),
@@ -70,25 +72,23 @@ class StreamingSettingsController extends Notifier<StreamingSettings> {
 
   @override
   StreamingSettings build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final s = StreamingSettings(
-        wifiQuality: StreamQuality.values.firstWhere(
-          (q) => q.name == prefs.getString(_wifiKey),
-          orElse: () => state.wifiQuality,
-        ),
-        cellularQuality: StreamQuality.values.firstWhere(
-          (q) => q.name == prefs.getString(_cellularKey),
-          orElse: () => state.cellularQuality,
-        ),
-        transcodeFormat: TranscodeFormat.values.firstWhere(
-          (f) => f.name == prefs.getString(_formatKey),
-          orElse: () => state.transcodeFormat,
-        ),
-        cellularAllowed: prefs.getBool(_cellularAllowedKey) ?? true,
-      );
-      if (s != state) state = s;
-    });
-    return const StreamingSettings();
+    final prefs = ref.watch(sharedPrefsProvider);
+    const fallback = StreamingSettings();
+    return StreamingSettings(
+      wifiQuality: StreamQuality.values.firstWhere(
+        (q) => q.name == prefs.getString(_wifiKey),
+        orElse: () => fallback.wifiQuality,
+      ),
+      cellularQuality: StreamQuality.values.firstWhere(
+        (q) => q.name == prefs.getString(_cellularKey),
+        orElse: () => fallback.cellularQuality,
+      ),
+      transcodeFormat: TranscodeFormat.values.firstWhere(
+        (f) => f.name == prefs.getString(_formatKey),
+        orElse: () => fallback.transcodeFormat,
+      ),
+      cellularAllowed: prefs.getBool(_cellularAllowedKey) ?? true,
+    );
   }
 
   Future<void> set(StreamingSettings s) async {
@@ -172,16 +172,15 @@ class NetworkSettingsController extends Notifier<NetworkSettings> {
 
   @override
   NetworkSettings build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final s = NetworkSettings(
-        timeoutSeconds: prefs.getInt(_timeoutKey) ?? 10,
-        proxy: prefs.getString(_proxyKey) ?? '',
-        verifyCertificates: prefs.getBool(_verifyKey) ?? true,
-        hostOverrides: prefs.getString(_hostsKey) ?? '',
-      );
-      if (s != state) state = s;
-    });
-    return const NetworkSettings();
+    final prefs = ref.watch(sharedPrefsProvider);
+    const fallback = NetworkSettings();
+    return NetworkSettings(
+      timeoutSeconds: prefs.getInt(_timeoutKey) ?? fallback.timeoutSeconds,
+      proxy: prefs.getString(_proxyKey) ?? fallback.proxy,
+      verifyCertificates:
+          prefs.getBool(_verifyKey) ?? fallback.verifyCertificates,
+      hostOverrides: prefs.getString(_hostsKey) ?? fallback.hostOverrides,
+    );
   }
 
   Future<void> set(NetworkSettings s) async {

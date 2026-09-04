@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
@@ -535,10 +536,13 @@ class _SongListBody extends ConsumerWidget {
       emptyText: '暂无歌曲',
       onRetry: () => ref.invalidate(provider),
       onData: (songs) => ListView.builder(
-        itemCount: songs.length,
-        itemBuilder: (context, index) => FadeSlideIn(
-          child: SongRow(song: songs[index], index: index, songs: songs),
-        ),
+        itemCount: songs.length + 1,
+        itemBuilder: (context, index) {
+          if (index == songs.length) return ListEndMark(songs: songs);
+          return FadeSlideIn(
+            child: SongRow(song: songs[index], index: index, songs: songs),
+          );
+        },
       ),
     );
   }

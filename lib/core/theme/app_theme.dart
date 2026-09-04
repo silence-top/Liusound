@@ -82,13 +82,46 @@ abstract final class AppTheme {
   /// 按皮肤 + 主题色构建深色 ThemeData（§8.1 / P1 主题系统化）：
   /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制
   /// 主色等于用户选的色值，保证按钮/激活态颜色与预设完全一致。
-  static ThemeData build(AppSkin skin, Color accentColor) {
-    final t = SkinTokens.forSkin(skin);
+  static ThemeData build(
+    AppSkin skin,
+    Color accentColor, {
+    Color? materialSurface,
+    Color? materialSurfaceHigh,
+    Color? materialSurfaceLowest,
+    Color? materialOutline,
+    Color? materialOutlineVariant,
+    Color? materialOnSurface,
+    Color? materialOnSurfaceVariant,
+  }) {
+    var t = SkinTokens.forSkin(skin);
     final scheme = ColorScheme.fromSeed(
       seedColor: accentColor,
       brightness: Brightness.dark,
       surface: t.surface,
     ).copyWith(primary: accentColor);
+    // Material You 必须由完整动态色板驱动，不能只替换 primary。
+    if (skin == AppSkin.materialYou && materialSurface != null) {
+      t = t.copyWith(
+        background: materialSurface,
+        shell: materialSurface,
+        detailBg: materialSurfaceLowest ?? materialSurface,
+        surface: materialSurfaceHigh ?? materialSurface,
+        divider: materialOutlineVariant ?? materialOutline ?? t.divider,
+        glassTint: materialSurfaceHigh ?? materialSurface,
+        tintLight: materialSurfaceHigh ?? materialSurface,
+        borderTop: materialOutlineVariant ?? materialOutline ?? t.borderTop,
+        borderBottom:
+            materialOutlineVariant ?? materialOutline ?? t.borderBottom,
+        borderHairline:
+            materialOutlineVariant ?? materialOutline ?? t.borderHairline,
+        shadowColor: Colors.transparent,
+        textDim: materialOnSurfaceVariant ?? t.textDim,
+        textFaint: materialOutline ?? t.textFaint,
+      );
+    }
+    final textPrimary = skin == AppSkin.materialYou && materialOnSurface != null
+        ? materialOnSurface
+        : Colors.white;
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -96,43 +129,43 @@ abstract final class AppTheme {
       extensions: [t],
       // 统一文本基线（对齐 2.1 字阶：H1 28 / H2 22 / H3 19 / 正文 16 / 辅助 14 / 说明 12）：
       // 未显式指定样式的 Text 自动获得深色背景下的可读样式
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         headlineLarge: TextStyle(
-          color: Colors.white,
+          color: textPrimary,
           fontSize: 28,
           fontWeight: FontWeight.w700,
         ),
         headlineSmall: TextStyle(
-          color: Colors.white,
+          color: textPrimary,
           fontSize: 22,
           fontWeight: FontWeight.w600,
         ),
         titleLarge: TextStyle(
-          color: Colors.white,
+          color: textPrimary,
           fontSize: 22,
           fontWeight: FontWeight.w600,
         ),
         titleMedium: TextStyle(
-          color: Colors.white,
+          color: textPrimary,
           fontSize: 19,
           fontWeight: FontWeight.w500,
         ),
-        bodyLarge: TextStyle(color: Colors.white, fontSize: 16),
-        bodyMedium: TextStyle(color: Colors.white, fontSize: 14),
-        bodySmall: TextStyle(color: Color(0xFFBBBBBB), fontSize: 12),
+        bodyLarge: TextStyle(color: textPrimary, fontSize: 16),
+        bodyMedium: TextStyle(color: textPrimary, fontSize: 14),
+        bodySmall: TextStyle(color: t.textDim, fontSize: 12),
         labelLarge: TextStyle(
-          color: Colors.white,
+          color: textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
-        labelSmall: TextStyle(color: Colors.white38, fontSize: 12),
+        labelSmall: TextStyle(color: t.textDim, fontSize: 12),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: t.background,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
+        titleTextStyle: TextStyle(
+          color: textPrimary,
           fontSize: 19,
           fontWeight: FontWeight.w600,
         ),
