@@ -8,8 +8,9 @@ import '../features/settings/settings_screen.dart';
 import '../shared/widgets/glass.dart';
 
 /// 主框架（对齐设计图首屏/负一屏）：
-/// 底部悬浮毛玻璃导航（首页 / 资料库 / 设置），中间 PageView 保活三页并支持左右滑动，
-/// 导航之上为 MiniPlayer。播放期间页面零重建（MiniPlayer 内部自管高频订阅）。
+/// 顶部沉浸式导航（首页 / 资料库 / 设置）——无卡片容器，直接延伸进状态栏区域，
+/// 中间 PageView 保活三页并支持左右滑动，底部 MiniPlayer。
+/// 播放期间页面零重建（MiniPlayer 内部自管高频订阅）。
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -44,66 +45,71 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       backgroundColor: AppTheme.shellOf(context),
       body: AmbientBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  children: const [
-                    _KeepAlive(child: HomeScreen()),
-                    _KeepAlive(child: MusicLibraryScreen()),
-                    _KeepAlive(child: SettingsScreen()),
-                  ],
-                ),
+        child: Column(
+          children: [
+            _buildTopBar(),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (i) => setState(() => _index = i),
+                children: const [
+                  _KeepAlive(child: HomeScreen()),
+                  _KeepAlive(child: MusicLibraryScreen()),
+                  _KeepAlive(child: SettingsScreen()),
+                ],
               ),
-              const MiniPlayer(),
-              _buildBottomBar(),
-            ],
-          ),
+            ),
+            SafeArea(top: false, child: const MiniPlayer()),
+          ],
         ),
       ),
     );
   }
 
-  /// 悬浮底部导航：胶囊玻璃容器 + 三 Tab（图标 + 文字），激活态主色高亮
-  Widget _buildBottomBar() {
-    return GlassContainer(
-      radius: GlassTokens.radiusPill,
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          for (var i = 0; i < _icons.length; i++)
-            Expanded(
-              child: Material(
+  /// 沉浸式顶部导航：透明无卡片，随 AmbientBackground 延伸进状态栏；
+  /// 激活态主色高亮 + 弱底色，未激活白阶弱化
+  Widget _buildTopBar() {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Container(
+      width: double.infinity,
+      color: Colors.transparent,
+      padding: EdgeInsets.only(top: topPadding),
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < _icons.length; i++)
+              Material(
                 color: _index == i
                     ? Theme.of(context).colorScheme.primary
-                          .withValues(alpha: 0.18)
+                          .withValues(alpha: 0.16)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                   onTap: () => _goTo(i),
-                  child: SizedBox(
-                    height: 52,
-                    child: Column(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           _icons[i],
-                          size: 22,
+                          size: 20,
                           color: _index == i
                               ? Theme.of(context).colorScheme.primary
-                              : Colors.white,
+                              : Colors.white54,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(width: 6),
                         Text(
                           _labels[i],
                           style: TextStyle(
-                            fontSize: 10,
-                            height: 1.2,
+                            fontSize: 13,
+                            fontWeight: _index == i
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             color: _index == i
                                 ? Theme.of(context).colorScheme.primary
                                 : Colors.white54,
@@ -114,8 +120,8 @@ class _AppShellState extends State<AppShell> {
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
