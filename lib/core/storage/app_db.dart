@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-/// 应用级 SQLite（Scrobble 离线队列 / 曲库增量同步快照）。
+/// 应用级 SQLite（Scrobble 离线队列 / 曲库增量同步快照 / 本地导入歌词）。
 /// 懒初始化单例；表结构随 version 升级在 onUpgrade 迁移
 abstract final class AppDb {
   static Database? _db;
@@ -12,7 +12,7 @@ abstract final class AppDb {
     final dir = await getDatabasesPath();
     final db = await openDatabase(
       p.join(dir, 'liusound.db'),
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE scrobble_queue(
@@ -30,9 +30,56 @@ abstract final class AppDb {
             PRIMARY KEY(server_key, kind)
           )
         ''');
+        await _createLyricsLocal(db);
+      },
+      onUpgrade: (db, _, _) async {
+        await _createLyricsLocal(db);
       },
     );
     _db = db;
     return db;
+  }
+
+  static Future<void> _createLyricsLocal(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS lyrics_local(
+        lookup_key TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  /// 本地歌词查找键：「标题|歌手」归一化（去空白 + 小写）
+  static String lyricsKey(String title, String artist) =>
+      '${title.trim().toLowerCase()}|${artist.trim().toLowerCase()}';
+
+  static Future<String?> loadLocalLyrics(String title, String artist) async {
+    final db = await instance();
+    final rows = await db.query(
+      'lyrics_local',
+      where: 'lookup_key = ?',
+      whereArgs: [lyricsKey(title, artist)],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['content'] as String?;
+  }
+
+  static Future<void> saveLocalLyrics(
+    String title,
+    String artist,
+    String content,
+  ) async {
+    final db = await instance();
+    await db.insert('lyrics_local', {
+      'lookup_key': lyricsKey(title, artist),
+      'title': title,
+      'artist': artist,
+      'content': content,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

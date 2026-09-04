@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/cache/cache_manager.dart';
 import '../../core/download/auto_download.dart';
+import '../../core/floating/floating_lyrics.dart';
 import '../../core/theme/accent.dart';
 import '../../core/theme/app_skin.dart';
 import '../../core/theme/background.dart';
@@ -54,6 +56,7 @@ class SettingsScreen extends ConsumerWidget {
     final showIcons = ref.watch(settingsIconsProvider);
     final endText = ref.watch(listEndTextProvider);
     final powerSave = ref.watch(powerSaveProvider);
+    final floatingLyrics = ref.watch(floatingLyricsProvider);
     final streaming = ref.watch(streamingSettingsProvider);
     final network = ref.watch(networkSettingsProvider);
     final cache = ref.watch(cacheSettingsProvider);
@@ -309,6 +312,21 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          // 悬浮歌词仅 Android 提供悬浮窗能力（iOS 无对应 API，入口隐藏）
+          if (Platform.isAndroid) ...[
+            _GroupCard(
+              title: '歌词',
+              children: [
+                _SwitchTile(
+                  icon: Icons.picture_in_picture_alt,
+                  title: '悬浮歌词',
+                  subtitle: floatingLyrics ? '小窗显示当前歌词行' : '关闭',
+                  value: floatingLyrics,
+                  onChanged: (v) => _toggleFloatingLyrics(context, ref, v),
+                ),
+              ],
+            ),
+          ],
           _GroupCard(
             title: '服务器',
             children: [
@@ -873,6 +891,27 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
   );
 }
 
+/// 悬浮歌词开关：开启前校验悬浮窗权限，未授予则跳系统设置页
+Future<void> _toggleFloatingLyrics(
+  BuildContext context,
+  WidgetRef ref,
+  bool v,
+) async {
+  if (!v) {
+    await ref.read(floatingLyricsProvider.notifier).setEnabled(false);
+    return;
+  }
+  if (await FloatingLyrics.hasPermission()) {
+    await ref.read(floatingLyricsProvider.notifier).setEnabled(true);
+    return;
+  }
+  if (context.mounted) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('请先授予「显示在其他应用上层」权限')));
+  }
+  await FloatingLyrics.requestPermission();
+}
+
 /// 主题皮肤选择（P1 主题系统化）：五套主题，每项带背景/主色双预览条
 Future<void> _showSkinPicker(BuildContext context, WidgetRef ref) {
   final current = ref.read(appSkinProvider);
@@ -1228,7 +1267,10 @@ Future<void> _showEndTextEditor(BuildContext context, WidgetRef ref) async {
       autofocus: true,
       textInputAction: TextInputAction.done,
       onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-      decoration: const InputDecoration(hintText: '留空恢复默认'),
+      decoration: const InputDecoration(
+        hintText: '留空恢复默认',
+        helperText: '支持占位符：{nTitle} 下一首歌名 / {nArtist} 歌手 / {nAlbum} 专辑',
+      ),
     ),
     actions: [
       TextButton(
