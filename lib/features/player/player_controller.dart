@@ -270,6 +270,7 @@ class PlayerActions {
   bool _restored = false;
   bool _fading = false; // 交叉淡化进行中（防重入）
   int _resumePositionMs = 0; // 冷启动待恢复进度（首播时一次性消费）
+  int _playGeneration = 0; // 播放代数：连点切歌时旧加载流程作废，避免竞争
   final _random = Random();
 
   /// 长音频断点阈值（>10min 的曲目单独记进度，有声书/长录音续播用）
@@ -281,26 +282,36 @@ class PlayerActions {
   // ---------- 播放控制 ----------
 
   /// 播放指定歌曲（替换当前曲目）。
+  /// 点击即切换当前歌（即时反馈），流解析在后台进行，缓冲态由播放键 spinner 呈现；
+  /// 代数守卫保证连点时旧播放请求作废，不会与新一轮加载竞争。
   /// 本地歌曲（id 为 local: 前缀）或已离线下载的歌曲直接走本地文件，
   /// 不消耗流量；否则按当前网络（Wi-Fi / 蜂窝）解析音质档位，
   /// 蜂窝下关闭传输开关则拒播
   Future<void> play(Song song) async {
+    final gen = ++_playGeneration;
+    _ref.read(currentSongProvider.notifier).state = song;
     final localPath = localSongPath(song) ?? await findDownloadedSong(song);
+    if (gen != _playGeneration) return;
     if (localPath != null && File(localPath).existsSync()) {
-      await _playLocal(song, localPath);
+      await _playLocal(song, localPath, gen);
       return;
     }
     final adapter = _adapter;
     if (adapter == null) return;
     final settings = _ref.read(streamingSettingsProvider);
     final quality = await resolveCurrentQuality(settings);
-    if (quality == null) return;
+    if (gen != _playGeneration) return;
+    if (quality == null) {
+      _notify('移动网络下传输开关已关闭，播放被阻止');
+      return;
+    }
     // 服务端不支持转码时直接走无损，省一次注定失败的转码请求
     final effectiveQuality = quality == StreamQuality.lossless
         ? quality
         : (await adapter.supportsTranscode()
               ? quality
               : StreamQuality.lossless);
+    if (gen != _playGeneration) return;
     final hint = QualityHint(
       quality: effectiveQuality,
       format: settings.transcodeFormat,
@@ -309,7 +320,7 @@ class PlayerActions {
     try {
       final source = await adapter.resolveStream(song, quality: hint);
       await _setStreamSource(source);
-      _ref.read(currentSongProvider.notifier).state = song;
+      if (gen != _playGeneration) return;
       _ref.read(currentQualityProvider.notifier).state = hint.quality;
       await _player.play();
       unawaited(
@@ -324,6 +335,7 @@ class PlayerActions {
           debugPrint('play(${song.id}) quality=${quality.name} failed: $e');
           return true;
         }());
+        _notify('播放失败，请检查服务器连接');
         return;
       }
       assert(() {
@@ -333,7 +345,7 @@ class PlayerActions {
       try {
         final source = await adapter.resolveStream(song);
         await _setStreamSource(source);
-        _ref.read(currentSongProvider.notifier).state = song;
+        if (gen != _playGeneration) return;
         _ref.read(currentQualityProvider.notifier).state =
             StreamQuality.lossless;
         await _player.play();
@@ -348,9 +360,13 @@ class PlayerActions {
           );
           return true;
         }());
+        if (gen == _playGeneration) _notify('播放失败，请检查服务器连接');
       }
     }
   }
+
+  void _notify(String message) =>
+      _ref.read(resumeNoticeProvider.notifier).state = message;
 
   /// 按边听边存开关选择磁盘缓存源或直连源
   Future<void> _setStreamSource(PlaybackSource source) async {
@@ -371,16 +387,17 @@ class PlayerActions {
   }
 
   /// 本地文件播放（本地扫描歌曲 / 已离线下载歌曲）
-  Future<void> _playLocal(Song song, String path) async {
+  Future<void> _playLocal(Song song, String path, int gen) async {
     _ref.read(currentQualityProvider.notifier).state = null;
     await _saveLongTrackBreakpoint();
     try {
       await _player.setAudioSource(AudioSource.file(path));
-      _ref.read(currentSongProvider.notifier).state = song;
+      if (gen != _playGeneration) return;
       await _player.play();
       unawaited(_resumeLongTrack(song));
     } catch (_) {
-      // 文件被移动/删除等场景静默，状态保持可重试
+      // 文件被移动/删除等场景给出提示，状态保持可重试
+      if (gen == _playGeneration) _notify('本地文件播放失败：文件不可读');
     }
   }
 
