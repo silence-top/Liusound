@@ -335,6 +335,104 @@ class SubsonicAdapter implements ServerAdapter {
     );
   }
 
+  // ---------- 资料库扩展 ----------
+
+  @override
+  Future<List<Artist>?> fetchArtists() async {
+    try {
+      final data = await _api('getIndexes', {});
+      final indexes = data['indexes']?['index'] as List<dynamic>? ?? const [];
+      return [for (final index in indexes) ..._artistsOfIndex(index)];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<Artist>?> fetchAlbumArtists() async {
+    try {
+      final data = await _api('getArtists', {});
+      final indexes = data['artists']?['index'] as List<dynamic>? ?? const [];
+      return [for (final index in indexes) ..._artistsOfIndex(index)];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Artist> _artistsOfIndex(dynamic index) {
+    if (index is! Map<String, dynamic>) return const [];
+    final artists = index['artist'] as List<dynamic>? ?? const [];
+    return [
+      for (final a in artists)
+        if (a is Map<String, dynamic>)
+          Artist(
+            id: _str(a, 'id'),
+            name: _str(a, 'name', '未知歌手'),
+            albumCount: _int(a, 'albumCount'),
+            songCount: _int(a, 'songCount'),
+          ),
+    ];
+  }
+
+  @override
+  Future<List<Genre>?> fetchGenres() async {
+    try {
+      final data = await _api('getGenres', {});
+      final genres = data['genres']?['genre'] as List<dynamic>? ?? const [];
+      return [
+        for (final g in genres)
+          if (g is Map<String, dynamic>)
+            Genre(
+              // 流派名是 XML 文本内容，JSON 化后落在 value；部分服务器用 name/genre
+              value: _firstStr(g, const ['value', 'name', 'genre']) ?? '',
+              songCount: _int(g, 'count'),
+              albumCount: _int(g, 'albumCount'),
+            ),
+      ].where((g) => g.value.isNotEmpty).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<RadioStation>?> fetchRadioStations() async {
+    try {
+      final data = await _api('getInternetRadioStations', {});
+      final stations =
+          data['internetRadioStations']?['station'] as List<dynamic>? ??
+          const [];
+      return [
+        for (final s in stations)
+          if (s is Map<String, dynamic>)
+            RadioStation(
+              id: _str(s, 'id'),
+              name: _str(s, 'name', '未命名电台'),
+              streamUrl: _str(s, 'streamUrl'),
+              homePageUrl: _firstStr(s, const ['homePageUrl']),
+            ),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) async {
+    try {
+      final data = await _api('getSongsByGenre', {
+        'genre': genre,
+        'count': '$limit',
+      });
+      final songs = data['songsByGenre']?['song'] as List<dynamic>? ?? const [];
+      return [
+        for (final s in songs)
+          if (s is Map<String, dynamic>) _toSong(s),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool? _transcodeProbe;
 
   @override

@@ -347,6 +347,30 @@ class Artist {
       .toList();
 }
 
+/// 流派（Subsonic getGenres / 各后端等价接口；value 为流派名）
+class Genre {
+  const Genre({required this.value, this.songCount = 0, this.albumCount = 0});
+
+  final String value;
+  final int songCount;
+  final int albumCount;
+}
+
+/// 网络电台（Subsonic getInternetRadioStations 列表项）
+class RadioStation {
+  const RadioStation({
+    required this.id,
+    required this.name,
+    required this.streamUrl,
+    this.homePageUrl,
+  });
+
+  final String id;
+  final String name;
+  final String streamUrl;
+  final String? homePageUrl;
+}
+
 /// 歌单（Navidrome /api/playlist 列表项）
 class Playlist {
   const Playlist({

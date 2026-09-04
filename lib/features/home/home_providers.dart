@@ -113,6 +113,62 @@ final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
   return LibrarySync.albums(ref.read);
 });
 
+/// 歌手列表（资料库入口；null = 后端不支持该能力，入口隐藏）
+final artistsProvider = FutureProvider<List<Artist>?>((ref) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return null;
+  try {
+    return await adapter.fetchArtists();
+  } catch (_) {
+    return null;
+  }
+});
+
+/// 专辑艺术家列表（资料库入口；null = 后端不支持该能力）
+final albumArtistsProvider = FutureProvider<List<Artist>?>((ref) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return null;
+  try {
+    return await adapter.fetchAlbumArtists();
+  } catch (_) {
+    return null;
+  }
+});
+
+/// 流派列表（资料库入口；null = 后端不支持该能力）
+final genresProvider = FutureProvider<List<Genre>?>((ref) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return null;
+  try {
+    return await adapter.fetchGenres();
+  } catch (_) {
+    return null;
+  }
+});
+
+/// 电台列表（资料库入口；null = 后端不支持该能力）
+final radioStationsProvider = FutureProvider<List<RadioStation>?>((ref) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return null;
+  try {
+    return await adapter.fetchRadioStations();
+  } catch (_) {
+    return null;
+  }
+});
+
+/// 流派歌曲（流派二级页；null = 后端不支持）
+final genreSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>?, String>((ref, genre) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return null;
+      try {
+        return await adapter.fetchGenreSongs(genre);
+      } catch (_) {
+        return null;
+      }
+    });
+
 /// 艺人专辑（艺人详情页，按发行年降序）
 final artistAlbumsProvider = FutureProvider.autoDispose
     .family<List<Album>, String>((ref, artistId) async {

@@ -38,6 +38,25 @@ abstract class ServerAdapter {
   /// 返回 null 表示后端不提供（如 Audio Station），调用方需全量刷新
   Future<String?> libraryVersion() async => null;
 
+  // ---------- 资料库扩展（歌手/流派/电台） ----------
+  // 返回 null 表示后端不支持该能力（UI 隐藏入口）；空列表表示支持但无数据
+
+  /// 全部歌手（文件夹视角，getIndexes 等价接口）
+  Future<List<Artist>?> fetchArtists() => Future.value(null);
+
+  /// 专辑艺术家（ID3 视角，getArtists 等价接口）
+  Future<List<Artist>?> fetchAlbumArtists() => Future.value(null);
+
+  /// 全部流派
+  Future<List<Genre>?> fetchGenres() => Future.value(null);
+
+  /// 网络电台列表
+  Future<List<RadioStation>?> fetchRadioStations() => Future.value(null);
+
+  /// 某一流派下的歌曲；不支持按流派过滤的后端返回 null
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) =>
+      Future.value(null);
+
   /// 在服务端新建一个空歌单；成功返回 true。
   /// 调用方自行 invalidate 歌单列表刷新，本方法不负责回传新歌单
   Future<bool> createPlaylist(String name);

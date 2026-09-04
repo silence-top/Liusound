@@ -15,10 +15,11 @@ import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
+import 'library_entries_screen.dart';
 
 /// 负一屏音乐库（设计图「负一屏」）：
 /// 服务器卡片（Navidrome / 主线路 / 歌曲总数）
-/// → 四入口（歌曲 / 我喜欢的 / 本地音乐 / 专辑）
+/// → 八入口（歌曲 / 我喜欢的 / 本地音乐 / 专辑 / 专辑艺术家 / 歌手 / 流派 / 电台）
 /// → 我的歌单列表（点击进歌单详情，三点菜单支持播放/加入队列）。
 class MusicLibraryScreen extends ConsumerWidget {
   const MusicLibraryScreen({super.key});
@@ -31,32 +32,10 @@ class MusicLibraryScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 12, bottom: 96),
         children: [
           _ServerCard(total: total.value ?? 0),
-          _EntryGrid(
-            onSongs: () => _openSongs(context, '歌曲', librarySongsProvider),
-            onLiked: () => _openSongs(context, '我喜欢的', likedSongsProvider),
-            onLocal: () => _openSongs(context, '本地音乐', localSongsProvider),
-            onAlbums: () => _openAlbums(context),
-          ),
+          const _EntryGrid(),
           const SizedBox(height: 20),
           const _PlaylistSection(),
         ],
-      ),
-    );
-  }
-
-  void _openSongs(
-    BuildContext context,
-    String title,
-    FutureProvider<List<Song>> provider,
-  ) {
-    Navigator.of(context)
-        .push(fadeRoute<void>(SongListPage(title: title, provider: provider)));
-  }
-
-  void _openAlbums(BuildContext context) {
-    Navigator.of(context).push(
-      fadeRoute<void>(
-        AlbumListPage(title: '专辑', provider: libraryAlbumsProvider),
       ),
     );
   }
@@ -148,31 +127,100 @@ class _ServerCard extends ConsumerWidget {
   }
 }
 
-/// 四入口：歌曲 / 我喜欢的 / 本地音乐 / 专辑
-class _EntryGrid extends StatelessWidget {
-  const _EntryGrid({
-    required this.onSongs,
-    required this.onLiked,
-    required this.onLocal,
-    required this.onAlbums,
-  });
-
-  final VoidCallback onSongs;
-  final VoidCallback onLiked;
-  final VoidCallback onLocal;
-  final VoidCallback onAlbums;
+/// 八入口：歌曲 / 我喜欢的 / 本地音乐 / 专辑 + 专辑艺术家 / 歌手 / 流派 / 电台。
+/// 后四项按后端能力显隐：provider 返回 null（不支持）时入口隐藏；
+/// 加载中先隐藏避免闪烁，加载完成支持则出现。
+class _EntryGrid extends ConsumerWidget {
+  const _EntryGrid();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final artists = ref.watch(artistsProvider);
+    final albumArtists = ref.watch(albumArtistsProvider);
+    final genres = ref.watch(genresProvider);
+    final radios = ref.watch(radioStationsProvider);
+    final extras = <Widget>[
+      if (albumArtists.valueOrNull != null)
+        _Entry(
+          Icons.theaters,
+          '专辑艺术家',
+          () => _openArtists(context, '专辑艺术家', albumArtistsProvider),
+        ),
+      if (artists.valueOrNull != null)
+        _Entry(
+          Icons.person,
+          '歌手',
+          () => _openArtists(context, '歌手', artistsProvider),
+        ),
+      if (genres.valueOrNull != null)
+        _Entry(
+          Icons.piano,
+          '流派',
+          () => Navigator.of(context).push(fadeRoute<void>(const GenrePage())),
+        ),
+      if (radios.valueOrNull != null)
+        _Entry(
+          Icons.radio,
+          '电台',
+          () => Navigator.of(context).push(fadeRoute<void>(const RadioPage())),
+        ),
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
+      child: Column(
         children: [
-          _Entry(Icons.music_note, '歌曲', onSongs),
-          _Entry(Icons.favorite, '我喜欢的', onLiked),
-          _Entry(Icons.smartphone, '本地音乐', onLocal),
-          _Entry(Icons.album, '专辑', onAlbums),
+          Row(
+            children: [
+              _Entry(
+                Icons.music_note,
+                '歌曲',
+                () => _openSongs(context, '歌曲', librarySongsProvider),
+              ),
+              _Entry(
+                Icons.favorite,
+                '我喜欢的',
+                () => _openSongs(context, '我喜欢的', likedSongsProvider),
+              ),
+              _Entry(
+                Icons.smartphone,
+                '本地音乐',
+                () => _openSongs(context, '本地音乐', localSongsProvider),
+              ),
+              _Entry(Icons.album, '专辑', () => _openAlbums(context)),
+            ],
+          ),
+          if (extras.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Row(children: [for (final e in extras) Expanded(child: e)]),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _openSongs(
+    BuildContext context,
+    String title,
+    FutureProvider<List<Song>> provider,
+  ) {
+    Navigator.of(context)
+        .push(fadeRoute<void>(SongListPage(title: title, provider: provider)));
+  }
+
+  void _openArtists(
+    BuildContext context,
+    String title,
+    FutureProvider<List<Artist>?> provider,
+  ) {
+    Navigator.of(
+      context,
+    ).push(fadeRoute<void>(ArtistListPage(title: title, provider: provider)));
+  }
+
+  void _openAlbums(BuildContext context) {
+    Navigator.of(context).push(
+      fadeRoute<void>(
+        AlbumListPage(title: '专辑', provider: libraryAlbumsProvider),
       ),
     );
   }
