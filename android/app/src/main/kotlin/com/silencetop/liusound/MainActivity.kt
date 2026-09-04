@@ -133,7 +133,7 @@ class MainActivity : AudioServiceActivity() {
         val closeButton = TextView(this).apply {
             setTextColor(Color.parseColor("#B0FFFFFF"))
             textSize = 14f
-            text = " ✕"
+            this.text = " ✕"
         }
         row.addView(lyricText)
         row.addView(closeButton)
