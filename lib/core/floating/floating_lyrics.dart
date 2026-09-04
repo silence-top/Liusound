@@ -53,10 +53,13 @@ abstract final class FloatingLyrics {
     } catch (_) {}
   }
 
-  static Future<void> update(String text) async {
+  static Future<void> update(String current, String next) async {
     if (!supported) return;
     try {
-      await _channel.invokeMethod<void>('update', text);
+      await _channel.invokeMethod<void>('update', {
+        'current': current,
+        'next': next,
+      });
     } catch (_) {}
   }
 
@@ -75,13 +78,17 @@ final floatingLyricsDataProvider = Provider<LyricsData?>((ref) {
   return parseLyricsData(song.lyrics);
 });
 
-/// 悬浮歌词当前行：开关关闭/无歌曲/无歌词返回 null（监听方据此隐藏小窗）
-final floatingLyricsLineProvider = Provider<String?>((ref) {
-  if (!ref.watch(floatingLyricsProvider)) return null;
-  final data = ref.watch(floatingLyricsDataProvider);
-  if (data == null || data.lines.isEmpty) return null;
-  final pos = ref.watch(positionProvider).valueOrNull;
-  if (pos == null) return null;
-  final idx = findLyricIndex(data.lines, pos.inMicroseconds / 1e6);
-  return idx < 0 ? null : data.lines[idx].text;
-});
+/// 悬浮窗推送内容：当前行 + 下一行（小窗双行显示），开关关闭/无歌曲/无歌词/
+/// 歌词未开始时为 null（监听方据此隐藏小窗）
+final floatingLyricsOverlayProvider =
+    Provider<({String current, String next})?>((ref) {
+      if (!ref.watch(floatingLyricsProvider)) return null;
+      final data = ref.watch(floatingLyricsDataProvider);
+      if (data == null || data.lines.isEmpty) return null;
+      final pos = ref.watch(positionProvider).valueOrNull;
+      if (pos == null) return null;
+      final idx = findLyricIndex(data.lines, pos.inMicroseconds / 1e6);
+      if (idx < 0) return null;
+      final next = idx + 1 < data.lines.length ? data.lines[idx + 1].text : '';
+      return (current: data.lines[idx].text, next: next);
+    });
