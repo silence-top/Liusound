@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/settings/prefs.dart';
+
 /// 迷你播放条样式（§8.2）：纯色 / 毛玻璃 / 渐变
 enum MiniBarStyle {
   glass('毛玻璃'),
@@ -16,16 +18,13 @@ class MiniBarStyleController extends Notifier<MiniBarStyle> {
 
   @override
   MiniBarStyle build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getString(_key);
-      if (saved == null) return;
-      final v = MiniBarStyle.values.firstWhere(
-        (e) => e.name == saved,
-        orElse: () => MiniBarStyle.glass,
-      );
-      if (v != state) state = v;
-    });
-    return MiniBarStyle.glass;
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getString(_key);
+    if (saved == null) return MiniBarStyle.glass;
+    return MiniBarStyle.values.firstWhere(
+      (e) => e.name == saved,
+      orElse: () => MiniBarStyle.glass,
+    );
   }
 
   Future<void> setStyle(MiniBarStyle style) async {
@@ -46,11 +45,8 @@ class MiniBarOffsetController extends Notifier<double> {
 
   @override
   double build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final v = prefs.getDouble(_key);
-      if (v != null && v != state) state = v;
-    });
-    return 0.0;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getDouble(_key) ?? 0.0;
   }
 
   Future<void> setOffset(double v) async {

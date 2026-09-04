@@ -7,11 +7,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/glass_theme.dart';
 import '../../core/theme/skin_tokens.dart';
+import '../../core/theme/settings_prefs.dart';
 import 'glass_quality.dart';
 
 export '../../core/theme/glass_theme.dart';
 
-class GlassSurface extends StatelessWidget {
+/// ── 主题组件命名契约 ─────────────────────────────────────────
+/// 页面层只消费语义组件，不直接判断皮肤枚举或手写颜色；
+/// 每个组件的视觉由 [SkinTokens.language] 分派（GlassSurface/AmbientBackground 内部）：
+/// - AppStage = 页面舞台（AmbientBackground，含各主题专属装饰）
+/// - AppSurface = 卡片/列表/输入框容器（GlassSurface）
+/// - AppSheet / AppDialog = glassBottomSheet / glassDialog
+/// - AppListEnd = shared/widgets/list_end_mark.dart 的 ListEndMark
+typedef AppStage = AmbientBackground;
+typedef AppSurface = GlassSurface;
+
+/// 历史名称保留给调用方兼容；绘制由 [SkinTokens.language] 分派。
+/// 液态玻璃以外的主题不会退化成“关掉 blur 的玻璃”。
+class GlassSurface extends ConsumerWidget {
   const GlassSurface({
     super.key,
     required this.child,
@@ -39,8 +52,11 @@ class GlassSurface extends StatelessWidget {
   final bool shadow;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tokens = SkinTokens.of(context);
+    // 让全局视觉设置成为响应式依赖，已保活页面和底部导航会同步刷新。
+    ref.watch(glassQualityProvider);
+    ref.watch(powerSaveProvider);
     // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer；
     // 极简/高对比皮肤整体关闭模糊
     final useBlur = shouldUseBlur(context) && blur > 0 && tokens.blurEnabled;
@@ -52,6 +68,16 @@ class GlassSurface extends StatelessWidget {
         Color.alphaBlend(accent.withValues(alpha: 0.08), tokens.glassTint);
     final highlight = tokens.highlightStrength;
     final borderRadius = BorderRadius.circular(radius);
+
+    if (tokens.language != SurfaceLanguage.liquidGlass) {
+      return RepaintBoundary(
+        child: _buildNonGlassSurface(
+          context,
+          tokens: tokens,
+          borderRadius: borderRadius,
+        ),
+      );
+    }
 
     // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
     Widget tinted(Widget child) => Container(
@@ -130,6 +156,52 @@ class GlassSurface extends StatelessWidget {
     }
 
     return RepaintBoundary(child: result);
+  }
+
+  Widget _buildNonGlassSurface(
+    BuildContext context, {
+    required SkinTokens tokens,
+    required BorderRadius borderRadius,
+  }) {
+    final requestedTint = tint == tokens.glassTint ? null : tint;
+    final isHighContrast = tokens.language == SurfaceLanguage.highContrast;
+    final isMinimal = tokens.language == SurfaceLanguage.minimal;
+    final effectiveRadius = isMinimal || isHighContrast
+        ? BorderRadius.circular(radius == GlassTokens.radiusPill ? radius : 8)
+        : borderRadius;
+    final decoration = switch (tokens.language) {
+      SurfaceLanguage.deepSpace => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderHairline),
+        boxShadow: shadow
+            ? [BoxShadow(color: tokens.glow, blurRadius: 18, spreadRadius: -5)]
+            : null,
+      ),
+      SurfaceLanguage.minimal => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.divider),
+      ),
+      SurfaceLanguage.materialYou => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderHairline),
+      ),
+      SurfaceLanguage.highContrast => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderTop, width: 2),
+      ),
+      SurfaceLanguage.liquidGlass => throw StateError('Handled above'),
+    };
+    final result = Container(
+      margin: margin,
+      padding: padding,
+      decoration: decoration,
+      child: Material(type: MaterialType.transparency, child: child),
+    );
+    return result;
   }
 }
 
@@ -538,27 +610,37 @@ class AmbientBackground extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bg = ref.watch(backgroundProvider);
+    final tokens = SkinTokens.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     return Stack(
       children: [
-        // 大尺度彩色光斑：为玻璃模糊提供可折射的内容，太淡则 blur 几乎不可见
-        Positioned(
-          top: -140,
-          left: -100,
-          child: _blob(340, primary.withValues(alpha: 0.20)),
-        ),
-        Positioned(
-          top: 80,
-          right: -120,
-          child: _blob(300, primary.withValues(alpha: 0.18)),
-        ),
-        Positioned(
-          bottom: -80,
-          left: 20,
-          child: _blob(300, primary.withValues(alpha: 0.15)),
-        ),
-        // §8.1 自定义背景图：全屏铺底 + 不透明度 + 可选模糊
-        if (bg.path != null)
+        // 液态玻璃独有的折射光源。其他主题绝不复用此舞台。
+        if (tokens.language == SurfaceLanguage.liquidGlass) ...[
+          Positioned(
+            top: -140,
+            left: -100,
+            child: _blob(340, primary.withValues(alpha: 0.20)),
+          ),
+          Positioned(
+            top: 80,
+            right: -120,
+            child: _blob(300, primary.withValues(alpha: 0.18)),
+          ),
+          Positioned(
+            bottom: -80,
+            left: 20,
+            child: _blob(300, primary.withValues(alpha: 0.15)),
+          ),
+        ],
+        // 深空主题采用星图/扫描线，不使用玻璃光斑。
+        if (tokens.language == SurfaceLanguage.deepSpace)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _DeepSpaceStagePainter(primary)),
+            ),
+          ),
+        // 高对比主题不叠加用户背景，避免削弱对比度。
+        if (bg.path != null && tokens.language != SurfaceLanguage.highContrast)
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
@@ -587,4 +669,41 @@ class AmbientBackground extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _DeepSpaceStagePainter extends CustomPainter {
+  const _DeepSpaceStagePainter(this.primary);
+
+  final Color primary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = primary.withValues(alpha: 0.055)
+      ..strokeWidth = 1;
+    const step = 56.0;
+    for (var x = 0.0; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (var y = 0.0; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final star = Paint()..color = primary.withValues(alpha: 0.45);
+    for (final point in const [
+      Offset(34, 96),
+      Offset(164, 178),
+      Offset(294, 72),
+      Offset(92, 486),
+      Offset(342, 624),
+      Offset(226, 744),
+    ]) {
+      if (point.dx < size.width && point.dy < size.height) {
+        canvas.drawCircle(point, 1.3, star);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DeepSpaceStagePainter oldDelegate) =>
+      oldDelegate.primary != primary;
 }

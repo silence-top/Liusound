@@ -21,14 +21,16 @@ class MainActivity : AudioServiceActivity() {
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var overlayText: TextView? = null
+    private var floatingLyricsChannel: MethodChannel? = null
     private val effects = AudioEffects()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(
+        floatingLyricsChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "com.silencetop.liusound/floating_lyrics",
-        ).setMethodCallHandler { call, result ->
+        )
+        floatingLyricsChannel!!.setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasPermission" -> result.success(Settings.canDrawOverlays(this))
                 "requestPermission" -> {
@@ -91,17 +93,25 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        floatingLyricsChannel?.invokeMethod(
+            "permissionChanged",
+            Settings.canDrawOverlays(this),
+        )
+    }
+
     private fun showOrUpdate(text: String) {
         if (!Settings.canDrawOverlays(this)) return
         val view = overlayView
         if (view == null) {
-            createOverlay()
+            createOverlay(text)
         } else {
             overlayText?.text = text
         }
     }
 
-    private fun createOverlay() {
+    private fun createOverlay(text: String) {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val container = android.widget.FrameLayout(this)
         val row = android.widget.LinearLayout(this)
@@ -113,6 +123,7 @@ class MainActivity : AudioServiceActivity() {
             setStroke(1, Color.parseColor("#33FFFFFF"))
         }
         val lyricText = TextView(this).apply {
+            this.text = text
             setTextColor(Color.WHITE)
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -166,7 +177,10 @@ class MainActivity : AudioServiceActivity() {
                 else -> false
             }
         }
-        closeButton.setOnClickListener { removeOverlay() }
+        closeButton.setOnClickListener {
+            removeOverlay()
+            floatingLyricsChannel?.invokeMethod("closed", null)
+        }
 
         wm.addView(container, params)
         windowManager = wm

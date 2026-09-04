@@ -2,15 +2,19 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/audio/audio_effects.dart';
+import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
 import 'core/scrobble/scrobble_service.dart';
+import 'core/settings/prefs.dart';
 import 'core/theme/accent.dart';
 import 'core/theme/app_skin.dart';
 import 'core/theme/app_theme.dart';
@@ -35,10 +39,34 @@ void _applyDisplayMode(bool powerSave) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FloatingLyrics.initialize();
+  // 偏好先于整棵 provider 树加载：所有设置控制器可同步读取，无异步回填竞态
+  final prefs = await SharedPreferences.getInstance();
   // 图片内存缓存上限：默认 100MB → 64MB（性能红线：控制常驻内存基线）
   PaintingBinding.instance.imageCache.maximumSizeBytes = 64 << 20;
   // 全局容器：audio_service 需在 runApp 前读取 handler
-  final container = ProviderContainer();
+  final container = ProviderContainer(
+    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+  );
+  FloatingLyrics.permissionChanges.listen((granted) {
+    if (!granted) {
+      container.read(floatingLyricsProvider.notifier).setEnabled(false);
+      return;
+    }
+    if (!container.read(floatingLyricsProvider)) return;
+    final line = container.read(floatingLyricsLineProvider);
+    if (line != null) FloatingLyrics.update(line);
+  });
+  FloatingLyrics.closed.listen((_) {
+    container.read(floatingLyricsProvider.notifier).setEnabled(false);
+  });
+  // 自动下载补跑：网络切到 Wi-Fi 时补跑一轮（收藏变化在收藏成功处触发）
+  Connectivity().onConnectivityChanged.listen((results) {
+    final wifi = results.any(
+      (r) => r == ConnectivityResult.wifi || r == ConnectivityResult.ethernet,
+    );
+    if (wifi) maybeAutoDownload(container.read);
+  });
   await AudioService.init(
     builder: () => container.read(audioHandlerProvider),
     config: const AudioServiceConfig(
@@ -101,7 +129,17 @@ class MusicApp extends ConsumerWidget {
           return MaterialApp(
             title: '流声',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.build(skin, effectiveAccent),
+            theme: AppTheme.build(
+              skin,
+              effectiveAccent,
+              materialSurface: darkDynamic?.surface,
+              materialSurfaceHigh: darkDynamic?.surfaceContainerHigh,
+              materialSurfaceLowest: darkDynamic?.surfaceContainerLowest,
+              materialOutline: darkDynamic?.outline,
+              materialOutlineVariant: darkDynamic?.outlineVariant,
+              materialOnSurface: darkDynamic?.onSurface,
+              materialOnSurfaceVariant: darkDynamic?.onSurfaceVariant,
+            ),
             home: !auth.initialized
                 ? const _Splash()
                 : auth.isAuthenticated

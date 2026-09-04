@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/prefs.dart';
+
 /// 自定义背景图状态（§8.1）：路径 + 不透明度 + 模糊度，全部持久化。
 /// path 为 null 表示未设置，此时 AmbientBackground 只渲染默认光斑。
 class BackgroundConfig {
@@ -38,19 +40,30 @@ class BackgroundController extends Notifier<BackgroundConfig> {
 
   @override
   BackgroundConfig build() {
-    SharedPreferences.getInstance().then((prefs) async {
-      final p = prefs.getString(_pathKey);
-      final o = prefs.getDouble(_opacityKey) ?? 0.35;
-      final b = prefs.getDouble(_blurKey) ?? 8.0;
-      // 文件被删了就当没设过
-      if (p != null && !File(p).existsSync()) {
-        await prefs.remove(_pathKey);
-        return;
-      }
-      final cfg = BackgroundConfig(path: p, opacity: o, blur: b);
-      if (cfg != state) state = cfg;
-    });
-    return const BackgroundConfig();
+    final prefs = ref.watch(sharedPrefsProvider);
+    final cfg = BackgroundConfig(
+      path: prefs.getString(_pathKey),
+      opacity: prefs.getDouble(_opacityKey) ?? 0.35,
+      blur: prefs.getDouble(_blurKey) ?? 8.0,
+    );
+    // 背景图文件可能已被系统/用户删除：异步校验（不阻塞 build），
+    // 校验失败时仅在用户未写入新背景的前提下清理
+    final path = cfg.path;
+    if (path != null) _validateFile(path);
+    return cfg;
+  }
+
+  /// 文件被删了就当没设过。同步先确认文件确实缺失，
+  /// 之后若 state.path 已变化（用户刚设置了新背景）则放弃清理，
+  /// 避免异步校验覆盖用户新值
+  Future<void> _validateFile(String path) async {
+    if (File(path).existsSync()) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (state.path != path) return;
+    await prefs.remove(_pathKey);
+    if (state.path == path) {
+      state = BackgroundConfig(opacity: state.opacity, blur: state.blur);
+    }
   }
 
   Future<void> setImage(String sourcePath) async {

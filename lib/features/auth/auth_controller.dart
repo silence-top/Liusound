@@ -118,6 +118,22 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(activeServerId: id, activeSecrets: secrets);
   }
 
+  /// 检测指定服务器，不能复用当前激活服务器的 adapter。
+  Future<bool> validateServer(String id) async {
+    final config = state.servers.cast<ServerConfig?>().firstWhere(
+      (server) => server?.id == id,
+      orElse: () => null,
+    );
+    if (config == null) return false;
+    final secrets = await _repo.loadSecrets(id);
+    final adapter = config.type.createAdapter(config, secrets);
+    try {
+      return await adapter.validateSession();
+    } finally {
+      adapter.dispose();
+    }
+  }
+
   Future<void> removeServer(String id) async {
     await _repo.deleteServer(id);
     final servers = state.servers.where((s) => s.id != id).toList();

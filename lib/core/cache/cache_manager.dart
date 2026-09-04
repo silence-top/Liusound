@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/prefs.dart';
+
 /// 缓存限额档位（附录·四）：2GB / 5GB / 10GB / 无限制
 enum CacheLimit {
   g2('2 GB', 2 * 1024 * 1024 * 1024),
@@ -47,18 +49,16 @@ class CacheSettingsController extends Notifier<CacheSettings> {
 
   @override
   CacheSettings build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final s = CacheSettings(
-        cacheWhileListen: prefs.getBool(_listenKey) ?? true,
-        autoDownload: prefs.getBool(_autoDownloadKey) ?? false,
-        limit: CacheLimit.values.firstWhere(
-          (l) => l.name == prefs.getString(_limitKey),
-          orElse: () => state.limit,
-        ),
-      );
-      if (s != state) state = s;
-    });
-    return const CacheSettings();
+    final prefs = ref.watch(sharedPrefsProvider);
+    const fallback = CacheSettings();
+    return CacheSettings(
+      cacheWhileListen: prefs.getBool(_listenKey) ?? fallback.cacheWhileListen,
+      autoDownload: prefs.getBool(_autoDownloadKey) ?? fallback.autoDownload,
+      limit: CacheLimit.values.firstWhere(
+        (l) => l.name == prefs.getString(_limitKey),
+        orElse: () => fallback.limit,
+      ),
+    );
   }
 
   Future<void> set(CacheSettings s) async {

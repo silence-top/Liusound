@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/prefs.dart';
+
 /// 主题皮肤（P1 主题系统化）：液态玻璃复刻 + 四套扩展主题。
 /// 全部为深色系（白阶文字语义在所有皮肤下保持有效）。
 enum AppSkin {
@@ -20,16 +22,13 @@ class SkinController extends Notifier<AppSkin> {
 
   @override
   AppSkin build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final saved = prefs.getString(_key);
-      if (saved == null) return;
-      final v = AppSkin.values.firstWhere(
-        (e) => e.name == saved,
-        orElse: () => AppSkin.liquidGlass,
-      );
-      if (v != state) state = v;
-    });
-    return AppSkin.liquidGlass;
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getString(_key);
+    if (saved == null) return AppSkin.liquidGlass;
+    return AppSkin.values.firstWhere(
+      (e) => e.name == saved,
+      orElse: () => AppSkin.liquidGlass,
+    );
   }
 
   Future<void> set(AppSkin skin) async {

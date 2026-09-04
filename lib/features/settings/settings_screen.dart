@@ -142,25 +142,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _GroupCard(
-            title: '存储',
-            children: [
-              _ActionTile(
-                icon: Icons.image_outlined,
-                title: '清除图片缓存',
-                subtitle: '清理磁盘上的封面图片缓存',
-                onTap: () => _clearImageCache(context),
-              ),
-              _divider,
-              _ActionTile(
-                icon: Icons.format_line_spacing,
-                title: '清理歌词偏移缓存',
-                subtitle: '删除所有歌曲保存的歌词时间偏移',
-                onTap: () => _clearLyricOffsets(context),
-              ),
-            ],
-          ),
-          _GroupCard(
-            title: '播放与网络',
+            title: '网络与缓存',
             children: [
               _ActionTile(
                 icon: Icons.music_note_outlined,
@@ -203,11 +185,7 @@ class SettingsScreen extends ConsumerWidget {
                     : '超时 ${network.timeoutSeconds}s · 代理 ${network.proxy}',
                 onTap: () => _showNetworkSettings(context, ref),
               ),
-            ],
-          ),
-          _GroupCard(
-            title: '缓存',
-            children: [
+              _divider,
               _SwitchTile(
                 icon: Icons.save_alt,
                 title: '边听边存',
@@ -248,24 +226,35 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 onTap: () => _clearAudioCache(context, ref),
               ),
+              _divider,
+              _ActionTile(
+                icon: Icons.image_outlined,
+                title: '清除图片缓存',
+                subtitle: '清理磁盘上的封面图片缓存',
+                onTap: () => _clearImageCache(context),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.format_line_spacing,
+                title: '清理歌词偏移缓存',
+                subtitle: '删除所有歌曲保存的歌词时间偏移',
+                onTap: () => _clearLyricOffsets(context),
+              ),
             ],
           ),
           _GroupCard(
             title: '外观',
             children: [
-              _ActionTile(
-                icon: Icons.style_outlined,
-                title: '主题',
-                subtitle: skin.label,
-                onTap: () => _showSkinPicker(context, ref),
-              ),
-              _divider,
-              _ActionTile(
-                icon: Icons.auto_awesome,
-                title: '液态玻璃效果',
-                subtitle: glassLevel.label,
-                onTap: () => _showGlassLevelPicker(context, ref),
-              ),
+              const _SkinPickerTile(),
+              if (skin == AppSkin.liquidGlass) ...[
+                _divider,
+                _ActionTile(
+                  icon: Icons.auto_awesome,
+                  title: '液态玻璃效果',
+                  subtitle: glassLevel.label,
+                  onTap: () => _showGlassLevelPicker(context, ref),
+                ),
+              ],
               _divider,
               _ActionTile(
                 icon: coverStyle.icon,
@@ -280,13 +269,15 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: accent.label,
                 onTap: () => _showAccentPicker(context, ref),
               ),
-              _divider,
-              _ActionTile(
-                icon: Icons.image_outlined,
-                title: '自定义背景',
-                subtitle: bgConfig.path != null ? '已设置' : '未设置',
-                onTap: () => _showBackgroundSettings(context, ref),
-              ),
+              if (skin != AppSkin.highContrast) ...[
+                _divider,
+                _ActionTile(
+                  icon: Icons.image_outlined,
+                  title: '自定义背景',
+                  subtitle: bgConfig.path != null ? '已设置' : '未设置',
+                  onTap: () => _showBackgroundSettings(context, ref),
+                ),
+              ],
               _divider,
               _ActionTile(
                 icon: Icons.tune,
@@ -306,7 +297,7 @@ class SettingsScreen extends ConsumerWidget {
               _divider,
               _SwitchTile(
                 icon: Icons.view_list_outlined,
-                title: '设置项图标',
+                title: '部分设置项图标',
                 subtitle: showIcons ? '显示' : '隐藏',
                 value: showIcons,
                 onChanged: (v) =>
@@ -331,10 +322,10 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           // 悬浮歌词仅 Android 提供悬浮窗能力（iOS 无对应 API，入口隐藏）
-          if (Platform.isAndroid) ...[
-            _GroupCard(
-              title: '歌词',
-              children: [
+          _GroupCard(
+            title: '系统与账户',
+            children: [
+              if (Platform.isAndroid) ...[
                 _SwitchTile(
                   icon: Icons.picture_in_picture_alt,
                   title: '悬浮歌词',
@@ -342,12 +333,8 @@ class SettingsScreen extends ConsumerWidget {
                   value: floatingLyrics,
                   onChanged: (v) => _toggleFloatingLyrics(context, ref, v),
                 ),
+                _divider,
               ],
-            ),
-          ],
-          _GroupCard(
-            title: '服务器',
-            children: [
               _ActionTile(
                 icon: Icons.dns_outlined,
                 title: config?.type.displayName ?? '未连接',
@@ -360,10 +347,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-            ],
-          ),
-          _GroupCard(
-            children: [
+              _divider,
               _InfoTile(
                 icon: Icons.info_outline,
                 title: '版本',
@@ -923,65 +907,165 @@ Future<void> _toggleFloatingLyrics(
     await ref.read(floatingLyricsProvider.notifier).setEnabled(true);
     return;
   }
+  // 先记录用户意图；Android 设置页返回后由 permissionChanged 自动启用或回退。
+  await ref.read(floatingLyricsProvider.notifier).setEnabled(true);
   if (context.mounted) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('请先授予「显示在其他应用上层」权限')));
+        .showSnackBar(const SnackBar(content: Text('授权后将自动启用悬浮歌词')));
   }
   await FloatingLyrics.requestPermission();
 }
 
-/// 主题皮肤选择（P1 主题系统化）：五套主题，每项带背景/主色双预览条
-Future<void> _showSkinPicker(BuildContext context, WidgetRef ref) {
-  final current = ref.read(appSkinProvider);
-  return glassBottomSheet<void>(
-    context,
-    Column(
-      mainAxisSize: MainAxisSize.min,
+/// 主题选择：内联预览卡网格（P1 主题系统化）。
+/// 不用玻璃底部弹层——选择后设置页立即切换主题，展开状态用于对比预览。
+class _SkinPickerTile extends ConsumerStatefulWidget {
+  const _SkinPickerTile();
+
+  @override
+  ConsumerState<_SkinPickerTile> createState() => _SkinPickerTileState();
+}
+
+class _SkinPickerTileState extends ConsumerState<_SkinPickerTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = ref.watch(appSkinProvider);
+    return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text(
-            '主题',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+        _ActionTile(
+          icon: Icons.style_outlined,
+          title: '主题',
+          subtitle: _open ? '点击收起预览' : skin.label,
+          onTap: () => setState(() => _open = !_open),
+        ),
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: _SkinPreviewGrid(
+              current: skin,
+              onSelect: (s) => ref.read(appSkinProvider.notifier).set(s),
             ),
           ),
-        ),
-        for (final s in AppSkin.values) ...[
-          ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white24),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    SkinTokens.forSkin(s).background,
-                    Theme.of(context).colorScheme.primary
-                        .withValues(alpha: 0.6),
-                  ],
+      ],
+    );
+  }
+}
+
+class _SkinPreviewGrid extends StatelessWidget {
+  const _SkinPreviewGrid({required this.current, required this.onSelect});
+
+  final AppSkin current;
+  final ValueChanged<AppSkin> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 10.0;
+        final width = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final s in AppSkin.values)
+              SizedBox(
+                width: width,
+                child: _SkinPreviewCard(
+                  skin: s,
+                  selected: s == current,
+                  accent: accent,
+                  onTap: () => onSelect(s),
                 ),
               ),
-            ),
-            title: Text(s.label),
-            subtitle: Text(s.desc),
-            trailing: s == current ? const Icon(Icons.check) : null,
-            onTap: () {
-              ref.read(appSkinProvider.notifier).set(s);
-              Navigator.of(context).pop();
-            },
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 每主题一张迷你预览卡：底色 / 面板色 / 描边 / 发光 / 主题色点，用各主题
+/// 自己的 token 绘制，切换后卡片内容即时反映新主题的实际观感。
+class _SkinPreviewCard extends StatelessWidget {
+  const _SkinPreviewCard({
+    required this.skin,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final AppSkin skin;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = SkinTokens.forSkin(skin);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: t.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? accent : t.borderHairline,
+            width: selected ? 2 : 1,
           ),
-          if (s != AppSkin.values.last) const Divider(height: 1),
-        ],
-        const SizedBox(height: 8),
-      ],
-    ),
-  );
+          boxShadow: t.glow.a == 0
+              ? null
+              : [BoxShadow(color: t.glow, blurRadius: 12, spreadRadius: -4)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: t.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: t.borderHairline),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              skin.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: t.textDim,
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+            Text(
+              skin.desc,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: t.textFaint, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 音效面板（Android）：EQ 波段滑杆 + 预设曲线 + 低音/空间近似 + 参数剪贴板导入导出

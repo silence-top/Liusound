@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/settings_prefs.dart';
+import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/glass.dart';
@@ -48,7 +48,7 @@ List<Widget> _songSlivers(
         );
       },
     ),
-    const SliverToBoxAdapter(child: _EndMark()),
+    SliverToBoxAdapter(child: ListEndMark(songs: songs)),
   ];
 }
 
@@ -1047,30 +1047,6 @@ class SongRow extends ConsumerWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 列表底部触底标记（§8.4 支持自定义文案 + {nTitle}/{nArtist}/{nAlbum} 占位符）
-class _EndMark extends ConsumerWidget {
-  const _EndMark();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final template = ref.watch(listEndTextProvider);
-    final next = ref.watch(nextSongProvider);
-    final text = template
-        .replaceAll('{nTitle}', next?.title ?? '？')
-        .replaceAll('{nArtist}', next?.artist ?? '？')
-        .replaceAll('{nAlbum}', next?.album ?? '？');
-    return Padding(
-      padding: const EdgeInsets.only(top: 32, bottom: 48),
-      child: Center(
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white24, fontSize: 14),
         ),
       ),
     );

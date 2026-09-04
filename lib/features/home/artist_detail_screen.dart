@@ -26,9 +26,9 @@ class ArtistDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final albumsAsync = ref.watch(artistAlbumsProvider(artistId));
-    final songsAsync = ref.watch(artistSongsProvider(artistId));
+    final songsState = ref.watch(artistSongsProvider(artistId));
     final albums = albumsAsync.value ?? const <Album>[];
-    final songs = songsAsync.value ?? const <Song>[];
+    final songs = songsState.songs;
 
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
@@ -74,27 +74,69 @@ class ArtistDetailScreen extends ConsumerWidget {
               SliverToBoxAdapter(child: _AlbumSection(albums: albums)),
             ],
           ),
-          ...sliverAsyncGuard<Song>(
-            async: songsAsync,
-            emptyText: '暂无歌曲',
-            onRetry: () => ref.invalidate(artistSongsProvider(artistId)),
-            onData: (songs) => [
-              SliverList.builder(
-                itemCount: songs.length,
-                itemBuilder: (context, index) => FadeSlideIn(
-                  child: SongRow(
-                    song: songs[index],
-                    index: index,
-                    songs: songs,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 64)),
-            ],
-          ),
+          ..._songSlivers(context, ref, songsState),
         ],
       ),
     );
+  }
+
+  /// 歌曲分区块：首屏 loading / 失败重试 / 空态 / 列表 + 「加载更多」行
+  List<Widget> _songSlivers(
+    BuildContext context,
+    WidgetRef ref,
+    ArtistSongsState state,
+  ) {
+    final controller = ref.read(artistSongsProvider(artistId).notifier);
+    if (state.songs.isEmpty) {
+      if (state.loading) {
+        return const [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(48),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ];
+      }
+      if (state.error) {
+        return [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Center(
+                child: TextButton(
+                  onPressed: controller.retry,
+                  child: const Text('加载失败，点击重试'),
+                ),
+              ),
+            ),
+          ),
+        ];
+      }
+      return [SliverToBoxAdapter(child: glassEmptyState(text: '暂无歌曲'))];
+    }
+    return [
+      SliverList.builder(
+        itemCount: state.songs.length,
+        itemBuilder: (context, index) => FadeSlideIn(
+          child: SongRow(
+            song: state.songs[index],
+            index: index,
+            songs: state.songs,
+          ),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: LoadMoreRow(
+          loading: state.loading,
+          failed: state.error,
+          noMore: state.noMore,
+          onLoadMore: () =>
+              ref.read(artistSongsProvider(artistId).notifier).loadMore(),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 64)),
+    ];
   }
 }
 

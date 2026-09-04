@@ -13,6 +13,7 @@ import '../../core/download/auto_download.dart';
 import '../../core/download/download_service.dart';
 import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
+import '../../core/settings/prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../auth/auth_controller.dart';
 
@@ -110,11 +111,8 @@ class CrossfadeSecondsNotifier extends Notifier<int> {
 
   @override
   int build() {
-    SharedPreferences.getInstance().then((p) {
-      final v = p.getInt(_key) ?? 0;
-      if (v != state) state = v;
-    });
-    return 0;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getInt(_key) ?? 0;
   }
 
   void set(int seconds) {
@@ -134,11 +132,8 @@ class AutoOpenPlayerNotifier extends Notifier<bool> {
 
   @override
   bool build() {
-    SharedPreferences.getInstance().then((p) {
-      final v = p.getBool(_key) ?? true;
-      if (v != state) state = v;
-    });
-    return true;
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(_key) ?? true;
   }
 
   void set(bool v) {
@@ -284,7 +279,6 @@ class PlayerActions {
       format: settings.transcodeFormat,
     );
     await _saveLongTrackBreakpoint();
-    _ref.read(currentSongProvider.notifier).state = song;
     try {
       final source = await adapter.resolveStream(song, quality: hint);
       final cache = _ref.read(cacheSettingsProvider);
@@ -301,6 +295,7 @@ class PlayerActions {
       } else {
         await _player.setUrl(source.url, headers: source.headers);
       }
+      _ref.read(currentSongProvider.notifier).state = song;
       await _player.play();
       unawaited(AudioCache.enforceLimit(cache.limit));
       unawaited(_resumeLongTrack(song));
@@ -312,9 +307,9 @@ class PlayerActions {
   /// 本地文件播放（本地扫描歌曲 / 已离线下载歌曲）
   Future<void> _playLocal(Song song, String path) async {
     await _saveLongTrackBreakpoint();
-    _ref.read(currentSongProvider.notifier).state = song;
     try {
       await _player.setAudioSource(AudioSource.file(path));
+      _ref.read(currentSongProvider.notifier).state = song;
       await _player.play();
       unawaited(_resumeLongTrack(song));
     } catch (_) {

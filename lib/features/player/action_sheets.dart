@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/download/download_service.dart';
+import '../../core/download/auto_download.dart';
 import '../../core/models/models.dart';
+import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
@@ -84,7 +86,10 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     if (!ok && mounted) {
       _syncLocal(before);
       _toast('收藏操作失败');
+      return;
     }
+    // 收藏变化补跑自动下载（开关关闭时内部直接跳过）
+    maybeAutoDownload(ref.read);
   }
 
   @override
@@ -629,6 +634,21 @@ Future<void> downloadSongs(
     );
     return;
   }
+
+  // 蜂窝禁传门禁：与播放、自动下载共用同一开关，避免设置项形同虚设
+  final quality = await resolveCurrentQuality(
+    ref.read(streamingSettingsProvider),
+  );
+  if (quality == null) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('当前为移动网络，「移动网络传输」已关闭，无法下载'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    return;
+  }
+  if (!context.mounted) return;
 
   final total = songs.length;
   // 标签与进度合成一个 record：ValueNotifier 按结构相等判定，任一变化都会重建

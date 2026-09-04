@@ -287,13 +287,10 @@ class _ServerCard extends ConsumerWidget {
 
   Future<void> _testConnection(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
-    final adapter = ref.read(serverAdapterProvider);
-    if (adapter == null) {
-      messenger.showSnackBar(const SnackBar(content: Text('无法创建适配器')));
-      return;
-    }
     try {
-      final ok = await adapter.validateSession();
+      final ok = await ref
+          .read(authControllerProvider.notifier)
+          .validateServer(config.id);
       messenger.showSnackBar(
         SnackBar(
           content: Text(ok ? '连接正常' : '连接失败：会话无效'),

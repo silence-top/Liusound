@@ -13,11 +13,14 @@ import '../home/artist_detail_screen.dart';
 import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
 
-/// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）
-final searchQueryProvider = StateProvider<String>((ref) => '');
+/// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）。
+/// 页面级 autoDispose：离开搜索页即销毁，重进时输入框与结果一致。
+final searchQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 
 /// /search 聚合结果（歌曲/专辑/歌手）
-final searchResultProvider = FutureProvider<SearchResult>((ref) async {
+final searchResultProvider = FutureProvider.autoDispose<SearchResult>((
+  ref,
+) async {
   final query = ref.watch(searchQueryProvider).trim();
   if (query.isEmpty) return const SearchResult();
   final adapter = ref.watch(serverAdapterProvider);

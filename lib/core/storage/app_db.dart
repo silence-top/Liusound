@@ -12,11 +12,12 @@ abstract final class AppDb {
     final dir = await getDatabasesPath();
     final db = await openDatabase(
       p.join(dir, 'liusound.db'),
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE scrobble_queue(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_id TEXT NOT NULL,
             song_id TEXT NOT NULL,
             created_at INTEGER NOT NULL
           )
@@ -32,7 +33,14 @@ abstract final class AppDb {
         ''');
         await _createLyricsLocal(db);
       },
-      onUpgrade: (db, _, _) async {
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 3) {
+          // 历史记录没有归属服务器，继续补发会串到新账号；安全起见丢弃。
+          await db.execute(
+            "ALTER TABLE scrobble_queue ADD COLUMN server_id TEXT NOT NULL DEFAULT ''",
+          );
+          await db.delete('scrobble_queue', where: "server_id = ''");
+        }
         await _createLyricsLocal(db);
       },
     );
