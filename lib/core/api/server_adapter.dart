@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../models/models.dart';
+import '../settings/streaming_prefs.dart';
 import 'server_type.dart';
 
 abstract class ServerAdapter {
@@ -31,7 +32,9 @@ abstract class ServerAdapter {
   /// 调用方自行 invalidate 歌单列表刷新，本方法不负责回传新歌单
   Future<bool> createPlaylist(String name);
 
-  Future<PlaybackSource> resolveStream(Song song);
+  /// [quality] 为当前网络的质量提示；null 或 lossless 时返回原始流。
+  /// 支持转码的后端（capabilities.transcoding）按提示追加服务端转码参数
+  Future<PlaybackSource> resolveStream(Song song, {QualityHint? quality});
   Future<PlaybackSource> resolveDownload(Song song);
   ImageSource? coverImage(String albumId, {int size = 300});
   Future<Uint8List?> fetchCoverBytes(String albumId, {int size = 64});
@@ -86,6 +89,7 @@ class AdapterCapabilities {
     this.download = true,
     this.lyrics = true,
     this.artistBio = false,
+    this.transcoding = false,
   });
   final bool ratings;
   final bool similarSongs;
@@ -95,6 +99,9 @@ class AdapterCapabilities {
 
   /// 服务端是否提供歌手简介（Audio Station 等无此接口）
   final bool artistBio;
+
+  /// 服务端是否支持按码率/格式转码（附录·四 音质分档的前提）
+  final bool transcoding;
 }
 
 enum AlbumSort { recentlyAdded, recentlyPlayed, mostPlayed, random, name, year }

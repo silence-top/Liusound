@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../models/models.dart';
+import '../../network/http_factory.dart';
+import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -19,6 +21,7 @@ class PlexAdapter implements ServerAdapter {
        _machineId = secrets['machineId'] ?? '',
        _musicSectionKey = secrets['musicSectionKey'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
+    NetworkRuntime.configureDio(_dio);
   }
 
   final ServerConfig _config;
@@ -43,6 +46,7 @@ class PlexAdapter implements ServerAdapter {
     download: true,
     lyrics: true,
     artistBio: true,
+    transcoding: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -361,7 +365,23 @@ class PlexAdapter implements ServerAdapter {
   // ---------- 媒体 ----------
 
   @override
-  Future<PlaybackSource> resolveStream(Song song) async {
+  Future<PlaybackSource> resolveStream(
+    Song song, {
+    QualityHint? quality,
+  }) async {
+    // 转码走 /music/:/transcode/universal/start.<fmt>；
+    // 直接播放走 /library/metadata/{id} 原文件流
+    final hint = quality;
+    if (hint?.transcode == true) {
+      final path = Uri.encodeComponent('/library/metadata/${song.id}');
+      final session = 'liusound-${DateTime.now().millisecondsSinceEpoch}';
+      return PlaybackSource(
+        url:
+            '${_config.serverUrl}/music/:/transcode/universal/'
+            'start.${hint!.format.name}?path=$path&session=$session'
+            '&X-Plex-Token=$_token',
+      );
+    }
     return PlaybackSource(
       url:
           '${_config.serverUrl}/library/metadata/${song.id}?X-Plex-Token=$_token',

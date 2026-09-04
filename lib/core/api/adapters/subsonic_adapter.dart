@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
 import '../../models/models.dart';
+import '../../network/http_factory.dart';
+import '../../settings/streaming_prefs.dart';
 import '../../subsonic/subsonic.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
@@ -18,6 +20,7 @@ class SubsonicAdapter implements ServerAdapter {
   }) : _config = config,
        _secrets = secrets {
     _dio.options.baseUrl = config.serverUrl;
+    NetworkRuntime.configureDio(_dio);
   }
 
   final ServerConfig _config;
@@ -47,6 +50,7 @@ class SubsonicAdapter implements ServerAdapter {
     download: true,
     lyrics: true,
     artistBio: true,
+    transcoding: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -295,8 +299,20 @@ class SubsonicAdapter implements ServerAdapter {
   // ---------- 媒体 ----------
 
   @override
-  Future<PlaybackSource> resolveStream(Song song) async =>
-      PlaybackSource(url: Subsonic.streamUrl(_auth, song.id));
+  Future<PlaybackSource> resolveStream(
+    Song song, {
+    QualityHint? quality,
+  }) async {
+    final hint = quality;
+    return PlaybackSource(
+      url: Subsonic.streamUrl(
+        _auth,
+        song.id,
+        maxBitRate: hint?.transcode == true ? hint!.quality.bitRate : null,
+        format: hint?.transcode == true ? hint!.format.name : null,
+      ),
+    );
+  }
 
   @override
   Future<PlaybackSource> resolveDownload(Song song) async =>
