@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/accent.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/settings_prefs.dart';
+import '../../core/settings/streaming_prefs.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
@@ -44,6 +45,8 @@ class SettingsScreen extends ConsumerWidget {
     final showIcons = ref.watch(settingsIconsProvider);
     final endText = ref.watch(listEndTextProvider);
     final powerSave = ref.watch(powerSaveProvider);
+    final streaming = ref.watch(streamingSettingsProvider);
+    final network = ref.watch(networkSettingsProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
     return Scaffold(
@@ -109,6 +112,52 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _GroupCard(
+            title: '播放与网络',
+            children: [
+              _ActionTile(
+                icon: Icons.music_note_outlined,
+                title: '在线音质（Wi-Fi）',
+                subtitle: streaming.wifiQuality.label,
+                onTap: () => _showQualityPicker(context, ref, cellular: false),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.cell_tower,
+                title: '在线音质（移动网络）',
+                subtitle: streaming.cellularQuality.label,
+                onTap: () => _showQualityPicker(context, ref, cellular: true),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.graphic_eq,
+                title: '转码格式',
+                subtitle: streaming.transcodeFormat.label,
+                onTap: () => _showTranscodeFormatPicker(context, ref),
+              ),
+              _divider,
+              _SwitchTile(
+                icon: Icons.import_export,
+                title: '移动网络传输',
+                subtitle: streaming.cellularAllowed
+                    ? '允许在移动网络下播放与下载'
+                    : '关闭后仅 Wi-Fi 可播放',
+                value: streaming.cellularAllowed,
+                onChanged: (v) => ref
+                    .read(streamingSettingsProvider.notifier)
+                    .set(streaming.copyWith(cellularAllowed: v)),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.settings_ethernet,
+                title: '网络设置',
+                subtitle: network.proxy.isEmpty
+                    ? '超时 ${network.timeoutSeconds}s · 直连'
+                    : '超时 ${network.timeoutSeconds}s · 代理 ${network.proxy}',
+                onTap: () => _showNetworkSettings(context, ref),
+              ),
+            ],
+          ),
+          _GroupCard(
             title: '外观',
             children: [
               _ActionTile(
@@ -149,7 +198,9 @@ class SettingsScreen extends ConsumerWidget {
               _ActionTile(
                 icon: Icons.height,
                 title: '控制栏高度偏移',
-                subtitle: barOffset == 0 ? '默认' : '${barOffset.toStringAsFixed(0)}px',
+                subtitle: barOffset == 0
+                    ? '默认'
+                    : '${barOffset.toStringAsFixed(0)}px',
                 onTap: () => _showMiniBarOffsetPicker(context, ref),
               ),
               _divider,
@@ -297,6 +348,263 @@ class SettingsScreen extends ConsumerWidget {
 
 const _divider = Divider(height: 1, indent: 56);
 
+/// 在线音质分档选择（附录·四）：Wi-Fi 与移动网络独立配置
+Future<void> _showQualityPicker(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool cellular,
+}) {
+  final settings = ref.read(streamingSettingsProvider);
+  final current = cellular ? settings.cellularQuality : settings.wifiQuality;
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            cellular ? '在线音质（移动网络）' : '在线音质（Wi-Fi）',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        for (final q in StreamQuality.values)
+          ListTile(
+            leading: q == current
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : const SizedBox(width: 24),
+            title: Text(
+              q.label,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            onTap: () {
+              final controller = ref.read(streamingSettingsProvider.notifier);
+              controller.set(
+                cellular
+                    ? settings.copyWith(cellularQuality: q)
+                    : settings.copyWith(wifiQuality: q),
+              );
+              Navigator.of(context).pop();
+            },
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Text(
+            '无损播放原始文件；其余档位由服务端转码（需后端支持），'
+            '可显著降低流量与加载等待',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 转码格式选择（附录·四）：MP3 兼容性最好，OPUS 同码率下音质更佳
+Future<void> _showTranscodeFormatPicker(BuildContext context, WidgetRef ref) {
+  final settings = ref.read(streamingSettingsProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '转码格式',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        for (final f in TranscodeFormat.values)
+          ListTile(
+            leading: f == settings.transcodeFormat
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : const SizedBox(width: 24),
+            title: Text(
+              f.label,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            onTap: () {
+              ref
+                  .read(streamingSettingsProvider.notifier)
+                  .set(settings.copyWith(transcodeFormat: f));
+              Navigator.of(context).pop();
+            },
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Text(
+            '仅在选择非无损音质档位时生效；OPUS 需要服务端转码器支持',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 网络设置（附录·一）：超时 / 代理 / 证书校验 / hosts 映射。
+/// 表单做成 StatefulWidget 自持控制器，弹窗退场动画期间不会撞 dispose
+class _NetworkSettingsForm extends StatefulWidget {
+  const _NetworkSettingsForm({required this.initial, required this.onSave});
+
+  final NetworkSettings initial;
+  final void Function(NetworkSettings) onSave;
+
+  @override
+  State<_NetworkSettingsForm> createState() => _NetworkSettingsFormState();
+}
+
+class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
+  late final TextEditingController _proxy = TextEditingController(
+    text: widget.initial.proxy,
+  );
+  late final TextEditingController _hosts = TextEditingController(
+    text: widget.initial.hostOverrides,
+  );
+  late bool _verify = widget.initial.verifyCertificates;
+  late int _timeout = widget.initial.timeoutSeconds;
+
+  @override
+  void dispose() {
+    _proxy.dispose();
+    _hosts.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '网络设置',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Text(
+          '请求超时（$_timeout 秒）',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        Slider(
+          value: _timeout.toDouble(),
+          min: 5,
+          max: 60,
+          divisions: 11,
+          label: '$_timeout',
+          activeColor: Theme.of(context).colorScheme.primary,
+          onChanged: (v) => setState(() => _timeout = v.round()),
+        ),
+        TextField(
+          controller: _proxy,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: const InputDecoration(
+            labelText: '代理地址（如 127.0.0.1:7890）',
+            labelStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text(
+            'HTTPS 证书校验',
+            style: TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          subtitle: const Text(
+            '自签名内网服务器可关闭',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+          value: _verify,
+          activeThumbColor: Theme.of(context).colorScheme.primary,
+          onChanged: (v) => setState(() => _verify = v),
+        ),
+        TextField(
+          controller: _hosts,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: const InputDecoration(
+            labelText: 'hosts 映射（域名=IP，分号分隔）',
+            labelStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            '仅 HTTP 直连完整生效；HTTPS 握手 SNI 使用映射 IP，'
+            '需配合关闭证书校验',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  widget.onSave(
+                    NetworkSettings(
+                      timeoutSeconds: _timeout,
+                      proxy: _proxy.text.trim(),
+                      verifyCertificates: _verify,
+                      hostOverrides: _hosts.text.trim(),
+                    ),
+                  );
+                  Navigator.of(context).pop();
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showNetworkSettings(BuildContext context, WidgetRef ref) {
+  final initial = ref.read(networkSettingsProvider);
+  return glassBottomSheet<void>(
+    context,
+    _NetworkSettingsForm(
+      initial: initial,
+      onSave: (s) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('网络设置已更新，切换服务器后生效')));
+        ref.read(networkSettingsProvider.notifier).set(s);
+      },
+    ),
+  );
+}
+
 /// 液态玻璃档位选择（关闭 / 标准 / 增强），选择后立即生效并持久化
 Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
   final current = ref.read(glassQualityProvider);
@@ -319,7 +627,10 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
         for (final level in GlassLevel.values)
           ListTile(
             leading: level == current
-                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
                 : const SizedBox(width: 24),
             title: Text(
               level.label,
@@ -365,7 +676,10 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
           ListTile(
             leading: Icon(style.icon, color: Colors.white70),
             trailing: style == current
-                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
                 : null,
             title: Text(
               style.label,
@@ -399,11 +713,14 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('主题色',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
+          child: Text(
+            '主题色',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -441,8 +758,10 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
           if (a == current)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(a.label,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13)),
+              child: Text(
+                a.label,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
             ),
       ],
     ),
@@ -453,103 +772,117 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
 Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
   return glassBottomSheet<void>(
     context,
-    Consumer(builder: (context, ref, _) {
-      final bg = ref.watch(backgroundProvider);
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('自定义背景',
+    Consumer(
+      builder: (context, ref, _) {
+        final bg = ref.watch(backgroundProvider);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                '自定义背景',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: () async {
-                  final picker = ImagePicker();
-                  final img = await picker.pickImage(
-                    source: ImageSource.gallery,
-                    maxWidth: 1920,
-                    maxHeight: 1920,
-                    imageQuality: 85,
-                  );
-                  if (img != null) {
-                    await ref
-                        .read(backgroundProvider.notifier)
-                        .setImage(img.path);
-                  }
-                },
-                icon: const Icon(Icons.photo_library_outlined, size: 18),
-                label: const Text('选择图片'),
-              ),
-              if (bg.path != null) ...[
-                const SizedBox(width: 12),
-                TextButton.icon(
-                  onPressed: () =>
-                      ref.read(backgroundProvider.notifier).clearImage(),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('清除'),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ],
-          ),
-          if (bg.path != null) ...[
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('不透明度 ${(bg.opacity * 100).round()}%',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13)),
-                  SliderTheme(
-                    data: const SliderThemeData(trackHeight: 2),
-                    child: Slider(
-                      value: bg.opacity,
-                      min: 0.05,
-                      max: 1.0,
-                      activeColor: Theme.of(context).colorScheme.primary,
-                      inactiveColor: Colors.white24,
-                      onChanged: (v) => ref
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () async {
+                    final picker = ImagePicker();
+                    final img = await picker.pickImage(
+                      source: ImageSource.gallery,
+                      maxWidth: 1920,
+                      maxHeight: 1920,
+                      imageQuality: 85,
+                    );
+                    if (img != null) {
+                      await ref
                           .read(backgroundProvider.notifier)
-                          .setOpacity(v),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('模糊度 ${bg.blur.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13)),
-                  SliderTheme(
-                    data: const SliderThemeData(trackHeight: 2),
-                    child: Slider(
-                      value: bg.blur,
-                      min: 0,
-                      max: 30,
-                      activeColor: Theme.of(context).colorScheme.primary,
-                      inactiveColor: Colors.white24,
-                      onChanged: (v) =>
-                          ref.read(backgroundProvider.notifier).setBlur(v),
-                    ),
+                          .setImage(img.path);
+                    }
+                  },
+                  icon: const Icon(Icons.photo_library_outlined, size: 18),
+                  label: const Text('选择图片'),
+                ),
+                if (bg.path != null) ...[
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    onPressed: () =>
+                        ref.read(backgroundProvider.notifier).clearImage(),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('清除'),
                   ),
                 ],
+              ],
+            ),
+            if (bg.path != null) ...[
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '不透明度 ${(bg.opacity * 100).round()}%',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SliderTheme(
+                      data: const SliderThemeData(trackHeight: 2),
+                      child: Slider(
+                        value: bg.opacity,
+                        min: 0.05,
+                        max: 1.0,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        inactiveColor: Colors.white24,
+                        onChanged: (v) =>
+                            ref.read(backgroundProvider.notifier).setOpacity(v),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '模糊度 ${bg.blur.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SliderTheme(
+                      data: const SliderThemeData(trackHeight: 2),
+                      child: Slider(
+                        value: bg.blur,
+                        min: 0,
+                        max: 30,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        inactiveColor: Colors.white24,
+                        onChanged: (v) =>
+                            ref.read(backgroundProvider.notifier).setBlur(v),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                '图片仅保存在本地，不会上传到任何服务器',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Text('图片仅保存在本地，不会上传到任何服务器',
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
-          ),
-        ],
-      );
-    }),
+        );
+      },
+    ),
   );
 }
 
@@ -563,27 +896,32 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
       children: [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('控制栏样式',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
+          child: Text(
+            '控制栏样式',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         for (final style in MiniBarStyle.values)
           ListTile(
-            leading: Icon(
-              switch (style) {
-                MiniBarStyle.glass => Icons.blur_on_outlined,
-                MiniBarStyle.solid => Icons.rectangle_outlined,
-                MiniBarStyle.gradient => Icons.gradient_outlined,
-              },
-              color: Colors.white70,
-            ),
+            leading: Icon(switch (style) {
+              MiniBarStyle.glass => Icons.blur_on_outlined,
+              MiniBarStyle.solid => Icons.rectangle_outlined,
+              MiniBarStyle.gradient => Icons.gradient_outlined,
+            }, color: Colors.white70),
             trailing: style == current
-                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
                 : null,
-            title: Text(style.label,
-                style: const TextStyle(color: Colors.white, fontSize: 16)),
+            title: Text(
+              style.label,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
             onTap: () {
               ref.read(miniBarStyleProvider.notifier).setStyle(style);
               Navigator.of(context).pop();
@@ -599,49 +937,58 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
 Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
   return glassBottomSheet<void>(
     context,
-    Consumer(builder: (context, ref, _) {
-      final offset = ref.watch(miniBarOffsetProvider);
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('控制栏高度偏移',
+    Consumer(
+      builder: (context, ref, _) {
+        final offset = ref.watch(miniBarOffsetProvider);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                '控制栏高度偏移',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                Text('${offset.toStringAsFixed(0)}px',
-                    style: const TextStyle(color: Colors.white, fontSize: 20)),
-                SliderTheme(
-                  data: const SliderThemeData(trackHeight: 2),
-                  child: Slider(
-                    value: offset,
-                    min: -20,
-                    max: 40,
-                    divisions: 30,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    inactiveColor: Colors.white24,
-                    onChanged: (v) =>
-                        ref.read(miniBarOffsetProvider.notifier).setOffset(v),
-                  ),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Text('正值上移、负值下移，用于适配不同底部导航栏高度',
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
-          ),
-        ],
-      );
-    }),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  Text(
+                    '${offset.toStringAsFixed(0)}px',
+                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                  ),
+                  SliderTheme(
+                    data: const SliderThemeData(trackHeight: 2),
+                    child: Slider(
+                      value: offset,
+                      min: -20,
+                      max: 40,
+                      divisions: 30,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      inactiveColor: Colors.white24,
+                      onChanged: (v) =>
+                          ref.read(miniBarOffsetProvider.notifier).setOffset(v),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                '正值上移、负值下移，用于适配不同底部导航栏高度',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 

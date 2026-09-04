@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/models/models.dart';
+import '../../core/settings/streaming_prefs.dart';
 import '../auth/auth_controller.dart';
 
 /// 全局唯一 AudioPlayer（App 生命周期持有，页面切换不销毁）
@@ -179,13 +180,21 @@ class PlayerActions {
 
   // ---------- 播放控制 ----------
 
-  /// 播放指定歌曲（替换当前曲目）
+  /// 播放指定歌曲（替换当前曲目）。
+  /// 音质档位按当前网络（Wi-Fi / 蜂窝）解析；蜂窝下关闭传输开关则拒播
   Future<void> play(Song song) async {
     final adapter = _adapter;
     if (adapter == null) return;
+    final settings = _ref.read(streamingSettingsProvider);
+    final quality = await resolveCurrentQuality(settings);
+    if (quality == null) return;
+    final hint = QualityHint(
+      quality: quality,
+      format: settings.transcodeFormat,
+    );
     _ref.read(currentSongProvider.notifier).state = song;
     try {
-      final source = await adapter.resolveStream(song);
+      final source = await adapter.resolveStream(song, quality: hint);
       await _player.setUrl(source.url, headers: source.headers);
       await _player.play();
     } catch (_) {

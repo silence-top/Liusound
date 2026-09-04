@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../models/models.dart';
+import '../../network/http_factory.dart';
+import '../../settings/streaming_prefs.dart';
 import '../../storage/auth_store.dart';
 import '../../subsonic/subsonic.dart';
 import '../navidrome_client.dart';
@@ -16,6 +18,7 @@ class NavidromeAdapter implements ServerAdapter {
   }) : _config = config,
        _secrets = secrets {
     _client = NavidromeClient();
+    NetworkRuntime.configureDio(_client.dio);
     _client.setSession(
       StoredSession(
         serverUrl: config.serverUrl,
@@ -49,6 +52,7 @@ class NavidromeAdapter implements ServerAdapter {
     download: true,
     lyrics: true,
     artistBio: true,
+    transcoding: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -180,9 +184,20 @@ class NavidromeAdapter implements ServerAdapter {
   Future<bool> createPlaylist(String name) => _client.createPlaylist(name);
 
   @override
-  Future<PlaybackSource> resolveStream(Song song) async {
+  Future<PlaybackSource> resolveStream(
+    Song song, {
+    QualityHint? quality,
+  }) async {
     final auth = _subsonicAuth;
-    return PlaybackSource(url: Subsonic.streamUrl(auth, song.id));
+    final transcode = quality?.transcode == true;
+    return PlaybackSource(
+      url: Subsonic.streamUrl(
+        auth,
+        song.id,
+        maxBitRate: transcode ? quality!.quality.bitRate : null,
+        format: transcode ? quality!.format.name : null,
+      ),
+    );
   }
 
   @override

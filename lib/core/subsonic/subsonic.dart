@@ -21,9 +21,14 @@ abstract final class Subsonic {
   static String coverArtUrl(SubsonicAuth auth, String id) =>
       '${auth.serverUrl}/rest/getCoverArt?${_query(params(auth, {'id': id, 'size': '300', 'square': 'true'}))}';
 
-  /// 歌曲流媒体直链
-  static String streamUrl(SubsonicAuth auth, String songId) =>
-      '${auth.serverUrl}/rest/stream?${_query(params(auth, {'id': songId}))}';
+  /// 歌曲流媒体直链；maxBitRate/format 非空时由服务端转码（附录·四 音质分档）
+  static String streamUrl(
+    SubsonicAuth auth,
+    String songId, {
+    int? maxBitRate,
+    String? format,
+  }) =>
+      '${auth.serverUrl}/rest/stream?${_query(params(auth, {'id': songId, 'maxBitRate': ?maxBitRate?.toString(), 'format': ?format}))}';
 
   /// 歌曲原始文件下载直链（Subsonic download，返回无损原始音质）
   static String downloadUrl(SubsonicAuth auth, String songId) =>

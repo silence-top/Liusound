@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/api/server_type.dart';
+import '../../core/network/http_factory.dart';
+import '../../core/settings/streaming_prefs.dart';
 import '../../core/storage/server_repository.dart';
 
 class AuthState {
@@ -146,6 +148,9 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
 
 final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   final auth = ref.watch(authControllerProvider);
+  // 网络设置变更时重建 adapter，让超时/代理/证书/hosts 重新生效
+  final net = ref.watch(networkSettingsProvider);
+  NetworkRuntime.settings = net;
   final config = auth.activeConfig;
   if (config == null) return null;
   final adapter = config.type.createAdapter(config, auth.activeSecrets);

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../models/models.dart';
+import '../../network/http_factory.dart';
+import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 
 /// Jellyfin / Emby 共享基类（~80% API 相同）。
@@ -15,6 +17,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
        _userId = secrets['userId'] ?? '',
        _token = secrets['token'] ?? '' {
     _dio.options.baseUrl = serverUrl;
+    NetworkRuntime.configureDio(_dio);
   }
 
   final String _serverUrl;
@@ -50,6 +53,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     download: true,
     lyrics: true,
     artistBio: true,
+    transcoding: true,
   );
 
   @override
@@ -307,9 +311,18 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   }
 
   @override
-  Future<PlaybackSource> resolveStream(Song song) async {
+  Future<PlaybackSource> resolveStream(
+    Song song, {
+    QualityHint? quality,
+  }) async {
+    // universal 端点：转码参数走查询串（audioCodec + maxStreamingBitrate，单位 bps）
+    final hint = quality;
+    final transcode = hint?.transcode == true;
+    final extra = transcode
+        ? '?audioCodec=${hint!.format.name}&maxStreamingBitrate=${hint.quality.bitRate * 1000}'
+        : '';
     return PlaybackSource(
-      url: '$_serverUrl/Audio/${song.id}/universal',
+      url: '$_serverUrl/Audio/${song.id}/universal$extra',
       headers: {...authHeaders, 'Accept': 'audio/*'},
     );
   }

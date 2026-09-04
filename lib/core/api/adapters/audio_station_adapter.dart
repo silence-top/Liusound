@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../models/models.dart';
+import '../../network/http_factory.dart';
+import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -17,6 +19,7 @@ class AudioStationAdapter implements ServerAdapter {
        _sid = secrets['sid'] ?? '',
        _password = secrets['password'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
+    NetworkRuntime.configureDio(_dio);
   }
 
   final ServerConfig _config;
@@ -319,7 +322,10 @@ class AudioStationAdapter implements ServerAdapter {
   // ---------- 媒体 ----------
 
   @override
-  Future<PlaybackSource> resolveStream(Song song) async {
+  Future<PlaybackSource> resolveStream(
+    Song song, {
+    QualityHint? quality,
+  }) async {
     await _ensureSid();
     return PlaybackSource(
       url:
