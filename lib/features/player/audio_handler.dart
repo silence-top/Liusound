@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/download/auto_download.dart';
 import '../../core/local/local_library.dart';
@@ -32,12 +34,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _syncMediaItem(_ref.read(currentSongProvider));
     // 播放态变化 → 桌面小部件播放/暂停图标
     player.playingStream.listen((playing) {
-      unawaited(
-        HomeWidgetSync.push(
-          song: _ref.read(currentSongProvider),
-          playing: playing,
-        ),
-      );
+      unawaited(_syncWidget(_ref.read(currentSongProvider), playing));
     });
   }
 
@@ -45,6 +42,38 @@ class AppAudioHandler extends BaseAudioHandler {
   late final AudioPlayer _player;
   Timer? _clickTimer;
   int _clickCount = 0;
+  // 小部件封面缓存：albumId → 已落盘的封面文件路径（每首歌最多拉取一次）
+  final Map<int, String> _widgetCoverCache = {};
+
+  Future<void> _syncWidget(Song? song, bool playing) async {
+    await HomeWidgetSync.push(
+      song: song,
+      playing: playing,
+      coverPath: await _widgetCoverPath(song),
+    );
+  }
+
+  /// 小部件封面路径：本地内嵌封面优先，服务器歌曲拉一次并落盘缓存目录
+  Future<String?> _widgetCoverPath(Song? song) async {
+    if (song == null) return null;
+    final local = song.localCoverPath;
+    if (local != null && File(local).existsSync()) return local;
+    final key = song.albumId.hashCode;
+    final cached = _widgetCoverCache[key];
+    if (cached != null && File(cached).existsSync()) return cached;
+    final bytes = await _ref
+        .read(serverAdapterProvider)
+        ?.fetchCoverBytes(song.albumId, size: 256);
+    if (bytes == null) return null;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/widget_cover_$key.png');
+      await file.writeAsBytes(bytes);
+      return _widgetCoverCache[key] = file.path;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---------- 系统控制回调 → 全局播放器 ----------
 
@@ -148,7 +177,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   void _syncMediaItem(Song? song) {
     mediaItem.add(song == null ? null : _mediaItemFor(song));
-    unawaited(HomeWidgetSync.push(song: song, playing: _player.playing));
+    unawaited(_syncWidget(song, _player.playing));
   }
 
   MediaItem _mediaItemFor(Song song) {
