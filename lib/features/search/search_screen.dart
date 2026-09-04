@@ -216,7 +216,8 @@ class _SegmentTabs extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: tab == current
-                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
+                            ? Theme.of(context).colorScheme.primary
+                                  .withValues(alpha: 0.18)
                             : Colors.transparent,
                         borderRadius: const BorderRadius.all(
                           Radius.circular(999),
@@ -440,7 +441,7 @@ class _SongRow extends ConsumerWidget {
     return InkWell(
       onTap: () {
         ref.read(playerActionsProvider).play(song);
-        openFullScreenPlayer(context);
+        if (ref.read(autoOpenPlayerProvider)) openFullScreenPlayer(context);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

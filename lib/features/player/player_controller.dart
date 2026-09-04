@@ -78,6 +78,56 @@ final loopPlaybackProvider = StateProvider<bool>((ref) => true);
 /// 启动后自动播放（恢复上次队列与进度并直接播放）
 final autoPlayProvider = StateProvider<bool>((ref) => false);
 
+/// 交叉淡入淡出时长（秒，0=关闭，上限 10；持久化）
+class CrossfadeSecondsNotifier extends Notifier<int> {
+  static const _key = 'crossfade_seconds';
+
+  @override
+  int build() {
+    SharedPreferences.getInstance().then((p) {
+      final v = p.getInt(_key) ?? 0;
+      if (v != state) state = v;
+    });
+    return 0;
+  }
+
+  void set(int seconds) {
+    state = seconds.clamp(0, 10);
+    SharedPreferences.getInstance().then((p) => p.setInt(_key, state));
+  }
+}
+
+final crossfadeSecondsProvider =
+    NotifierProvider<CrossfadeSecondsNotifier, int>(
+      CrossfadeSecondsNotifier.new,
+    );
+
+/// 点击歌曲后自动打开全屏播放页（持久化，默认开）
+class AutoOpenPlayerNotifier extends Notifier<bool> {
+  static const _key = 'auto_open_player';
+
+  @override
+  bool build() {
+    SharedPreferences.getInstance().then((p) {
+      final v = p.getBool(_key) ?? true;
+      if (v != state) state = v;
+    });
+    return true;
+  }
+
+  void set(bool v) {
+    state = v;
+    SharedPreferences.getInstance().then((p) => p.setBool(_key, v));
+  }
+}
+
+final autoOpenPlayerProvider = NotifierProvider<AutoOpenPlayerNotifier, bool>(
+  AutoOpenPlayerNotifier.new,
+);
+
+/// 续播提示（长音频断点命中时由常驻 UI 层消费弹出 SnackBar）
+final resumeNoticeProvider = StateProvider<String?>((ref) => null);
+
 /// 定时停止播放（展示剩余倒计时；到点暂停，null 未启用，不持久化）
 class SleepTimerNotifier extends Notifier<Duration?> {
   Timer? _timer;
@@ -168,6 +218,7 @@ class PlayerActions {
     });
     _ref.listen<Song?>(currentSongProvider, (_, _) => _schedulePersist());
     _ref.listen<List<Song>>(queueProvider, (_, _) => _schedulePersist());
+    player.positionStream.listen(_tickCrossfade);
     _restore();
     maybeAutoDownload(_ref.read);
   }
@@ -175,8 +226,12 @@ class PlayerActions {
   final Ref _ref;
   Timer? _persistDebounce;
   bool _restored = false;
+  bool _fading = false; // 交叉淡化进行中（防重入）
   int _resumePositionMs = 0; // 冷启动待恢复进度（首播时一次性消费）
   final _random = Random();
+
+  /// 长音频断点阈值（>10min 的曲目单独记进度，有声书/长录音续播用）
+  static const _longTrack = Duration(minutes: 10);
 
   AudioPlayer get _player => _ref.read(audioPlayerProvider);
   ServerAdapter? get _adapter => _ref.read(serverAdapterProvider);
@@ -195,6 +250,7 @@ class PlayerActions {
       quality: quality,
       format: settings.transcodeFormat,
     );
+    await _saveLongTrackBreakpoint();
     _ref.read(currentSongProvider.notifier).state = song;
     try {
       final source = await adapter.resolveStream(song, quality: hint);
@@ -214,10 +270,42 @@ class PlayerActions {
       }
       await _player.play();
       unawaited(AudioCache.enforceLimit(cache.limit));
+      unawaited(_resumeLongTrack(song));
     } catch (_) {
       // 流加载失败不中断 UI（网络抖动场景，状态保持可重试）
     }
   }
+
+  /// 切歌前：长音频（>10min）把当前进度按曲持久化
+  Future<void> _saveLongTrackBreakpoint() async {
+    try {
+      final song = _ref.read(currentSongProvider);
+      final dur = _player.duration;
+      if (song == null || dur == null || dur < _longTrack) return;
+      final pos = _player.position;
+      if (pos < const Duration(seconds: 30)) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_breakpointKey(song.id), pos.inMilliseconds);
+    } catch (_) {
+      // 存储异常静默（断点只是增强能力）
+    }
+  }
+
+  /// 播放开始后：长音频命中断点则跳过去并给出提示
+  Future<void> _resumeLongTrack(Song song) async {
+    try {
+      final dur = _player.duration;
+      if (dur == null || dur < _longTrack) return;
+      if (_player.position > Duration.zero) return; // 已在续播（冷启动恢复）
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getInt(_breakpointKey(song.id));
+      if (saved == null || saved < 60000) return;
+      await _player.seek(Duration(milliseconds: saved));
+      _ref.read(resumeNoticeProvider.notifier).state = '已从上次进度继续：${song.title}';
+    } catch (_) {}
+  }
+
+  static String _breakpointKey(String songId) => 'breakpoint_$songId';
 
   /// 播放/暂停切换；冷启动恢复后的首播会先加载流并跳到上次进度
   Future<void> toggle() async {
@@ -316,7 +404,86 @@ class PlayerActions {
         PlayMode.values[(mode.index + 1) % PlayMode.values.length];
   }
 
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    await _player.seek(position);
+    // 长音频：拖动进度也算有效断点
+    try {
+      final song = _ref.read(currentSongProvider);
+      final dur = _player.duration;
+      if (song == null || dur == null || dur < _longTrack) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_breakpointKey(song.id), position.inMilliseconds);
+    } catch (_) {}
+  }
+
+  // ---------- 交叉淡入淡出（0–10s，音量自动化近似，just_audio 无原生 crossfade） ----------
+
+  /// 进度流驱动的触发判定：剩余时长进入淡化窗口且有真实下一首才启动
+  void _tickCrossfade(Duration pos) {
+    if (_fading) return;
+    final seconds = _ref.read(crossfadeSecondsProvider);
+    if (seconds <= 0) return;
+    final player = _player;
+    if (!player.playing) return;
+    final duration = player.duration;
+    if (duration == null ||
+        duration <= Duration(seconds: seconds * 2) ||
+        duration - pos > Duration(seconds: seconds)) {
+      return;
+    }
+    final next = _peekNextForCrossfade();
+    if (next == null) return;
+    _runCrossfade(seconds, next);
+  }
+
+  /// 交叉淡化的下一首预判（单曲循环/无后续不淡化，让其自然播完/循环）
+  Song? _peekNextForCrossfade() {
+    final queue = _ref.read(queueProvider);
+    final current = _ref.read(currentSongProvider);
+    if (current == null || queue.isEmpty) return null;
+    switch (_ref.read(playModeProvider)) {
+      case PlayMode.repeatOne:
+        return null;
+      case PlayMode.shuffle:
+        final others = queue.where((s) => s.id != current.id).toList();
+        return others.isEmpty ? null : others.first;
+      case PlayMode.order:
+        final index = queue.indexWhere((s) => s.id == current.id);
+        if (index >= 0 && index < queue.length - 1) return queue[index + 1];
+        return _ref.read(loopPlaybackProvider) ? queue.first : null;
+    }
+  }
+
+  Future<void> _runCrossfade(int seconds, Song next) async {
+    _fading = true;
+    const steps = 24;
+    final stepMs = seconds * 1000 ~/ steps;
+    try {
+      for (var i = 1; i <= steps; i++) {
+        await Future<void>.delayed(Duration(milliseconds: stepMs));
+        if (!_player.playing) {
+          // 途中被暂停：恢复音量并放弃本次
+          try {
+            await _player.setVolume(1);
+          } catch (_) {}
+          return;
+        }
+        await _player.setVolume(1 - i / steps);
+      }
+      await play(next);
+      for (var i = 1; i <= steps; i++) {
+        await Future<void>.delayed(Duration(milliseconds: stepMs));
+        await _player.setVolume(i / steps);
+      }
+      await _player.setVolume(1);
+    } catch (_) {
+      try {
+        await _player.setVolume(1);
+      } catch (_) {}
+    } finally {
+      _fading = false;
+    }
+  }
 
   // ---------- 队列管理 ----------
 

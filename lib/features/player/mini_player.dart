@@ -25,6 +25,13 @@ class MiniPlayer extends ConsumerWidget {
     if (song == null) return const SizedBox.shrink();
     final barStyle = ref.watch(miniBarStyleProvider);
     final offset = ref.watch(miniBarOffsetProvider);
+    ref.listen(resumeNoticeProvider, (_, message) {
+      if (message == null) return;
+      ref.read(resumeNoticeProvider.notifier).state = null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
+    });
 
     final inner = Row(
       children: [
@@ -63,11 +70,7 @@ class MiniPlayer extends ConsumerWidget {
               color: Colors.black.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
-              Icons.queue_music,
-              size: 28,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.queue_music, size: 28, color: Colors.white),
           ),
         ),
       ],
@@ -75,36 +78,33 @@ class MiniPlayer extends ConsumerWidget {
 
     final content = switch (barStyle) {
       MiniBarStyle.glass => GlassPill(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          padding:
-              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-          child: inner,
-        ),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        child: inner,
+      ),
       MiniBarStyle.solid => Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          padding:
-              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A2C3A),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: inner,
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2C3A),
+          borderRadius: BorderRadius.circular(999),
         ),
+        child: inner,
+      ),
       MiniBarStyle.gradient => Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-          padding:
-              const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                const Color(0xFF1A2C3A),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(999),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+              const Color(0xFF1A2C3A),
+            ],
           ),
-          child: inner,
+          borderRadius: BorderRadius.circular(999),
         ),
+        child: inner,
+      ),
     };
 
     return _SwipeToSwitch(
@@ -306,8 +306,8 @@ class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
   }
 }
 
-/// 左右滑动切歌手势（现代播放器标配）：拖动跟手（阻尼 0.55），
-/// 位移超阈值或快滑即切歌，松手回位。与行内点击互不干扰。
+/// 左右滑动切歌 + 上滑打开全屏播放器（现代播放器标配）：拖动跟手（阻尼 0.55），
+/// 位移超阈值或快滑即触发，松手回位。与行内点击互不干扰。
 class _SwipeToSwitch extends ConsumerStatefulWidget {
   const _SwipeToSwitch({required this.child});
 
@@ -320,7 +320,10 @@ class _SwipeToSwitch extends ConsumerStatefulWidget {
 class _SwipeToSwitchState extends ConsumerState<_SwipeToSwitch> {
   static const _trigger = 72.0; // 位移触发阈值（逻辑像素）
   static const _velocity = 600.0; // 快滑触发速度
+  static const _upTrigger = 50.0; // 上滑打开全屏的位移阈值
+  static const _upVelocity = -500.0;
   double _dx = 0;
+  double _dy = 0;
 
   void _end(DragEndDetails d) {
     final v = d.velocity.pixelsPerSecond.dx;
@@ -336,6 +339,13 @@ class _SwipeToSwitchState extends ConsumerState<_SwipeToSwitch> {
     }
   }
 
+  void _verticalEnd(DragEndDetails d) {
+    final v = d.velocity.pixelsPerSecond.dy;
+    final hit = _dy < -_upTrigger || v < _upVelocity;
+    setState(() => _dy = 0);
+    if (hit) openFullScreenPlayer(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -344,8 +354,12 @@ class _SwipeToSwitchState extends ConsumerState<_SwipeToSwitch> {
           setState(() => _dx = (_dx + d.delta.dx).clamp(-90.0, 90.0)),
       onHorizontalDragEnd: _end,
       onHorizontalDragCancel: () => setState(() => _dx = 0),
+      onVerticalDragUpdate: (d) =>
+          setState(() => _dy = (_dy + d.delta.dy).clamp(-90.0, 0.0)),
+      onVerticalDragEnd: _verticalEnd,
+      onVerticalDragCancel: () => setState(() => _dy = 0),
       child: Transform.translate(
-        offset: Offset(_dx * 0.55, 0),
+        offset: Offset(_dx * 0.55, _dy * 0.55),
         child: widget.child,
       ),
     );

@@ -406,7 +406,7 @@ class _SongCardRow extends ConsumerWidget {
     final actions = ref.read(playerActionsProvider);
     actions.replaceQueue(queue);
     actions.play(song);
-    openFullScreenPlayer(context);
+    if (ref.read(autoOpenPlayerProvider)) openFullScreenPlayer(context);
   }
 
   @override

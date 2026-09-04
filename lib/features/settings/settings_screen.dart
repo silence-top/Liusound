@@ -38,6 +38,8 @@ class SettingsScreen extends ConsumerWidget {
     final config = ref.watch(authControllerProvider).activeConfig;
     final loop = ref.watch(loopPlaybackProvider);
     final autoPlay = ref.watch(autoPlayProvider);
+    final autoOpen = ref.watch(autoOpenPlayerProvider);
+    final crossfade = ref.watch(crossfadeSecondsProvider);
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
     final glassLevel = ref.watch(glassQualityProvider);
@@ -80,6 +82,15 @@ class SettingsScreen extends ConsumerWidget {
                 onChanged: (v) => _setAutoPlay(ref, v),
               ),
               _divider,
+              _SwitchTile(
+                icon: Icons.open_in_new_off,
+                title: '点歌自动打开播放页',
+                subtitle: '关闭后点歌仅播放，不弹出全屏播放器',
+                value: autoOpen,
+                onChanged: (v) =>
+                    ref.read(autoOpenPlayerProvider.notifier).set(v),
+              ),
+              _divider,
               _ActionTile(
                 icon: Icons.timer_outlined,
                 title: '定时停止播放',
@@ -94,6 +105,13 @@ class SettingsScreen extends ConsumerWidget {
                 title: '播放速度',
                 subtitle: speed == 1.0 ? '正常' : '${speed.toStringAsFixed(2)}x',
                 onTap: () => showSpeedPicker(context),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.swap_horiz,
+                title: '交叉淡入淡出',
+                subtitle: crossfade == 0 ? '关闭' : '$crossfade 秒',
+                onTap: () => showCrossfadePicker(context),
               ),
               _divider,
               const _VolumeTile(),

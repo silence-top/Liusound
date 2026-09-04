@@ -644,10 +644,7 @@ Widget _filterAction({
   return IconButton(
     onPressed: onPressed,
     tooltip: expanded ? '收起筛选' : '筛选歌曲',
-    icon: Icon(
-      Icons.search,
-      color: expanded ? primaryColor : Colors.white70,
-    ),
+    icon: Icon(Icons.search, color: expanded ? primaryColor : Colors.white70),
   );
 }
 
@@ -714,7 +711,11 @@ SliverAppBar _detailAppBar({
                 color: canSelect ? Colors.white70 : Colors.white24,
               ),
             ),
-            _filterAction(expanded: filterExpanded, onPressed: onToggleFilter, primaryColor: primaryColor),
+            _filterAction(
+              expanded: filterExpanded,
+              onPressed: onToggleFilter,
+              primaryColor: primaryColor,
+            ),
           ],
   );
 }
@@ -962,7 +963,9 @@ class SongRow extends ConsumerWidget {
               if (identical(songs, const [])) return;
               actions.replaceQueue(songs);
               actions.play(song);
-              openFullScreenPlayer(context);
+              if (ref.read(autoOpenPlayerProvider)) {
+                openFullScreenPlayer(context);
+              }
             },
       onLongPress: selecting ? null : () => showSongActionSheet(context, song),
       child: Padding(
@@ -978,7 +981,9 @@ class SongRow extends ConsumerWidget {
                           ? Icons.check_circle
                           : Icons.radio_button_unchecked,
                       size: 22,
-                      color: checked ? Theme.of(context).colorScheme.primary : Colors.white24,
+                      color: checked
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white24,
                     )
                   : Text(
                       '${index + 1}',
