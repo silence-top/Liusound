@@ -62,6 +62,8 @@ class SettingsScreen extends ConsumerWidget {
     final powerSave = ref.watch(powerSaveProvider);
     final floatingLyrics = ref.watch(floatingLyricsProvider);
     final streaming = ref.watch(streamingSettingsProvider);
+    // 打开设置页即后台静默探测服务端转码能力，供音质选择器判定是否放行转码档
+    ref.watch(transcodeSupportProvider);
     final network = ref.watch(networkSettingsProvider);
     final cache = ref.watch(cacheSettingsProvider);
     final cacheSize = ref.watch(audioCacheSizeProvider);
@@ -538,7 +540,8 @@ String _fmtBytes(int bytes) {
   return '$bytes B';
 }
 
-/// 在线音质分档选择（附录·四）：Wi-Fi 与移动网络独立配置
+/// 在线音质分档选择（附录·四）：Wi-Fi 与移动网络独立配置。
+/// 服务端转码能力探测不通过时只放行无损（如 Navidrome 未装 ffmpeg）
 Future<void> _showQualityPicker(
   BuildContext context,
   WidgetRef ref, {
@@ -548,51 +551,81 @@ Future<void> _showQualityPicker(
   final current = cellular ? settings.cellularQuality : settings.wifiQuality;
   return glassBottomSheet<void>(
     context,
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Text(
-            cellular ? '在线音质（移动网络）' : '在线音质（Wi-Fi）',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+    // 探测结果异步到达，用 Consumer 订阅让转码档从灰到亮/被移除
+    Consumer(
+      builder: (context, sheetRef, _) {
+        final support = sheetRef.watch(transcodeSupportProvider);
+        final transcodeOk = support.value ?? true;
+        final probing = support.isLoading;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                cellular ? '在线音质（移动网络）' : '在线音质（Wi-Fi）',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
-        ),
-        for (final q in StreamQuality.values)
-          ListTile(
-            leading: q == current
-                ? Icon(
-                    Icons.check,
-                    color: Theme.of(context).colorScheme.primary,
-                  )
-                : const SizedBox(width: 24),
-            title: Text(
-              q.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+            for (final q in StreamQuality.values)
+              if (transcodeOk || q == StreamQuality.lossless)
+                ListTile(
+                  leading: q == current
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : const SizedBox(width: 24),
+                  title: Text(
+                    q.label,
+                    style: TextStyle(
+                      color: Colors.white.withValues(
+                        alpha: probing && q != StreamQuality.lossless
+                            ? 0.4
+                            : 1.0,
+                      ),
+                      fontSize: 16,
+                    ),
+                  ),
+                  trailing: probing && q != StreamQuality.lossless
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  onTap: probing && q != StreamQuality.lossless
+                      ? null
+                      : () {
+                          sheetRef
+                              .read(streamingSettingsProvider.notifier)
+                              .set(
+                                cellular
+                                    ? settings.copyWith(cellularQuality: q)
+                                    : settings.copyWith(wifiQuality: q),
+                              );
+                          Navigator.of(context).pop();
+                        },
+                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                probing
+                    ? '正在检测服务端转码能力…'
+                    : transcodeOk
+                    ? '无损播放原始文件；其余档位由服务端转码（需后端支持），'
+                          '可显著降低流量与加载等待'
+                    : '当前服务器不支持服务端转码（如未安装 ffmpeg），仅可无损播放原始文件',
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+              ),
             ),
-            onTap: () {
-              final controller = ref.read(streamingSettingsProvider.notifier);
-              controller.set(
-                cellular
-                    ? settings.copyWith(cellularQuality: q)
-                    : settings.copyWith(wifiQuality: q),
-              );
-              Navigator.of(context).pop();
-            },
-          ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-          child: Text(
-            '无损播放原始文件；其余档位由服务端转码（需后端支持），'
-            '可显著降低流量与加载等待',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     ),
   );
 }

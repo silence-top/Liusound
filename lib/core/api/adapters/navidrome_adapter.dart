@@ -239,6 +239,49 @@ class NavidromeAdapter implements ServerAdapter {
     );
   }
 
+  bool? _transcodeProbe;
+
+  @override
+  Future<bool> supportsTranscode() async {
+    final cached = _transcodeProbe;
+    if (cached != null) return cached;
+    final result = await _probeTranscode();
+    _transcodeProbe = result;
+    return result;
+  }
+
+  /// 静默探测转码能力：Navidrome 转码依赖服务器装有 ffmpeg，
+  /// 声明支持不代表真能转。取一首歌请求 64kbps 转码流，只读响应头。
+  /// 探测异常放行，交由播放侧回退兜底
+  Future<bool> _probeTranscode() async {
+    try {
+      final songs = await fetchSongs(
+        const SongQuery(sort: SongSort.random, limit: 1),
+      );
+      if (songs.isEmpty) return true;
+      final resp = await _client.dio.get<ResponseBody>(
+        Subsonic.streamUrl(
+          _subsonicAuth,
+          songs.first.id,
+          maxBitRate: 64,
+          format: 'mp3',
+        ),
+        options: Options(
+          responseType: ResponseType.stream,
+          // 非 200 也要拿到响应体类型用于判别，不进异常路径
+          validateStatus: (_) => true,
+        ),
+      );
+      // 取消订阅关闭底层连接，避免服务端转码流不支持 Range 时整首下载
+      final sub = resp.data!.stream.listen((_) {});
+      await sub.cancel();
+      final type = resp.headers.value('content-type') ?? '';
+      return resp.statusCode == 200 && type.startsWith('audio/');
+    } catch (_) {
+      return true;
+    }
+  }
+
   @override
   Future<PlaybackSource> resolveDownload(Song song) async {
     final auth = _subsonicAuth;

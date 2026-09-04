@@ -174,6 +174,14 @@ final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   return adapter;
 });
 
+/// 服务端转码能力（后台静默探测，真结果缓存在 adapter 会话内）。
+/// 探测完成前 value 为 null，UI 先按支持显示、播放侧另有回退兜底
+final transcodeSupportProvider = FutureProvider<bool>((ref) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return false;
+  return adapter.supportsTranscode();
+});
+
 String normalizeServerUrl(String raw) {
   var url = raw.trim();
   if (url.isEmpty) return url;

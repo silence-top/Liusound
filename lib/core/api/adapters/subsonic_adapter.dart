@@ -335,6 +335,49 @@ class SubsonicAdapter implements ServerAdapter {
     );
   }
 
+  bool? _transcodeProbe;
+
+  @override
+  Future<bool> supportsTranscode() async {
+    final cached = _transcodeProbe;
+    if (cached != null) return cached;
+    final result = await _probeTranscode();
+    _transcodeProbe = result;
+    return result;
+  }
+
+  /// 静默探测转码能力：取一首歌请求 64kbps 转码流，只读响应头不下载内容。
+  /// 响应是音频流 → 支持；返回 JSON 错误/HTTP 错误 → 服务端缺转码器。
+  /// 探测异常（网络抖动/曲库为空）放行，交由播放侧回退兜底
+  Future<bool> _probeTranscode() async {
+    try {
+      final songs = await fetchSongs(
+        const SongQuery(sort: SongSort.random, limit: 1),
+      );
+      if (songs.isEmpty) return true;
+      final resp = await _dio.get<ResponseBody>(
+        Subsonic.streamUrl(
+          _auth,
+          songs.first.id,
+          maxBitRate: 64,
+          format: 'mp3',
+        ),
+        options: Options(
+          responseType: ResponseType.stream,
+          // 非 200 也要拿到响应体类型用于判别，不进异常路径
+          validateStatus: (_) => true,
+        ),
+      );
+      // 取消订阅关闭底层连接，避免服务端转码流不支持 Range 时整首下载
+      final sub = resp.data!.stream.listen((_) {});
+      await sub.cancel();
+      final type = resp.headers.value('content-type') ?? '';
+      return resp.statusCode == 200 && type.startsWith('audio/');
+    } catch (_) {
+      return true;
+    }
+  }
+
   @override
   Future<PlaybackSource> resolveDownload(Song song) async =>
       PlaybackSource(url: Subsonic.downloadUrl(_auth, song.id));

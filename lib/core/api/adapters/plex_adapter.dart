@@ -426,6 +426,9 @@ class PlexAdapter implements ServerAdapter {
   }
 
   @override
+  Future<bool> supportsTranscode() async => capabilities.transcoding;
+
+  @override
   Future<PlaybackSource> resolveDownload(Song song) async {
     return PlaybackSource(
       url:
