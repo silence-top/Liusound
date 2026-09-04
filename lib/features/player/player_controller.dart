@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -281,26 +282,62 @@ class PlayerActions {
     await _saveLongTrackBreakpoint();
     try {
       final source = await adapter.resolveStream(song, quality: hint);
-      final cache = _ref.read(cacheSettingsProvider);
-      if (cache.cacheWhileListen) {
-        // 边听边存：走磁盘缓存源，断网可续播已缓存段落
-        // LockCachingAudioSource 在 0.10 仍标记 experimental，API 或随版本变动
-        await _player.setAudioSource(
-          // ignore: experimental_member_use
-          LockCachingAudioSource(
-            Uri.parse(source.url),
-            headers: source.headers.isNotEmpty ? source.headers : null,
-          ),
-        );
-      } else {
-        await _player.setUrl(source.url, headers: source.headers);
-      }
+      await _setStreamSource(source);
       _ref.read(currentSongProvider.notifier).state = song;
       await _player.play();
-      unawaited(AudioCache.enforceLimit(cache.limit));
+      unawaited(
+        AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
+      );
       unawaited(_resumeLongTrack(song));
-    } catch (_) {
-      // 流加载失败不中断 UI（网络抖动场景，状态保持可重试）
+    } catch (e) {
+      // 转码流失败（服务端缺转码器/参数不受支持等）自动回退无损原文件；
+      // 原文件流也失败才是真正的网络/鉴权问题
+      if (!hint.transcode) {
+        assert(() {
+          debugPrint('play(${song.id}) quality=${quality.name} failed: $e');
+          return true;
+        }());
+        return;
+      }
+      assert(() {
+        debugPrint('play(${song.id}) transcode=${quality.name} failed: $e');
+        return true;
+      }());
+      try {
+        final source = await adapter.resolveStream(song);
+        await _setStreamSource(source);
+        _ref.read(currentSongProvider.notifier).state = song;
+        await _player.play();
+        unawaited(
+          AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
+        );
+        unawaited(_resumeLongTrack(song));
+      } catch (fallbackError) {
+        assert(() {
+          debugPrint(
+            'play(${song.id}) lossless fallback failed: $fallbackError',
+          );
+          return true;
+        }());
+      }
+    }
+  }
+
+  /// 按边听边存开关选择磁盘缓存源或直连源
+  Future<void> _setStreamSource(PlaybackSource source) async {
+    final cache = _ref.read(cacheSettingsProvider);
+    if (cache.cacheWhileListen) {
+      // 边听边存：走磁盘缓存源，断网可续播已缓存段落
+      // LockCachingAudioSource 在 0.10 仍标记 experimental，API 或随版本变动
+      await _player.setAudioSource(
+        // ignore: experimental_member_use
+        LockCachingAudioSource(
+          Uri.parse(source.url),
+          headers: source.headers.isNotEmpty ? source.headers : null,
+        ),
+      );
+    } else {
+      await _player.setUrl(source.url, headers: source.headers);
     }
   }
 
