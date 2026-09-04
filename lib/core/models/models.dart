@@ -220,6 +220,19 @@ class Album {
   static List<Album> listFromJson(dynamic json) => (json as List<dynamic>)
       .map((e) => Album.fromJson(e as Map<String, dynamic>))
       .toList();
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'artist': artist,
+    'artistId': artistId,
+    'songCount': songCount,
+    'duration': duration,
+    'playCount': playCount,
+    'starred': starred,
+    'rating': rating,
+    'year': ?year,
+  };
 }
 
 class Artist {

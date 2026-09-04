@@ -51,6 +51,8 @@ class SubsonicAdapter implements ServerAdapter {
     lyrics: true,
     artistBio: true,
     transcoding: true,
+    scrobbling: true,
+    incrementalSync: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -295,6 +297,25 @@ class SubsonicAdapter implements ServerAdapter {
   @override
   Future<bool> createPlaylist(String name) =>
       _action('createPlaylist', {'name': name});
+
+  /// submission=true 为完成上报（scrobble）；false 为「正在播放」
+  @override
+  Future<bool> scrobble(String songId) =>
+      _action('scrobble', {'id': songId, 'submission': 'true'});
+
+  @override
+  Future<bool> nowPlaying(String songId) =>
+      _action('scrobble', {'id': songId, 'submission': 'false'});
+
+  @override
+  Future<String?> libraryVersion() async {
+    try {
+      final data = await _api('getMusicFolders', {});
+      return Subsonic.musicFoldersVersion(data);
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---------- 媒体 ----------
 

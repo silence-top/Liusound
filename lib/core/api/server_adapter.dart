@@ -28,6 +28,16 @@ abstract class ServerAdapter {
   Future<bool> setRating(String id, int rating);
   Future<bool> addToPlaylist(String playlistId, String songId);
 
+  /// Scrobble 完成上报（播放达 50%/2min 或播完）；后端不支持返回 false
+  Future<bool> scrobble(String songId) => Future.value(false);
+
+  /// 上报「正在播放」；后端不支持返回 false
+  Future<bool> nowPlaying(String songId) => Future.value(false);
+
+  /// 曲库变更标记（增量同步用，越轻量越好）。
+  /// 返回 null 表示后端不提供（如 Audio Station），调用方需全量刷新
+  Future<String?> libraryVersion() async => null;
+
   /// 在服务端新建一个空歌单；成功返回 true。
   /// 调用方自行 invalidate 歌单列表刷新，本方法不负责回传新歌单
   Future<bool> createPlaylist(String name);
@@ -90,6 +100,8 @@ class AdapterCapabilities {
     this.lyrics = true,
     this.artistBio = false,
     this.transcoding = false,
+    this.scrobbling = false,
+    this.incrementalSync = false,
   });
   final bool ratings;
   final bool similarSongs;
@@ -102,6 +114,12 @@ class AdapterCapabilities {
 
   /// 服务端是否支持按码率/格式转码（附录·四 音质分档的前提）
   final bool transcoding;
+
+  /// 服务端是否支持 Scrobble 上报（Audio Station 无接口）
+  final bool scrobbling;
+
+  /// 服务端是否提供曲库变更标记（增量同步的前提）
+  final bool incrementalSync;
 }
 
 enum AlbumSort { recentlyAdded, recentlyPlayed, mostPlayed, random, name, year }

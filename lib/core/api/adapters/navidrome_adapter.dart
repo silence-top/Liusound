@@ -53,6 +53,8 @@ class NavidromeAdapter implements ServerAdapter {
     lyrics: true,
     artistBio: true,
     transcoding: true,
+    scrobbling: true,
+    incrementalSync: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -182,6 +184,43 @@ class NavidromeAdapter implements ServerAdapter {
 
   @override
   Future<bool> createPlaylist(String name) => _client.createPlaylist(name);
+
+  /// Navidrome 同时兼容 Subsonic API，scrobble 走 /rest/scrobble
+  @override
+  Future<bool> scrobble(String songId) =>
+      _subsonicAction({'id': songId, 'submission': 'true'});
+
+  @override
+  Future<bool> nowPlaying(String songId) =>
+      _subsonicAction({'id': songId, 'submission': 'false'});
+
+  @override
+  Future<String?> libraryVersion() async {
+    try {
+      final res = await _client.dio.get<Map<String, dynamic>>(
+        '/rest/getMusicFolders',
+        queryParameters: Subsonic.params(_subsonicAuth),
+      );
+      final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
+      if (resp == null || resp['status']?.toString() != 'ok') return null;
+      return Subsonic.musicFoldersVersion(resp);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> _subsonicAction(Map<String, String> extra) async {
+    try {
+      final res = await _client.dio.get<Map<String, dynamic>>(
+        '/rest/scrobble',
+        queryParameters: Subsonic.params(_subsonicAuth, extra),
+      );
+      final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
+      return resp?['status']?.toString() == 'ok';
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<PlaybackSource> resolveStream(

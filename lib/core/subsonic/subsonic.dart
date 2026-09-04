@@ -34,6 +34,23 @@ abstract final class Subsonic {
   static String downloadUrl(SubsonicAuth auth, String songId) =>
       '${auth.serverUrl}/rest/download?${_query(params(auth, {'id': songId}))}';
 
+  /// 曲库变更标记：getMusicFolders 各目录 lastModified 取最大值；
+  /// 无有效值返回 null（调用方全量刷新）
+  static String? musicFoldersVersion(Map<String, dynamic> resp) {
+    final foldersRaw = resp['musicFolders']?['musicFolder'];
+    final folders = switch (foldersRaw) {
+      final List<dynamic> l => l,
+      final Map<String, dynamic> m => [m],
+      _ => const <dynamic>[],
+    };
+    var latest = 0;
+    for (final f in folders.whereType<Map<String, dynamic>>()) {
+      final v = int.tryParse('${f['lastModified'] ?? ''}') ?? 0;
+      if (v > latest) latest = v;
+    }
+    return latest > 0 ? '$latest' : null;
+  }
+
   static String _query(Map<String, String> p) => p.entries
       .map(
         (e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',

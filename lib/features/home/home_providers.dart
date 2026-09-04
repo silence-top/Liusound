@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_adapter.dart';
+import '../../core/library/library_sync.dart';
 import '../../core/models/models.dart';
 import '../auth/auth_controller.dart';
 
@@ -98,20 +99,18 @@ final likedSongsProvider = FutureProvider<List<Song>>((ref) async {
   return adapter.fetchLikedSongs();
 });
 
-/// 曲库歌曲列表（负一屏「歌曲」/「本地音乐」入口）
+/// 曲库歌曲列表（负一屏「歌曲」/「本地音乐」入口；走增量同步快照）
 final librarySongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchSongs(const SongQuery(sort: SongSort.title, limit: 200));
+  return LibrarySync.songs(ref.read);
 });
 
-/// 专辑列表（负一屏「专辑」入口）
+/// 专辑列表（负一屏「专辑」入口；走增量同步快照）
 final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return adapter.fetchAlbums(
-    const AlbumQuery(sort: AlbumSort.name, limit: 100),
-  );
+  return LibrarySync.albums(ref.read);
 });
 
 /// 艺人专辑（艺人详情页，按发行年降序）
