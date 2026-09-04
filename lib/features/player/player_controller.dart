@@ -40,6 +40,10 @@ class QueueNotifier extends Notifier<List<Song>> {
   void remove(String songId) =>
       state = state.where((s) => s.id != songId).toList();
 
+  /// 原地更新某首歌（收藏乐观更新等），id 不存在时忽略
+  void replaceSong(String songId, Song song) =>
+      state = [for (final s in state) s.id == songId ? song : s];
+
   /// 拖动排序（onReorderItem 语义：newIndex 已完成移除位修正，直接插入）
   void reorder(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.length) return;

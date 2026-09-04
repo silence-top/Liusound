@@ -131,6 +131,13 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => _showEffectsPanel(context),
               ),
               _divider,
+              _ActionTile(
+                icon: Icons.headphones,
+                title: '耳机线控',
+                subtitle: '自定义单击 / 双击 / 三击动作',
+                onTap: () => _showHeadsetSheet(context),
+              ),
+              _divider,
               const _VolumeTile(),
             ],
           ),
@@ -1213,6 +1220,97 @@ Future<void> _showEffectsPanel(BuildContext context) {
               ),
             ],
             const SizedBox(height: 8),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// 耳机线控映射（§9.2）：单击/双击/三击 → 播放暂停/切歌/收藏
+Future<void> _showHeadsetSheet(BuildContext context) {
+  Widget row(
+    String label,
+    HeadsetAction current,
+    void Function(HeadsetAction) onPick,
+  ) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final a in HeadsetAction.values)
+              GestureDetector(
+                onTap: () => onPick(a),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: a == current
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white24,
+                    ),
+                    color: a == current
+                        ? Theme.of(context).colorScheme.primary
+                              .withValues(alpha: 0.18)
+                        : null,
+                  ),
+                  child: Text(
+                    a.label,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  return glassBottomSheet<void>(
+    context,
+    Consumer(
+      builder: (context, ref, _) {
+        final cfg = ref.watch(headsetClicksProvider);
+        final notifier = ref.read(headsetClicksProvider.notifier);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                '耳机线控',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            row('单击', cfg.single, (a) => notifier.set(single: a)),
+            row('双击', cfg.doubleTap, (a) => notifier.set(doubleTap: a)),
+            row('三击', cfg.triple, (a) => notifier.set(triple: a)),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 8),
+              child: Text(
+                '默认：单击播放/暂停，双击下一首，三击上一首；'
+                '长按和音量键由系统控制',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            ),
           ],
         );
       },
