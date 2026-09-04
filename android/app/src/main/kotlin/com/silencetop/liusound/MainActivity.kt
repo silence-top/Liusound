@@ -21,6 +21,7 @@ class MainActivity : AudioServiceActivity() {
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var overlayText: TextView? = null
+    private var overlayNextText: TextView? = null
     private var floatingLyricsChannel: MethodChannel? = null
     private val effects = AudioEffects()
 
@@ -45,7 +46,11 @@ class MainActivity : AudioServiceActivity() {
                     result.success(null)
                 }
                 "update" -> {
-                    showOrUpdate(call.arguments as? String ?: "")
+                    val args = call.arguments as? Map<*, *>
+                    showOrUpdate(
+                        args?.get("current") as? String ?: "",
+                        args?.get("next") as? String ?: "",
+                    )
                     result.success(null)
                 }
                 "hide" -> {
@@ -101,41 +106,77 @@ class MainActivity : AudioServiceActivity() {
         )
     }
 
-    private fun showOrUpdate(text: String) {
+    private fun showOrUpdate(current: String, next: String) {
         if (!Settings.canDrawOverlays(this)) return
         val view = overlayView
         if (view == null) {
-            createOverlay(text)
+            createOverlay(current, next)
         } else {
-            overlayText?.text = text
+            overlayText?.text = current
+            overlayNextText?.apply {
+                text = next
+                visibility = if (next.isEmpty()) View.GONE else View.VISIBLE
+            }
         }
     }
 
-    private fun createOverlay(text: String) {
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun createOverlay(current: String, next: String) {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val container = android.widget.FrameLayout(this)
         val row = android.widget.LinearLayout(this)
         row.orientation = android.widget.LinearLayout.HORIZONTAL
-        row.setPadding(20, 10, 12, 10)
+        row.gravity = android.view.Gravity.CENTER_VERTICAL
+        row.setPadding(dp(16), dp(10), dp(8), dp(10))
+        // 玻璃卡：深色半透底 + 1px 均匀微亮描边 + 大圆角（API 31+ 再叠加真实背景模糊）
         row.background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(Color.parseColor("#CC101820"))
-            cornerRadius = 36f
-            setStroke(1, Color.parseColor("#33FFFFFF"))
+            setColor(Color.parseColor("#B30D1420"))
+            cornerRadius = dp(24).toFloat()
+            setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
         }
+
+        val lines = android.widget.LinearLayout(this)
+        lines.orientation = android.widget.LinearLayout.VERTICAL
+        // 当前行：加大加粗 + 文字投影，长句走马灯
         val lyricText = TextView(this).apply {
-            this.text = text
+            this.text = current
             setTextColor(Color.WHITE)
-            textSize = 15f
+            textSize = 16f
             typeface = Typeface.DEFAULT_BOLD
-            setShadowLayer(4f, 0f, 0f, Color.parseColor("#99000000"))
+            setShadowLayer(dp(3).toFloat(), 0f, 0f, Color.parseColor("#99000000"))
             maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            marqueeRepeatLimit = -1
+            isSelected = true
         }
+        // 下一行：小号弱化，无下一行时隐藏占位
+        val nextText = TextView(this).apply {
+            this.text = next
+            setTextColor(Color.parseColor("#8CFFFFFF"))
+            textSize = 12f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, dp(2), 0, 0)
+            visibility = if (next.isEmpty()) View.GONE else View.VISIBLE
+        }
+        lines.addView(lyricText)
+        lines.addView(nextText)
+
         val closeButton = TextView(this).apply {
-            setTextColor(Color.parseColor("#B0FFFFFF"))
-            textSize = 14f
-            this.text = " ✕"
+            text = "✕"
+            setTextColor(Color.parseColor("#B3FFFFFF"))
+            textSize = 12f
+            gravity = android.view.Gravity.CENTER
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(Color.parseColor("#1FFFFFFF"))
+            }
+            layoutParams = android.widget.LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                marginStart = dp(12)
+            }
         }
-        row.addView(lyricText)
+        row.addView(lines)
         row.addView(closeButton)
         container.addView(row)
 
@@ -150,9 +191,15 @@ class MainActivity : AudioServiceActivity() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
         )
+        // 真实毛玻璃：模糊小窗背后的内容（设备关闭模糊能力时静默降级为半透底）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.flags =
+                params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            params.blurBehindRadius = dp(20)
+        }
         params.gravity = Gravity.TOP or Gravity.START
-        params.x = 40
-        params.y = 200
+        params.x = dp(16)
+        params.y = dp(64)
 
         // 拖动：跟随手指位移；点按关闭按钮移除小窗并停更（下次 update 重建）
         var downX = 0f
@@ -186,6 +233,7 @@ class MainActivity : AudioServiceActivity() {
         windowManager = wm
         overlayView = container
         overlayText = lyricText
+        overlayNextText = nextText
     }
 
     private fun removeOverlay() {
@@ -196,6 +244,7 @@ class MainActivity : AudioServiceActivity() {
         }
         overlayView = null
         overlayText = null
+        overlayNextText = null
         windowManager = null
     }
 }

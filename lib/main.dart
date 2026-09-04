@@ -54,8 +54,8 @@ Future<void> main() async {
       return;
     }
     if (!container.read(floatingLyricsProvider)) return;
-    final line = container.read(floatingLyricsLineProvider);
-    if (line != null) FloatingLyrics.update(line);
+    final overlay = container.read(floatingLyricsOverlayProvider);
+    if (overlay != null) FloatingLyrics.update(overlay.current, overlay.next);
   });
   FloatingLyrics.closed.listen((_) {
     container.read(floatingLyricsProvider.notifier).setEnabled(false);
@@ -104,14 +104,17 @@ class MusicApp extends ConsumerWidget {
     });
     // 省电模式 → 低刷新率（Android）
     _applyDisplayMode(ref.watch(powerSaveProvider));
-    // 悬浮歌词：当前行变化即推送到 Android 小窗，null 时隐藏
-    ref.listen<String?>(floatingLyricsLineProvider, (_, line) {
-      if (line == null) {
-        FloatingLyrics.hide();
-      } else {
-        FloatingLyrics.update(line);
-      }
-    });
+    // 悬浮歌词：当前行变化即推送到 Android 小窗（双行：当前+下一行），null 时隐藏
+    ref.listen<({String current, String next})?>(
+      floatingLyricsOverlayProvider,
+      (_, overlay) {
+        if (overlay == null) {
+          FloatingLyrics.hide();
+        } else {
+          FloatingLyrics.update(overlay.current, overlay.next);
+        }
+      },
+    );
     // 沉浸式状态栏：全局浅色图标 + 透明底（全屏播放器/详情页无 AppBar 时图标仍可见）
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(
