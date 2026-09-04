@@ -87,6 +87,7 @@ class Song {
     this.bitRate,
     this.sampleRate,
     this.bitDepth,
+    this.localCoverPath,
   });
 
   final String id;
@@ -108,6 +109,9 @@ class Song {
   final int? bitRate; // kbps
   final int? sampleRate; // Hz（已由 _sampleRateHz 归一）
   final int? bitDepth; // 位深，如 16 / 24
+
+  // 本地歌曲专属：内嵌封面已抽取到文件的路径（服务端歌曲恒为 null）
+  final String? localCoverPath;
 
   factory Song.fromJson(Map<String, dynamic> j) => Song(
     id: _Json.str(j, 'id'),
@@ -151,6 +155,7 @@ class Song {
     bitRate: bitRate,
     sampleRate: sampleRate,
     bitDepth: bitDepth,
+    localCoverPath: localCoverPath,
   );
 
   static List<Song> listFromJson(dynamic json) => (json as List<dynamic>)

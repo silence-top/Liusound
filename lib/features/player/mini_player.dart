@@ -166,7 +166,11 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
                   duration: const Duration(milliseconds: 300),
                   child: KeyedSubtree(
                     key: ValueKey(widget.song.albumId),
-                    child: CoverArt(albumId: widget.song.albumId, size: 44),
+                    child: CoverArt(
+                      albumId: widget.song.albumId,
+                      size: 44,
+                      localCover: widget.song.localCoverPath,
+                    ),
                   ),
                 ),
               ),

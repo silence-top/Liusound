@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 本地音乐扫描（Android 13+ 细分音频权限；低版本回退存储权限） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <!-- 悬浮歌词小窗（SYSTEM_ALERT_WINDOW，需用户在系统设置页授予） -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <application

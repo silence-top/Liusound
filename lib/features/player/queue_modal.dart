@@ -267,7 +267,12 @@ class _QueueSheet extends ConsumerWidget {
                     ),
             ),
             const SizedBox(width: 8),
-            CoverArt(albumId: song.albumId, size: 48, radius: AppRadius.s),
+            CoverArt(
+              albumId: song.albumId,
+              size: 48,
+              radius: AppRadius.s,
+              localCover: song.localCoverPath,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

@@ -462,7 +462,12 @@ class _SongRow extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(30, 0, 18, 14),
         child: Row(
           children: [
-            CoverArt(albumId: song.albumId, size: 44, radius: 4),
+            CoverArt(
+              albumId: song.albumId,
+              size: 44,
+              radius: 4,
+              localCover: song.localCoverPath,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -592,7 +597,12 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
       children: [
         // 全屏模糊大图：模糊封面铺满 Tab，再压一层暗渐变保证文字可读
         if (style == CoverStyle.fullBlur) ...[
-          Positioned.fill(child: _BlurredBackdrop(albumId: song.albumId)),
+          Positioned.fill(
+            child: _BlurredBackdrop(
+              albumId: song.albumId,
+              localCover: song.localCoverPath,
+            ),
+          ),
           const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -614,7 +624,7 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _coverBlock(song.albumId, style),
+                _coverBlock(song.albumId, style, song.localCoverPath),
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -648,18 +658,30 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
 
   /// 四种唱片形态（§4.2）；方形卡片与全屏大图共用同一张静态玻璃卡。
   /// 双击封面 = 收藏/取消收藏（乐观更新，失败回滚，与底部爱心一致）
-  Widget _coverBlock(String albumId, CoverStyle style) => GestureDetector(
-    onDoubleTap: () {
-      final song = ref.read(currentSongProvider);
-      if (song != null) _toggleStar(song);
-    },
-    child: switch (style) {
-      CoverStyle.vinyl => _VinylDisc(albumId: albumId, spin: _spin, arm: _arm),
-      CoverStyle.cd => _CdDisc(albumId: albumId, spin: _spin),
-      CoverStyle.square ||
-      CoverStyle.fullBlur => _SquareCover(albumId: albumId),
-    },
-  );
+  Widget _coverBlock(String albumId, CoverStyle style, String? localCover) =>
+      GestureDetector(
+        onDoubleTap: () {
+          final song = ref.read(currentSongProvider);
+          if (song != null) _toggleStar(song);
+        },
+        child: switch (style) {
+          CoverStyle.vinyl => _VinylDisc(
+            albumId: albumId,
+            spin: _spin,
+            arm: _arm,
+            localCover: localCover,
+          ),
+          CoverStyle.cd => _CdDisc(
+            albumId: albumId,
+            spin: _spin,
+            localCover: localCover,
+          ),
+          CoverStyle.square || CoverStyle.fullBlur => _SquareCover(
+            albumId: albumId,
+            localCover: localCover,
+          ),
+        },
+      );
 
   Future<void> _toggleStar(Song song) async {
     final newStarred = !song.starred;
@@ -686,11 +708,13 @@ class _VinylDisc extends StatelessWidget {
     required this.albumId,
     required this.spin,
     required this.arm,
+    this.localCover,
   });
 
   final String albumId;
   final Animation<double> spin;
   final Animation<double> arm;
+  final String? localCover;
 
   @override
   Widget build(BuildContext context) {
@@ -749,7 +773,7 @@ class _VinylDisc extends StatelessWidget {
                   ),
                 ),
                 // 中央封面（黑胶圆孔位；切歌淡入过渡）
-                _fadeCover(albumId, 120, 8),
+                _fadeCover(albumId, 120, 8, localCover),
               ],
             ),
           ),
@@ -762,10 +786,11 @@ class _VinylDisc extends StatelessWidget {
 
 /// CD 唱片：斜向彩虹镀层 + 浅色内圈 + 封面作标签区 + 中心孔，随播放旋转。
 class _CdDisc extends StatelessWidget {
-  const _CdDisc({required this.albumId, required this.spin});
+  const _CdDisc({required this.albumId, required this.spin, this.localCover});
 
   final String albumId;
   final Animation<double> spin;
+  final String? localCover;
 
   @override
   Widget build(BuildContext context) {
@@ -813,7 +838,7 @@ class _CdDisc extends StatelessWidget {
               ),
             ),
             // 标签区封面（radius 取半径裁成正圆）
-            _fadeCover(albumId, 150, 75),
+            _fadeCover(albumId, 150, 75, localCover),
             // 中心孔
             Container(
               width: 34,
@@ -833,9 +858,10 @@ class _CdDisc extends StatelessWidget {
 
 /// 方形玻璃卡片：容器级模糊 + 受光描边，不旋转。
 class _SquareCover extends StatelessWidget {
-  const _SquareCover({required this.albumId});
+  const _SquareCover({required this.albumId, this.localCover});
 
   final String albumId;
+  final String? localCover;
 
   @override
   Widget build(BuildContext context) {
@@ -849,21 +875,35 @@ class _SquareCover extends StatelessWidget {
         gradientBorder: true,
         shadow: true,
         padding: const EdgeInsets.all(AppSpacing.m),
-        child: _fadeCover(albumId, _discSize - AppSpacing.m * 2, AppRadius.l),
+        child: _fadeCover(
+          albumId,
+          _discSize - AppSpacing.m * 2,
+          AppRadius.l,
+          localCover,
+        ),
       ),
     );
   }
 }
 
 /// 切歌淡入过渡，三种形态共用
-Widget _fadeCover(String albumId, double size, double radius) =>
-    AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: KeyedSubtree(
-        key: ValueKey(albumId),
-        child: CoverArt(albumId: albumId, size: size, radius: radius),
-      ),
-    );
+Widget _fadeCover(
+  String albumId,
+  double size,
+  double radius, [
+  String? localCover,
+]) => AnimatedSwitcher(
+  duration: const Duration(milliseconds: 350),
+  child: KeyedSubtree(
+    key: ValueKey(albumId),
+    child: CoverArt(
+      albumId: albumId,
+      size: size,
+      radius: radius,
+      localCover: localCover,
+    ),
+  ),
+);
 
 /// 唱针：支点固定在右上角，播放时平滑摆下贴住唱片，暂停时抬起。
 class _Tonearm extends StatelessWidget {
@@ -948,15 +988,21 @@ class _TonearmPainter extends CustomPainter {
 /// 全屏模糊大图形态的背景：封面放大铺满后高斯模糊。
 /// 玻璃档位关闭时降级为不模糊的放大封面，守住低端设备的性能红线。
 class _BlurredBackdrop extends StatelessWidget {
-  const _BlurredBackdrop({required this.albumId});
+  const _BlurredBackdrop({required this.albumId, this.localCover});
 
   final String albumId;
+  final String? localCover;
 
   @override
   Widget build(BuildContext context) {
     final image = FittedBox(
       fit: BoxFit.cover,
-      child: CoverArt(albumId: albumId, size: 400, radius: 0),
+      child: CoverArt(
+        albumId: albumId,
+        size: 400,
+        radius: 0,
+        localCover: localCover,
+      ),
     );
     return ClipRect(
       child: shouldUseBlur(context)
