@@ -593,6 +593,7 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     final song = ref.watch(currentSongProvider);
     if (song == null) return const SizedBox.shrink();
     final style = ref.watch(coverStyleProvider);
+    final quality = ref.watch(currentQualityProvider);
     ref.listen(coverStyleProvider, (_, _) => _syncAnimations());
 
     return Stack(
@@ -649,6 +650,32 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 16, color: Colors.white38),
                 ),
+                // 当前实际播放音质（含转码回退后的真实档；本地/离线不显示）
+                if (quality != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      quality.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                        color: Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
               ],
             ),
