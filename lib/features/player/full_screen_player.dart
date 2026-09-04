@@ -143,14 +143,14 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
         .watch(albumDominantColorProvider(song.albumId))
         .valueOrNull;
     final top = tint == null
-        ? AppTheme.shell
+        ? AppTheme.shellOf(context)
         : Color.lerp(tint, Colors.black, 0.42)!;
     final bottom = tint == null
-        ? AppTheme.shell
+        ? AppTheme.shellOf(context)
         : Color.lerp(tint, Colors.black, 0.85)!;
 
     return Scaffold(
-      backgroundColor: AppTheme.shell,
+      backgroundColor: AppTheme.shellOf(context),
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOut,
@@ -842,7 +842,7 @@ class _SquareCover extends StatelessWidget {
       child: GlassSurface(
         radius: AppRadius.xl,
         blur: GlassTokens.blurContainer,
-        tint: GlassTokens.tint,
+        tint: GlassTokens.tint(context),
         gradientBorder: true,
         shadow: true,
         padding: const EdgeInsets.all(AppSpacing.m),
@@ -1376,7 +1376,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: AppRadius.l,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint,
+                tint: GlassTokens.tint(context),
                 gradientBorder: true,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
@@ -1420,7 +1420,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: AppRadius.l,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint,
+                tint: GlassTokens.tint(context),
                 gradientBorder: true,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
@@ -1462,7 +1462,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             child: GlassSurface(
               radius: AppRadius.xl,
               blur: GlassTokens.blurMedium,
-              tint: GlassTokens.tint,
+              tint: GlassTokens.tint(context),
               gradientBorder: true,
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
               child: SizedBox(
@@ -1524,7 +1524,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: GlassTokens.radiusPill,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint,
+                tint: GlassTokens.tint(context),
                 gradientBorder: true,
                 child: SizedBox(
                   width: 180,

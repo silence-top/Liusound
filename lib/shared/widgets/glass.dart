@@ -4,9 +4,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/glass_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import 'glass_quality.dart';
 
 export '../../core/theme/glass_theme.dart';
@@ -40,10 +40,17 @@ class GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer
-    final useBlur = shouldUseBlur(context) && blur > 0;
-    final blurScale = glassBlurScale(context);
-    final effectiveTint = tint ?? GlassTokens.tint;
+    final tokens = SkinTokens.of(context);
+    // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer；
+    // 极简/高对比皮肤整体关闭模糊
+    final useBlur = shouldUseBlur(context) && blur > 0 && tokens.blurEnabled;
+    final blurScale = glassBlurScale(context) * tokens.blurScale;
+    // 内容透色：默认 tint 混入主题色，玻璃随 accent 带微弱色感
+    final accent = Theme.of(context).colorScheme.primary;
+    final effectiveTint =
+        tint ??
+        Color.alphaBlend(accent.withValues(alpha: 0.08), tokens.glassTint);
+    final highlight = tokens.highlightStrength;
     final borderRadius = BorderRadius.circular(radius);
 
     // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
@@ -58,18 +65,20 @@ class GlassSurface extends StatelessWidget {
             ? null
             : Border.all(color: borderColor!, width: 1),
       ),
-      foregroundDecoration: BoxDecoration(
-        borderRadius: borderRadius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: 0.10),
-            Colors.white.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.45],
-        ),
-      ),
+      foregroundDecoration: highlight <= 0
+          ? null
+          : BoxDecoration(
+              borderRadius: borderRadius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.10 * highlight),
+                  Colors.white.withValues(alpha: 0),
+                ],
+                stops: const [0.0, 0.45],
+              ),
+            ),
       // 透明 Material：让内部 ListTile/InkWell 的墨水落在自身 Material 上，
       // 否则会被外层带背景色的 DecoratedBox 挡住（debug 断言 + 水波纹不可见）
       child: Material(type: MaterialType.transparency, child: child),
@@ -89,20 +98,29 @@ class GlassSurface extends StatelessWidget {
     );
 
     if (gradientBorder && borderColor == null) {
-      result = _GradientBorderWrapper(radius: radius, child: result);
+      result = _GradientBorderWrapper(
+        radius: radius,
+        strength: highlight,
+        accent: accent,
+        fallback: tokens.borderHairline,
+        child: result,
+      );
     }
 
-    if (shadow) {
+    if (shadow && (tokens.shadowColor.a > 0 || tokens.glow.a > 0)) {
       result = Container(
         margin: margin,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: const [
-            BoxShadow(
-              color: GlassTokens.shadow,
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
+          boxShadow: [
+            if (tokens.shadowColor.a > 0)
+              BoxShadow(
+                color: tokens.shadowColor,
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            if (tokens.glow.a > 0)
+              BoxShadow(color: tokens.glow, blurRadius: 24),
           ],
         ),
         child: result,
@@ -116,25 +134,48 @@ class GlassSurface extends StatelessWidget {
 }
 
 class _GradientBorderWrapper extends StatelessWidget {
-  const _GradientBorderWrapper({required this.radius, required this.child});
+  const _GradientBorderWrapper({
+    required this.radius,
+    required this.strength,
+    required this.accent,
+    required this.fallback,
+    required this.child,
+  });
 
   final double radius;
+  final double strength;
+  final Color accent;
+  final Color fallback;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      foregroundPainter: _GradientBorderPainter(radius),
+      foregroundPainter: _GradientBorderPainter(
+        radius,
+        strength: strength,
+        accent: accent,
+        fallback: fallback,
+      ),
       child: child,
     );
   }
 }
 
-/// 顶部亮 → 底部弱的渐变描边（玻璃边缘受光效果）
+/// 玻璃边缘受光：顶部亮 → 底部弱的渐变描边，顶部混入 accent（内容透色）；
+/// 高光强度为 0（高对比皮肤）时退化为 1px 实色描边保证边缘可见
 class _GradientBorderPainter extends CustomPainter {
-  const _GradientBorderPainter(this.radius);
+  const _GradientBorderPainter(
+    this.radius, {
+    required this.strength,
+    required this.accent,
+    required this.fallback,
+  });
 
   final double radius;
+  final double strength;
+  final Color accent;
+  final Color fallback;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -143,25 +184,33 @@ class _GradientBorderPainter extends CustomPainter {
       rect.deflate(0.5),
       Radius.circular(radius),
     );
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: 0.35),
-            Colors.white.withValues(alpha: 0.08),
-          ],
-        ).createShader(rect),
-    );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    if (strength <= 0) {
+      paint.color = fallback;
+    } else {
+      paint.shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.alphaBlend(
+            accent.withValues(alpha: 0.35 * strength),
+            Colors.white.withValues(alpha: 0.35 * strength),
+          ),
+          Colors.white.withValues(alpha: 0.08 * strength),
+        ],
+      ).createShader(rect);
+    }
+    canvas.drawRRect(rrect, paint);
   }
 
   @override
   bool shouldRepaint(_GradientBorderPainter oldDelegate) =>
-      oldDelegate.radius != radius;
+      oldDelegate.radius != radius ||
+      oldDelegate.strength != strength ||
+      oldDelegate.accent != accent ||
+      oldDelegate.fallback != fallback;
 }
 
 class GlassCard extends StatelessWidget {
@@ -185,7 +234,7 @@ class GlassCard extends StatelessWidget {
     final card = GlassSurface(
       radius: radius,
       blur: 0,
-      tint: GlassTokens.tint,
+      tint: GlassTokens.tint(context),
       gradientBorder: true,
       padding: padding,
       margin: margin,
@@ -225,7 +274,7 @@ class GlassPill extends StatelessWidget {
     final pill = GlassSurface(
       radius: GlassTokens.radiusPill,
       blur: blur,
-      tint: GlassTokens.tint,
+      tint: GlassTokens.tint(context),
       gradientBorder: true,
       padding: padding,
       margin: margin,
@@ -270,7 +319,7 @@ class GlassContainer extends StatelessWidget {
     final container = GlassSurface(
       radius: radius,
       blur: blur,
-      tint: GlassTokens.tint,
+      tint: GlassTokens.tint(context),
       gradientBorder: true,
       padding: padding,
       margin: margin,
@@ -306,8 +355,9 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useBlur = shouldUseBlur(context);
-    final blurScale = glassBlurScale(context);
+    final tokens = SkinTokens.of(context);
+    final useBlur = shouldUseBlur(context) && tokens.blurEnabled;
+    final blurScale = glassBlurScale(context) * tokens.blurScale;
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(
         bottom: Radius.circular(GlassTokens.radiusCard),
@@ -320,12 +370,9 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: GlassTokens.tint,
+                  color: tokens.glassTint,
                   border: Border(
-                    bottom: BorderSide(
-                      color: GlassTokens.borderTop,
-                      width: 0.5,
-                    ),
+                    bottom: BorderSide(color: tokens.borderTop, width: 0.5),
                   ),
                 ),
                 child: _buildBar(context),
@@ -333,9 +380,9 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : Container(
               decoration: BoxDecoration(
-                color: AppTheme.background.withValues(alpha: 0.95),
+                color: tokens.background.withValues(alpha: 0.95),
                 border: Border(
-                  bottom: BorderSide(color: GlassTokens.borderTop, width: 0.5),
+                  bottom: BorderSide(color: tokens.borderTop, width: 0.5),
                 ),
               ),
               child: _buildBar(context),
@@ -377,7 +424,7 @@ Future<T?> glassBottomSheet<T>(
       final content = GlassSurface(
         radius: GlassTokens.radiusSheet,
         blur: GlassTokens.blurHeavy,
-        tint: GlassTokens.tint,
+        tint: GlassTokens.tint(ctx),
         gradientBorder: true,
         padding: EdgeInsets.only(
           top: 12,
@@ -436,7 +483,10 @@ Future<T?> glassDialog<T>(
       child: GlassSurface(
         radius: GlassTokens.radiusSheet,
         blur: GlassTokens.blurHeavy,
-        tint: Colors.black.withValues(alpha: 0.35),
+        tint: Color.alphaBlend(
+          Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+          SkinTokens.of(context).glassTint,
+        ),
         gradientBorder: true,
         shadow: false,
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),

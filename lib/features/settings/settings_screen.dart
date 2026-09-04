@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/theme/accent.dart';
+import '../../core/theme/app_skin.dart';
 import '../../core/theme/background.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../shared/widgets/glass.dart';
@@ -45,6 +47,7 @@ class SettingsScreen extends ConsumerWidget {
     final glassLevel = ref.watch(glassQualityProvider);
     final coverStyle = ref.watch(coverStyleProvider);
     final accent = ref.watch(appAccentProvider);
+    final skin = ref.watch(appSkinProvider);
     final bgConfig = ref.watch(backgroundProvider);
     final barStyle = ref.watch(miniBarStyleProvider);
     final barOffset = ref.watch(miniBarOffsetProvider);
@@ -229,6 +232,13 @@ class SettingsScreen extends ConsumerWidget {
           _GroupCard(
             title: '外观',
             children: [
+              _ActionTile(
+                icon: Icons.style_outlined,
+                title: '主题',
+                subtitle: skin.label,
+                onTap: () => _showSkinPicker(context, ref),
+              ),
+              _divider,
               _ActionTile(
                 icon: Icons.auto_awesome,
                 title: '液态玻璃效果',
@@ -858,6 +868,60 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
             style: TextStyle(color: Colors.white38, fontSize: 12),
           ),
         ),
+      ],
+    ),
+  );
+}
+
+/// 主题皮肤选择（P1 主题系统化）：五套主题，每项带背景/主色双预览条
+Future<void> _showSkinPicker(BuildContext context, WidgetRef ref) {
+  final current = ref.read(appSkinProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '主题',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        for (final s in AppSkin.values) ...[
+          ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    SkinTokens.forSkin(s).background,
+                    Theme.of(context).colorScheme.primary
+                        .withValues(alpha: 0.6),
+                  ],
+                ),
+              ),
+            ),
+            title: Text(s.label),
+            subtitle: Text(s.desc),
+            trailing: s == current ? const Icon(Icons.check) : null,
+            onTap: () {
+              ref.read(appSkinProvider.notifier).set(s);
+              Navigator.of(context).pop();
+            },
+          ),
+          if (s != AppSkin.values.last) const Divider(height: 1),
+        ],
+        const SizedBox(height: 8),
       ],
     ),
   );

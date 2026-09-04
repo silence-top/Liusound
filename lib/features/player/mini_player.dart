@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
+import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import 'full_screen_player.dart';
@@ -86,7 +87,7 @@ class MiniPlayer extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2C3A),
+          color: AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(999),
         ),
         child: inner,
@@ -98,7 +99,7 @@ class MiniPlayer extends ConsumerWidget {
           gradient: LinearGradient(
             colors: [
               Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-              const Color(0xFF1A2C3A),
+              AppTheme.surfaceOf(context),
             ],
           ),
           borderRadius: BorderRadius.circular(999),

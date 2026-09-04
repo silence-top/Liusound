@@ -84,7 +84,8 @@ class _ServerCard extends ConsumerWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+              color: Theme.of(context).colorScheme.primary
+                  .withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(AppRadius.m),
             ),
             child: Icon(
@@ -430,7 +431,7 @@ class _PlaylistRow extends StatelessWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: AppTheme.surface,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -512,7 +513,7 @@ class SongListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
     return Scaffold(
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
       bottomNavigationBar: const MiniPlayer(),
       body: _SongListBody(async: async, provider: provider),
@@ -553,7 +554,7 @@ class AlbumListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
     return Scaffold(
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
       body: _AlbumGridBody(async: async, provider: provider),
     );

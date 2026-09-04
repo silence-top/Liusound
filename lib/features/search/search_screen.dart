@@ -74,14 +74,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             GlassSurface(
               radius: GlassTokens.radiusPill,
               blur: 0,
-              tint: GlassTokens.tint,
+              tint: GlassTokens.tint(context),
               gradientBorder: true,
               shadow: false,
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  const Icon(Icons.search, size: 24, color: AppTheme.textDim),
+                  Icon(
+                    Icons.search,
+                    size: 24,
+                    color: AppTheme.textDimOf(context),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
@@ -89,11 +93,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       onChanged: _onChanged,
                       autocorrect: false,
                       textInputAction: TextInputAction.search,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      decoration: InputDecoration(
                         hintText: '搜索音乐、专辑、艺人',
                         hintStyle: TextStyle(
-                          color: AppTheme.textDim,
+                          color: AppTheme.textDimOf(context),
                           fontSize: 16,
                         ),
                         border: InputBorder.none,
@@ -106,10 +110,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     IconButton(
                       onPressed: _clear,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.cancel,
                         size: 20,
-                        color: AppTheme.textDim,
+                        color: AppTheme.textDimOf(context),
                       ),
                     ),
                 ],
@@ -154,16 +158,16 @@ class _Results extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.music_off,
                       size: 48,
-                      color: AppTheme.textFaint,
+                      color: AppTheme.textFaintOf(context),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       '未找到与"$query"相关的内容',
-                      style: const TextStyle(
-                        color: AppTheme.textDim,
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
                         fontSize: 16,
                       ),
                     ),
@@ -198,7 +202,7 @@ class _SegmentTabs extends StatelessWidget {
       child: GlassSurface(
         radius: GlassTokens.radiusPill,
         blur: 0,
-        tint: GlassTokens.tint,
+        tint: GlassTokens.tint(context),
         gradientBorder: true,
         shadow: false,
         padding: const EdgeInsets.all(4),
@@ -232,7 +236,7 @@ class _SegmentTabs extends StatelessWidget {
                               : FontWeight.normal,
                           color: tab == current
                               ? Theme.of(context).colorScheme.primary
-                              : AppTheme.textDim,
+                              : AppTheme.textDimOf(context),
                         ),
                       ),
                     ),
@@ -279,11 +283,18 @@ class _ResultList extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.music_off, size: 48, color: AppTheme.textFaint),
+            Icon(
+              Icons.music_off,
+              size: 48,
+              color: AppTheme.textFaintOf(context),
+            ),
             const SizedBox(height: 12),
             Text(
               _emptyText[tab]!,
-              style: const TextStyle(color: AppTheme.textDim, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textDimOf(context),
+                fontSize: 16,
+              ),
             ),
           ],
         ),
@@ -375,8 +386,8 @@ class _ArtistRow extends StatelessWidget {
                     '${artist.albumCount} 张专辑 · ${artist.songCount} 首',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textDim,
+                    style: TextStyle(
+                      color: AppTheme.textDimOf(context),
                       fontSize: 14,
                     ),
                   ),
@@ -419,7 +430,10 @@ class _AlbumRowCard extends StatelessWidget {
                   album.artist,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppTheme.textDim, fontSize: 14),
+                  style: TextStyle(
+                    color: AppTheme.textDimOf(context),
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
@@ -464,8 +478,8 @@ class _SongRow extends ConsumerWidget {
                     '${song.artist} - ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textDim,
+                    style: TextStyle(
+                      color: AppTheme.textDimOf(context),
                       fontSize: 14,
                     ),
                   ),

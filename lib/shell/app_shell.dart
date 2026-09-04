@@ -42,7 +42,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.shell,
+      backgroundColor: AppTheme.shellOf(context),
       body: AmbientBackground(
         child: SafeArea(
           child: Column(
@@ -79,7 +79,8 @@ class _AppShellState extends State<AppShell> {
             Expanded(
               child: Material(
                 color: _index == i
-                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
+                    ? Theme.of(context).colorScheme.primary
+                          .withValues(alpha: 0.18)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 child: InkWell(
@@ -93,7 +94,9 @@ class _AppShellState extends State<AppShell> {
                         Icon(
                           _icons[i],
                           size: 22,
-                          color: _index == i ? Theme.of(context).colorScheme.primary : Colors.white,
+                          color: _index == i
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white,
                         ),
                         const SizedBox(height: 2),
                         Text(

@@ -178,7 +178,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(width: 2),
                           Switch(
                             value: _https,
-                            activeThumbColor: Theme.of(context).colorScheme.primary,
+                            activeThumbColor: Theme.of(context)
+                                .colorScheme
+                                .primary,
                             onChanged: (v) => setState(() => _https = v),
                           ),
                         ],
