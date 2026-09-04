@@ -131,6 +131,8 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     initialIndex: 1,
   );
 
+  double _swipeDownDy = 0; // 下滑收起：累计向下拖动距离
+
   @override
   void dispose() {
     _tab.dispose();
@@ -156,124 +158,142 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
 
     return Scaffold(
       backgroundColor: AppTheme.shellOf(context),
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [top, bottom],
+      body: GestureDetector(
+        // 下滑收起：封面/控制区/空白处下滑（快速甩动或拖动超阈值）关闭播放页；
+        // 歌词/歌曲列表等纵向滚动区由内层滚动手势优先命中，不受影响。
+        // 行为注释保存在 _handleSwipeDown。
+        onVerticalDragUpdate: (d) =>
+            _swipeDownDy += d.delta.dy > 0 ? d.delta.dy : 0,
+        onVerticalDragEnd: _handleSwipeDown,
+        onVerticalDragCancel: () => _swipeDownDy = 0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [top, bottom],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
-              // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
-              // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
-              SizedBox(
-                height: 48,
-                width: double.infinity,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      left: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        iconSize: 32,
-                        color: Colors.white,
-                        onPressed: widget.onClose,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
+                // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
+                // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
+                SizedBox(
+                  height: 48,
+                  width: double.infinity,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        child: IconButton(
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          iconSize: 32,
+                          color: Colors.white,
+                          onPressed: widget.onClose,
+                        ),
                       ),
-                    ),
-                    ListenableBuilder(
-                      listenable: _tab.animation!,
-                      builder: (_, _) {
-                        // animation.value 就是 TabBarView 摆放页面的实时位置
-                        // （拖动/动画每帧更新），与可见页严格同步，
-                        // 高亮随手指过渡而不是等落页才跳变
-                        final p = _tab.animation!.value;
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < tabs.length; i++)
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => _tab.animateTo(i),
-                                child: Builder(
-                                  builder: (context) {
-                                    final t = (1 - (i - p).abs()).clamp(
-                                      0.0,
-                                      1.0,
-                                    );
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(
-                                        horizontal: 2,
-                                        vertical: 6,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 18,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.12 * t,
+                      ListenableBuilder(
+                        listenable: _tab.animation!,
+                        builder: (_, _) {
+                          // animation.value 就是 TabBarView 摆放页面的实时位置
+                          // （拖动/动画每帧更新），与可见页严格同步，
+                          // 高亮随手指过渡而不是等落页才跳变
+                          final p = _tab.animation!.value;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (var i = 0; i < tabs.length; i++)
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _tab.animateTo(i),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final t = (1 - (i - p).abs()).clamp(
+                                        0.0,
+                                        1.0,
+                                      );
+                                      return Container(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 2,
+                                          vertical: 6,
                                         ),
-                                        borderRadius: BorderRadius.circular(
-                                          20,
-                                        ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
-                                        border: t > 0
-                                            ? Border.all(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.15 * t,
-                                                ),
-                                                width: 0.5,
-                                              )
-                                            : null,
-                                      ),
-                                      child: Text(
-                                        tabs[i],
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: t >= 0.5
-                                              ? FontWeight.bold
-                                              : FontWeight.w400,
-                                          color: Color.lerp(
-                                            const Color(0xFF888888),
-                                            Colors.white,
-                                            t,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.12 * t,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
+                                          border: t > 0
+                                              ? Border.all(
+                                                  color: Colors.white
+                                                      .withValues(
+                                                        alpha: 0.15 * t,
+                                                      ),
+                                                  width: 0.5,
+                                                )
+                                              : null,
+                                        ),
+                                        child: Text(
+                                          tabs[i],
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: t >= 0.5
+                                                ? FontWeight.bold
+                                                : FontWeight.w400,
+                                            color: Color.lerp(
+                                              const Color(0xFF888888),
+                                              Colors.white,
+                                              t,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  },
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
-              Expanded(
-                child: TabBarView(
-                  controller: _tab,
-                  children: [
-                    const _RecommendTab(),
-                    const _NowPlayingTab(),
-                    _LyricsTab(song: song),
-                  ],
+                // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
+                Expanded(
+                  child: TabBarView(
+                    controller: _tab,
+                    children: [
+                      const _RecommendTab(),
+                      const _NowPlayingTab(),
+                      _LyricsTab(song: song),
+                    ],
+                  ),
                 ),
-              ),
-              const _BottomArea(),
-            ],
+                const _BottomArea(),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// 下滑收起判定：快速向下滑（速度 > 900px/s）或累计拖动超过 90px
+  void _handleSwipeDown(DragEndDetails d) {
+    final fling = d.velocity.pixelsPerSecond.dy > 900;
+    final dragged = _swipeDownDy > 90;
+    _swipeDownDy = 0;
+    if (fling || dragged) widget.onClose();
   }
 }
 
