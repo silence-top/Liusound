@@ -212,6 +212,22 @@ final durationProvider = StreamProvider<Duration?>(
   (ref) => ref.watch(audioPlayerProvider).durationStream,
 );
 
+/// 缓冲位置（已缓冲到的进度；进度条缓冲条用，体现边放边加载）
+final bufferedPositionProvider = StreamProvider<Duration>(
+  (ref) => ref.watch(audioPlayerProvider).bufferedPositionStream,
+);
+
+/// 缓冲中（loading/buffering；播放键 spinner 用，网络慢时给出可见反馈）
+final isBufferingProvider = StreamProvider<bool>((ref) {
+  return ref
+      .watch(audioPlayerProvider)
+      .processingStateStream
+      .map(
+        (s) => s == ProcessingState.buffering || s == ProcessingState.loading,
+      )
+      .distinct();
+});
+
 /// 当前曲目实际生效的音质档（含转码失败回退无损后的真实档）。
 /// 本地/离线播放为 null，UI 不显示标签
 final currentQualityProvider = StateProvider<StreamQuality?>((ref) => null);

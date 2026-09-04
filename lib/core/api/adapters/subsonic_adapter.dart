@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -439,8 +440,18 @@ class SubsonicAdapter implements ServerAdapter {
   Future<bool> supportsTranscode() async {
     final cached = _transcodeProbe;
     if (cached != null) return cached;
+    // 先读持久化结果，避免每次冷启动首播前重探（探测要发 2 个网络请求）
+    final persisted = await TranscodeProbeCache.get(
+      _auth.serverUrl,
+      _auth.username,
+    );
+    if (persisted != null) {
+      _transcodeProbe = persisted;
+      return persisted;
+    }
     final result = await _probeTranscode();
     _transcodeProbe = result;
+    unawaited(TranscodeProbeCache.set(_auth.serverUrl, _auth.username, result));
     return result;
   }
 

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +38,38 @@ class QualityHint {
   final TranscodeFormat format;
 
   bool get transcode => quality != StreamQuality.lossless;
+}
+
+/// 转码探测结果持久化（按服务器维度）：
+/// 探测要发 2 个网络请求，不缓存则每次冷启动首播前都白等一轮。
+/// 换服务器/账号后 key 不同自动重探；服务端转码能力变化后清应用数据可重探。
+abstract final class TranscodeProbeCache {
+  static String _key(String serverUrl, String username) {
+    final digest = sha256.convert(utf8.encode('$serverUrl|$username'));
+    return 'transcode_probe_${digest.toString().substring(0, 16)}';
+  }
+
+  static Future<bool?> get(String serverUrl, String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_key(serverUrl, username));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> set(
+    String serverUrl,
+    String username,
+    bool supported,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_key(serverUrl, username), supported);
+    } catch (_) {
+      // 持久化失败只影响下次冷启动多探一轮
+    }
+  }
 }
 
 /// 音质与传输设置：Wi-Fi / 蜂窝独立档位 + 转码格式 + 移动网络传输开关
