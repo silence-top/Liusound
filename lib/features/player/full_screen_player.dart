@@ -96,14 +96,38 @@ String _fmtLyricTime(double seconds) {
   return '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
 }
 
-/// 从任意入口打开全屏播放器（fullscreenDialog 上滑转场，
-/// 返回键 / onClose 均回到原页面）
+/// 从任意入口打开全屏播放器：
+/// 自定义转场——背景淡入 + 页面上滑 + 由小放大（类似从 MiniBar 展开成全屏），
+/// 关闭反向回落。返回键 / onClose / 下滑手势均回到原页面
 void openFullScreenPlayer(BuildContext context) {
   Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      fullscreenDialog: true,
-      builder: (_) =>
+    PageRouteBuilder<void>(
+      // 不透明路由：转场期间下层页面持续可见，配合淡入产生「展开」层次感
+      opaque: false,
+      transitionDuration: const Duration(milliseconds: 420),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, _, _) =>
           FullScreenPlayer(onClose: () => Navigator.of(context).pop()),
+      transitionsBuilder: (_, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(curved),
+          child: SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 0.06),
+              end: Offset.zero,
+            ).animate(curved),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+              child: child,
+            ),
+          ),
+        );
+      },
     ),
   );
 }
@@ -131,12 +155,49 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     initialIndex: 1,
   );
 
-  double _swipeDownDy = 0; // 下滑收起：累计向下拖动距离
+  double _dragOffset = 0; // 下滑收起：跟手位移（px）
+  late final AnimationController _settleCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  );
+  Animation<double>? _settleAnim;
+  bool _dismissPending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _settleCtrl.addListener(() {
+      final a = _settleAnim;
+      if (a != null) setState(() => _dragOffset = a.value);
+    });
+    _settleCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed && _dismissPending) {
+        widget.onClose();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _tab.dispose();
+    _settleCtrl.dispose();
     super.dispose();
+  }
+
+  /// 松手后弹性落位：dismiss=true 时滑出屏幕再关闭，否则回弹原位
+  void _beginSettle(
+    double target, {
+    required Curve curve,
+    bool dismiss = false,
+  }) {
+    _dismissPending = dismiss;
+    _settleAnim = Tween<double>(
+      begin: _dragOffset,
+      end: target,
+    ).animate(CurvedAnimation(parent: _settleCtrl, curve: curve));
+    _settleCtrl
+      ..reset()
+      ..forward();
   }
 
   @override
@@ -159,128 +220,148 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     return Scaffold(
       backgroundColor: AppTheme.shellOf(context),
       body: GestureDetector(
-        // 下滑收起：封面/控制区/空白处下滑（快速甩动或拖动超阈值）关闭播放页；
+        // 下滑收起（跟手拖拽）：封面/控制区/空白处下滑，页面实时跟随手指
+        // 下移并轻微缩小变暗，松手后超阈值滑出屏幕收起、未超阈值回弹；
         // 歌词/歌曲列表等纵向滚动区由内层滚动手势优先命中，不受影响。
-        // 行为注释保存在 _handleSwipeDown。
-        onVerticalDragUpdate: (d) =>
-            _swipeDownDy += d.delta.dy > 0 ? d.delta.dy : 0,
-        onVerticalDragEnd: _handleSwipeDown,
-        onVerticalDragCancel: () => _swipeDownDy = 0,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [top, bottom],
+        onVerticalDragUpdate: (d) {
+          _settleCtrl.stop();
+          setState(
+            () => _dragOffset = (_dragOffset + d.delta.dy).clamp(
+              0.0,
+              double.infinity,
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
-                // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
-                // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
-                SizedBox(
-                  height: 48,
-                  width: double.infinity,
-                  child: Stack(
-                    alignment: Alignment.center,
+          );
+        },
+        onVerticalDragEnd: _handleDragEnd,
+        onVerticalDragCancel: () => _beginSettle(0, curve: Curves.easeOutCubic),
+        child: Transform.translate(
+          offset: Offset(0, _dragOffset),
+          child: Transform.scale(
+            // 跟手下移时轻微缩小 + 变暗，收起更有层次
+            scale: 1 - (_dragOffset / 2400).clamp(0.0, 0.06),
+            child: Opacity(
+              opacity: (1 - _dragOffset / 900).clamp(0.4, 1.0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [top, bottom],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
                     children: [
-                      Positioned(
-                        left: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          iconSize: 32,
-                          color: Colors.white,
-                          onPressed: widget.onClose,
+                      // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
+                      // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
+                      // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
+                      SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned(
+                              left: 0,
+                              child: IconButton(
+                                icon: const Icon(Icons.keyboard_arrow_down),
+                                iconSize: 32,
+                                color: Colors.white,
+                                onPressed: widget.onClose,
+                              ),
+                            ),
+                            ListenableBuilder(
+                              listenable: _tab.animation!,
+                              builder: (_, _) {
+                                // animation.value 就是 TabBarView 摆放页面的实时位置
+                                // （拖动/动画每帧更新），与可见页严格同步，
+                                // 高亮随手指过渡而不是等落页才跳变
+                                final p = _tab.animation!.value;
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (var i = 0; i < tabs.length; i++)
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _tab.animateTo(i),
+                                        child: Builder(
+                                          builder: (context) {
+                                            final t = (1 - (i - p).abs()).clamp(
+                                              0.0,
+                                              1.0,
+                                            );
+                                            return Container(
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 2,
+                                                    vertical: 6,
+                                                  ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 18,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.12 * t,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      20,
+                                                    ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
+                                                border: t > 0
+                                                    ? Border.all(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.15 * t,
+                                                            ),
+                                                        width: 0.5,
+                                                      )
+                                                    : null,
+                                              ),
+                                              child: Text(
+                                                tabs[i],
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: t >= 0.5
+                                                      ? FontWeight.bold
+                                                      : FontWeight.w400,
+                                                  color: Color.lerp(
+                                                    const Color(0xFF888888),
+                                                    Colors.white,
+                                                    t,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ),
-                      ListenableBuilder(
-                        listenable: _tab.animation!,
-                        builder: (_, _) {
-                          // animation.value 就是 TabBarView 摆放页面的实时位置
-                          // （拖动/动画每帧更新），与可见页严格同步，
-                          // 高亮随手指过渡而不是等落页才跳变
-                          final p = _tab.animation!.value;
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (var i = 0; i < tabs.length; i++)
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _tab.animateTo(i),
-                                  child: Builder(
-                                    builder: (context) {
-                                      final t = (1 - (i - p).abs()).clamp(
-                                        0.0,
-                                        1.0,
-                                      );
-                                      return Container(
-                                        margin: const EdgeInsets.symmetric(
-                                          horizontal: 2,
-                                          vertical: 6,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.12 * t,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
-                                          border: t > 0
-                                              ? Border.all(
-                                                  color: Colors.white
-                                                      .withValues(
-                                                        alpha: 0.15 * t,
-                                                      ),
-                                                  width: 0.5,
-                                                )
-                                              : null,
-                                        ),
-                                        child: Text(
-                                          tabs[i],
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: t >= 0.5
-                                                ? FontWeight.bold
-                                                : FontWeight.w400,
-                                            color: Color.lerp(
-                                              const Color(0xFF888888),
-                                              Colors.white,
-                                              t,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
+                      // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tab,
+                          children: [
+                            const _RecommendTab(),
+                            const _NowPlayingTab(),
+                            _LyricsTab(song: song),
+                          ],
+                        ),
                       ),
+                      const _BottomArea(),
                     ],
                   ),
                 ),
-                // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
-                Expanded(
-                  child: TabBarView(
-                    controller: _tab,
-                    children: [
-                      const _RecommendTab(),
-                      const _NowPlayingTab(),
-                      _LyricsTab(song: song),
-                    ],
-                  ),
-                ),
-                const _BottomArea(),
-              ],
+              ),
             ),
           ),
         ),
@@ -288,12 +369,18 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     );
   }
 
-  /// 下滑收起判定：快速向下滑（速度 > 900px/s）或累计拖动超过 90px
-  void _handleSwipeDown(DragEndDetails d) {
+  /// 松手判定：快速下滑（>900px/s）或拖动超过 120px → 滑出屏幕收起，否则回弹
+  void _handleDragEnd(DragEndDetails d) {
     final fling = d.velocity.pixelsPerSecond.dy > 900;
-    final dragged = _swipeDownDy > 90;
-    _swipeDownDy = 0;
-    if (fling || dragged) widget.onClose();
+    if (fling || _dragOffset > 120) {
+      _beginSettle(
+        MediaQuery.sizeOf(context).height.toDouble(),
+        curve: Curves.easeInCubic,
+        dismiss: true,
+      );
+    } else {
+      _beginSettle(0, curve: Curves.easeOutBack);
+    }
   }
 }
 

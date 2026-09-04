@@ -24,7 +24,6 @@ class _AppShellState extends State<AppShell> {
   final _pageController = PageController();
 
   static const _icons = [Icons.search, Icons.music_note, Icons.settings];
-  static const _labels = ['首页', '资料库', '设置'];
 
   @override
   void dispose() {
@@ -67,7 +66,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// 沉浸式顶部导航：透明无卡片，随 AmbientBackground 延伸进状态栏；
-  /// 激活态主色高亮 + 弱底色，未激活白阶弱化
+  /// 纯图标 + 激活项下划线指示条（对齐设计图首屏）
   Widget _buildTopBar() {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
@@ -75,48 +74,42 @@ class _AppShellState extends State<AppShell> {
       color: Colors.transparent,
       padding: EdgeInsets.only(top: topPadding),
       child: SizedBox(
-        height: 48,
+        height: 52,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             for (var i = 0; i < _icons.length; i++)
-              Material(
-                color: _index == i
-                    ? Theme.of(context).colorScheme.primary
-                          .withValues(alpha: 0.16)
-                    : Colors.transparent,
+              InkWell(
                 borderRadius: BorderRadius.circular(AppRadius.pill),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                  onTap: () => _goTo(i),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _icons[i],
-                          size: 20,
-                          color: _index == i
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.white54,
+                onTap: () => _goTo(i),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _icons[i],
+                        size: 24,
+                        color: _index == i
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.white54,
+                      ),
+                      const SizedBox(height: 4),
+                      // 下划线指示条：激活项展开，未激活收起
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        width: _index == i ? 22 : 0,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _labels[i],
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: _index == i
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: _index == i
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.white54,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
