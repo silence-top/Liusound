@@ -222,6 +222,102 @@ class NavidromeAdapter implements ServerAdapter {
     }
   }
 
+  /// Navidrome 全量兼容 Subsonic API；返回解包后的 subsonic-response
+  Future<Map<String, dynamic>?> _subsonicGet(
+    String endpoint,
+    Map<String, String> extra,
+  ) async {
+    try {
+      final res = await _client.dio.get<Map<String, dynamic>>(
+        '/rest/$endpoint',
+        queryParameters: Subsonic.params(_subsonicAuth, extra),
+      );
+      final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
+      if (resp == null || resp['status']?.toString() != 'ok') return null;
+      return resp;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---------- 资料库扩展 ----------
+
+  @override
+  Future<List<Artist>?> fetchArtists() async {
+    final data = await _subsonicGet('getIndexes', const {});
+    final indexes = data?['indexes']?['index'] as List<dynamic>?;
+    if (indexes == null) return null;
+    return [for (final index in indexes) ..._artistsOfIndex(index)];
+  }
+
+  @override
+  Future<List<Artist>?> fetchAlbumArtists() async {
+    final data = await _subsonicGet('getArtists', const {});
+    final indexes = data?['artists']?['index'] as List<dynamic>?;
+    if (indexes == null) return null;
+    return [for (final index in indexes) ..._artistsOfIndex(index)];
+  }
+
+  List<Artist> _artistsOfIndex(dynamic index) {
+    if (index is! Map<String, dynamic>) return const [];
+    final artists = index['artist'] as List<dynamic>? ?? const [];
+    return [
+      for (final a in artists)
+        if (a is Map<String, dynamic>)
+          Artist(
+            id: a['id']?.toString() ?? '',
+            name: a['name']?.toString() ?? '未知歌手',
+            albumCount: (a['albumCount'] as num?)?.toInt() ?? 0,
+            songCount: (a['songCount'] as num?)?.toInt() ?? 0,
+          ),
+    ];
+  }
+
+  @override
+  Future<List<Genre>?> fetchGenres() async {
+    final data = await _subsonicGet('getGenres', const {});
+    final genres = data?['genres']?['genre'] as List<dynamic>?;
+    if (genres == null) return null;
+    return [
+      for (final g in genres)
+        if (g is Map<String, dynamic>)
+          Genre(
+            value: (g['value'] ?? g['name'] ?? g['genre'] ?? '').toString(),
+            songCount: (g['count'] as num?)?.toInt() ?? 0,
+            albumCount: (g['albumCount'] as num?)?.toInt() ?? 0,
+          ),
+    ].where((g) => g.value.isNotEmpty).toList();
+  }
+
+  @override
+  Future<List<RadioStation>?> fetchRadioStations() async {
+    final data = await _subsonicGet('getInternetRadioStations', const {});
+    final stations =
+        data?['internetRadioStations']?['station'] as List<dynamic>?;
+    if (stations == null) return null;
+    return [
+      for (final s in stations)
+        if (s is Map<String, dynamic>)
+          RadioStation(
+            id: s['id']?.toString() ?? '',
+            name: s['name']?.toString() ?? '未命名电台',
+            streamUrl: s['streamUrl']?.toString() ?? '',
+            homePageUrl: s['homePageUrl']?.toString(),
+          ),
+    ];
+  }
+
+  @override
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) async {
+    final data = await _subsonicGet('getSongsByGenre', {
+      'genre': genre,
+      'count': '$limit',
+    });
+    final songs = data?['songsByGenre']?['song'] as List<dynamic>?;
+    if (songs == null) return null;
+    return songs.whereType<Map<String, dynamic>>().map(Song.fromJson).toList();
+  }
+
   @override
   Future<PlaybackSource> resolveStream(
     Song song, {

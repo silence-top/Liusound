@@ -342,6 +342,92 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     }
   }
 
+  @override
+  Future<List<Artist>?> fetchArtists() async {
+    try {
+      final data = await _items({
+        'IncludeItemTypes': 'MusicArtist',
+        'Recursive': 'true',
+        'Fields': 'ChildCount',
+        'Limit': '0',
+      });
+      final items = data['Items'] as List<dynamic>? ?? const [];
+      return items.whereType<Map<String, dynamic>>().map((e) {
+        // ChildCount 是专辑数；歌曲数 Mediacenter 需单独聚合，这里留 0
+        final albums = _i(e, 'ChildCount');
+        return Artist(
+          id: _s(e, 'Id'),
+          name: _s(e, 'Name', '未知歌手'),
+          albumCount: albums,
+          songCount: _i(e, 'SongCount'),
+        );
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<Artist>?> fetchAlbumArtists() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/Artists/AlbumArtists',
+        queryParameters: {'userId': _userId},
+      );
+      final items = res.data?['Items'] as List<dynamic>? ?? const [];
+      return items.whereType<Map<String, dynamic>>().map((e) {
+        return Artist(
+          id: _s(e, 'Id'),
+          name: _s(e, 'Name', '未知歌手'),
+          albumCount: _i(e, 'AlbumCount'),
+          songCount: _i(e, 'ChildCount'),
+        );
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<Genre>?> fetchGenres() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/Genres',
+        queryParameters: {'userId': _userId},
+      );
+      final items = res.data?['Items'] as List<dynamic>? ?? const [];
+      return items.whereType<Map<String, dynamic>>().map((e) {
+        return Genre(
+          value: _s(e, 'Name'),
+          songCount: _i(e, 'SongCount'),
+          albumCount: _i(e, 'AlbumCount'),
+        );
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<RadioStation>?> fetchRadioStations() async => null;
+
+  @override
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) async {
+    try {
+      final data = await _items({
+        'IncludeItemTypes': 'Audio',
+        'Recursive': 'true',
+        'Genres': genre,
+        'Limit': '$limit',
+        'Fields': _songFields,
+      });
+      final items = data['Items'] as List<dynamic>? ?? const [];
+      return items.whereType<Map<String, dynamic>>().map(_toSong).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Jellyfin/Emby 建歌单：Ids 传空数组即建空歌单，
   /// MediaType 必须显式给 Audio，否则服务端按混合媒体处理
   @override

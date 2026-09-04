@@ -242,6 +242,56 @@ class PlexAdapter implements ServerAdapter {
       const [];
 
   @override
+  Future<List<Artist>?> fetchArtists() async {
+    try {
+      final data = await _api('/library/sections/$_musicSectionKey/all', {
+        'type': '8',
+        'X-Plex-Container-Size': '0',
+      });
+      final items = _containerItems(data);
+      return items.map((e) {
+        return Artist(
+          id: _s(e, 'ratingKey'),
+          name: _s(e, 'title', '未知歌手'),
+          albumCount: _i(e, 'childCount'),
+          songCount: _i(e, 'leafCount'),
+        );
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<Artist>?> fetchAlbumArtists() async => null;
+
+  @override
+  Future<List<Genre>?> fetchGenres() async {
+    try {
+      final data = await _api('/library/sections/$_musicSectionKey/genre', {
+        'X-Plex-Container-Size': '0',
+      });
+      final items = _containerItems(data);
+      return items.map((e) {
+        return Genre(
+          value: _s(e, 'title'),
+          songCount: _i(e, 'leafCount'),
+          albumCount: _i(e, 'childCount'),
+        );
+      }).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<RadioStation>?> fetchRadioStations() async => null;
+
+  @override
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) async =>
+      null;
+
+  @override
   Future<String?> fetchArtistBio(String artistId) async {
     try {
       final data = await _api('/library/metadata/$artistId', {});

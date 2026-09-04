@@ -232,6 +232,23 @@ class AudioStationAdapter implements ServerAdapter {
   @override
   Future<String?> fetchArtistBio(String artistId) async => null;
 
+  // Audio Station 未提供歌手/流派/电台的公开 API，能力入口保持隐藏
+  @override
+  Future<List<Artist>?> fetchArtists() async => null;
+
+  @override
+  Future<List<Artist>?> fetchAlbumArtists() async => null;
+
+  @override
+  Future<List<Genre>?> fetchGenres() async => null;
+
+  @override
+  Future<List<RadioStation>?> fetchRadioStations() async => null;
+
+  @override
+  Future<List<Song>?> fetchGenreSongs(String genre, {int limit = 100}) async =>
+      null;
+
   @override
   Future<int> fetchSongCount() async {
     final data = await _api('SYNO.AudioStation.Song', 'list', {
