@@ -102,3 +102,84 @@ class FloatingLyricsController extends Notifier<bool> {
 final floatingLyricsProvider = NotifierProvider<FloatingLyricsController, bool>(
   FloatingLyricsController.new,
 );
+
+/// 耳机线控按键动作映射（§9.2）：单击/双击/三击可自定义
+enum HeadsetAction { playPause, next, previous, toggleStar }
+
+extension HeadsetActionLabel on HeadsetAction {
+  String get label => switch (this) {
+    HeadsetAction.playPause => '播放/暂停',
+    HeadsetAction.next => '下一首',
+    HeadsetAction.previous => '上一首',
+    HeadsetAction.toggleStar => '收藏歌曲',
+  };
+}
+
+class HeadsetClicksState {
+  const HeadsetClicksState({
+    this.single = HeadsetAction.playPause,
+    this.doubleTap = HeadsetAction.next,
+    this.triple = HeadsetAction.previous,
+  });
+
+  final HeadsetAction single;
+  final HeadsetAction doubleTap;
+  final HeadsetAction triple;
+
+  HeadsetClicksState copyWith({
+    HeadsetAction? single,
+    HeadsetAction? doubleTap,
+    HeadsetAction? triple,
+  }) => HeadsetClicksState(
+    single: single ?? this.single,
+    doubleTap: doubleTap ?? this.doubleTap,
+    triple: triple ?? this.triple,
+  );
+}
+
+class HeadsetClicksController extends Notifier<HeadsetClicksState> {
+  static const _keySingle = 'headset_click_single';
+  static const _keyDouble = 'headset_click_double';
+  static const _keyTriple = 'headset_click_triple';
+
+  @override
+  HeadsetClicksState build() {
+    SharedPreferences.getInstance().then((prefs) {
+      state = HeadsetClicksState(
+        single: _decode(prefs.getString(_keySingle), state.single),
+        doubleTap: _decode(prefs.getString(_keyDouble), state.doubleTap),
+        triple: _decode(prefs.getString(_keyTriple), state.triple),
+      );
+    });
+    return const HeadsetClicksState();
+  }
+
+  static HeadsetAction _decode(String? raw, HeadsetAction fallback) =>
+      HeadsetAction.values.asMap()[int.tryParse(raw ?? '')] ?? fallback;
+
+  static String _encode(HeadsetAction a) =>
+      HeadsetAction.values.indexOf(a).toString();
+
+  Future<void> set({
+    HeadsetAction? single,
+    HeadsetAction? doubleTap,
+    HeadsetAction? triple,
+  }) async {
+    state = state.copyWith(
+      single: single,
+      doubleTap: doubleTap,
+      triple: triple,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    if (single != null) await prefs.setString(_keySingle, _encode(single));
+    if (doubleTap != null) {
+      await prefs.setString(_keyDouble, _encode(doubleTap));
+    }
+    if (triple != null) await prefs.setString(_keyTriple, _encode(triple));
+  }
+}
+
+final headsetClicksProvider =
+    NotifierProvider<HeadsetClicksController, HeadsetClicksState>(
+      HeadsetClicksController.new,
+    );
