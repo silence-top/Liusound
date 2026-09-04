@@ -478,7 +478,34 @@ class SubsonicAdapter implements ServerAdapter {
     codec: _firstStr(j, const ['contentType', 'transcodedContentType']),
     bitRate: _intOrNull(j, 'bitRate'),
     sampleRate: _khzToHz(_num(j, 'samplingRate')),
+    albumArtist: _firstStr(j, const ['albumArtist', 'displayAlbumArtist']),
+    year: _intOrNull(j, 'year'),
+    discNumber: _intOrNull(j, 'discNumber'),
+    trackNumber: _intOrNull(j, 'track'),
+    path: _firstStr(j, const ['path']),
+    lastPlayed: j['played']?.toString(),
+    created: j['created']?.toString(),
+    replayGain: _replayGain(j),
   );
+
+  /// OpenSubsonic 扩展：child 里的 replayGain 对象（albumGain/albumPeak/trackGain/trackPeak）
+  static ReplayGain? _replayGain(Map<String, dynamic> j) {
+    final rg = j['replayGain'];
+    if (rg is! Map<String, dynamic>) return null;
+    return ReplayGain(
+      albumGain: _doubleOrNull(rg, 'albumGain'),
+      albumPeak: _doubleOrNull(rg, 'albumPeak'),
+      trackGain: _doubleOrNull(rg, 'trackGain'),
+      trackPeak: _doubleOrNull(rg, 'trackPeak'),
+    );
+  }
+
+  static double? _doubleOrNull(Map<String, dynamic> j, String k) {
+    final v = j[k];
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
 
   Album _toAlbum(Map<String, dynamic> j) => Album(
     id: _str(j, 'id'),

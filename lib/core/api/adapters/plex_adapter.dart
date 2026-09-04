@@ -553,6 +553,17 @@ class PlexAdapter implements ServerAdapter {
           ? _i(audio, 'samplingRate')
           : null,
       bitDepth: _i(audio, 'bitDepth') > 0 ? _i(audio, 'bitDepth') : null,
+      albumArtist: _s(j, 'originalTitle').isEmpty
+          ? null
+          : _s(j, 'originalTitle'),
+      year: _i(j, 'year') > 0 ? _i(j, 'year') : null,
+      discNumber: _i(j, 'parentIndex') > 0 ? _i(j, 'parentIndex') : null,
+      trackNumber: _i(j, 'index') > 0 ? _i(j, 'index') : null,
+      lastPlayed: j['lastViewedAt']?.toString(),
+      created: j['addedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch((_i(j, 'addedAt')) * 1000)
+                .toIso8601String()
+          : null,
     );
   }
 

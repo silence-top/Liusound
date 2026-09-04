@@ -140,6 +140,7 @@ Future<Song> _buildLocalSong(File file, Directory coverDir) async {
     bitRate: meta.bitrate,
     sampleRate: meta.sampleRate,
     bitDepth: null,
+    path: file.path,
     localCoverPath: coverPath,
   );
 }

@@ -12,11 +12,11 @@ import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
-import '../../shared/widgets/quality_badge.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
+import '../home/song_info_screen.dart';
 import 'player_controller.dart';
 import 'widgets/star_rating.dart';
 
@@ -160,55 +160,109 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
               ],
             ),
           ),
-          // 操作网格（2 行 × 3 列）
+          // 操作卡片一：下一首播放/已播放/添加到/下载/删除文件 + 定时停止/播放速度
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.15,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              padding: EdgeInsets.zero,
-              children: [
-                _gridItem(Icons.low_priority, '下一首播放', () {
-                  ref.read(playerActionsProvider).playNextInQueue([song]);
-                  Navigator.of(context).pop();
-                  _toast('已设为下一首播放');
-                }),
-                _gridItem(Icons.playlist_add, '添加到', () {
-                  Navigator.of(context).pop();
-                  showAddToPlaylistSheet(context, [song]);
-                }),
-                if (canDownload)
-                  _gridItem(
-                    Icons.download_outlined,
-                    '下载',
-                    () => downloadSongs(context, ref, [song]),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: GlassCard(
+              radius: AppRadius.l,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.s,
+                vertical: AppSpacing.m,
+              ),
+              child: GridView.count(
+                crossAxisCount: 5,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 0.72,
+                mainAxisSpacing: 10,
+                padding: EdgeInsets.zero,
+                children: [
+                  _circleItem(Icons.low_priority, '下一首播放', () {
+                    ref.read(playerActionsProvider).playNextInQueue([song]);
+                    Navigator.of(context).pop();
+                    _toast('已设为下一首播放');
+                  }),
+                  if (caps?.scrobbling ?? false)
+                    _circleItem(Icons.task_alt, '已播放', () async {
+                      // pop 后 sheet 的 context 失效，先抓 navigator/messenger 再发请求
+                      final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
+                      final ok =
+                          await ref
+                              .read(serverAdapterProvider)
+                              ?.scrobble(song.id) ??
+                          false;
+                      navigator.pop();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(ok ? '已标记为已播放' : '标记失败'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }),
+                  _circleItem(Icons.playlist_add, '添加到', () {
+                    Navigator.of(context).pop();
+                    showAddToPlaylistSheet(context, [song]);
+                  }),
+                  if (canDownload)
+                    _circleItem(
+                      Icons.download_outlined,
+                      '下载',
+                      () => downloadSongs(context, ref, [song]),
+                    ),
+                  _circleItem(
+                    Icons.delete_outline,
+                    '删除文件',
+                    () => _toast('请到音乐服务器后台管理文件'),
                   ),
-                _gridItem(
-                  Icons.delete_outline,
-                  '删除文件',
-                  () => _toast('请到音乐服务器后台管理文件'),
-                ),
-                _gridItem(
-                  Icons.timer_outlined,
-                  '定时停止',
-                  () => showSleepTimerPicker(context),
-                ),
-                _gridItem(Icons.speed, '播放速度', () => showSpeedPicker(context)),
-              ],
+                  _circleItem(
+                    Icons.alarm,
+                    '定时停止',
+                    () => showSleepTimerPicker(context),
+                  ),
+                  _circleItem(
+                    Icons.speed,
+                    '播放速度',
+                    () => showSpeedPicker(context),
+                  ),
+                ],
+              ),
             ),
           ),
-          const Divider(height: 1), // 颜色走 dividerTheme
-          // 底部信息行：歌手 / 专辑 / 歌曲信息
-          _infoRow('歌手', song.artist, () => _openArtist(context, song)),
-          _infoRow('专辑', song.album, () => _openAlbum(context, song)),
-          _infoRow(
-            '歌曲信息',
-            _songSummary(song),
-            () => _showSongInfo(context, song),
+          // 操作卡片二：歌手 / 专辑 / 歌曲信息（歌曲信息进完整详情页）
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: GlassCard(
+              radius: AppRadius.l,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.s,
+                vertical: AppSpacing.m,
+              ),
+              child: GridView.count(
+                crossAxisCount: 5,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 0.72,
+                padding: EdgeInsets.zero,
+                children: [
+                  _circleItem(
+                    Icons.person,
+                    '歌手',
+                    () => _openArtist(context, song),
+                  ),
+                  _circleItem(
+                    Icons.album,
+                    '专辑',
+                    () => _openAlbum(context, song),
+                  ),
+                  _circleItem(Icons.info_outline, '歌曲信息', () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(SongInfoScreen(song: song)));
+                  }),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 10),
         ],
@@ -216,55 +270,34 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     );
   }
 
-  Widget _gridItem(IconData icon, String label, VoidCallback onTap) {
-    return GlassCard(
-      radius: AppRadius.m,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.m),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 26, color: AppTheme.accentSoft),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value, VoidCallback onTap) {
+  /// 圆形操作按钮（对标设计图：圆形底 + 图标 + 下方小字标签）
+  Widget _circleItem(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Text(
+      borderRadius: BorderRadius.circular(AppRadius.s),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceOf(context),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 24, color: AppTheme.accentSoft),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
               label,
-              style: const TextStyle(color: Colors.white38, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -298,93 +331,6 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
       ),
     );
   }
-
-  Future<void> _showSongInfo(BuildContext context, Song song) async {
-    final canRate =
-        ref.read(serverAdapterProvider)?.capabilities.ratings ?? false;
-    // 先查完本地文件再关弹窗：pop 之后 sheet 的 context 就失效了
-    final cachePath = await findDownloadedSong(song);
-    if (!context.mounted) return;
-    final grade = QualityBadge.gradeLabel(song);
-    final kbps = QualityBadge.kbpsOf(song);
-    Navigator.of(context).pop();
-    glassDialog<void>(
-      context,
-      title: '歌曲信息',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _infoLine('标题', song.title),
-          _infoLine('歌手', song.artist),
-          _infoLine('专辑', song.album),
-          _infoLine('时长', _fmtDuration(song.duration)),
-          if (song.size > 0) _infoLine('大小', '${_fmtSize(song.size)} MB'),
-          if (grade != null) _infoLine('音质', grade),
-          if (QualityBadge.formatOf(song) != null)
-            _infoLine('格式', QualityBadge.formatOf(song)!),
-          if (song.codec != null) _infoLine('解码器', song.codec!),
-          if (kbps != null) _infoLine('比特率', '$kbps kbps'),
-          if (song.sampleRate != null)
-            _infoLine('采样率', _fmtSampleRate(song.sampleRate!)),
-          if (song.bitDepth != null && song.bitDepth! > 0)
-            _infoLine('位深', '${song.bitDepth} bit'),
-          _infoLine('本地缓存', cachePath ?? '未下载'),
-          _infoLine('播放次数', '${song.playCount}'),
-          _infoLine('收藏', song.starred ? '是' : '否'),
-          if (canRate) _infoLine('评分', '${song.rating} / 5'),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
-        ),
-      ],
-    );
-  }
-
-  /// 44100 → 44.1 kHz；96000 → 96 kHz
-  String _fmtSampleRate(int hz) => hz % 1000 == 0
-      ? '${hz ~/ 1000} kHz'
-      : '${(hz / 1000).toStringAsFixed(1)} kHz';
-
-  /// 入口行摘要：无损 · 1030 kbps · 4:12；元数据缺失时退回时长/体积
-  String _songSummary(Song song) {
-    final grade = QualityBadge.gradeLabel(song);
-    final kbps = QualityBadge.kbpsOf(song);
-    if (grade == null) {
-      return '${_fmtDuration(song.duration)}'
-          '${song.size > 0 ? ' · ${_fmtSize(song.size)} MB' : ''}';
-    }
-    return [
-      grade,
-      if (kbps != null) '$kbps kbps',
-      _fmtDuration(song.duration),
-    ].join(' · ');
-  }
-
-  Widget _infoLine(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 70,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white38, fontSize: 14),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
-        ),
-      ],
-    ),
-  );
 
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -875,14 +821,3 @@ class _PlaylistPickerSheet extends ConsumerWidget {
     );
   }
 }
-
-// ---------- 工具 ----------
-
-String _fmtDuration(double seconds) {
-  final d = Duration(seconds: seconds.round());
-  final m = d.inMinutes;
-  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '$m:$s';
-}
-
-String _fmtSize(int bytes) => (bytes / 1024 / 1024).toStringAsFixed(1);
