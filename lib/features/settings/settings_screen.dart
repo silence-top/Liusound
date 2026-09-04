@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/cache/cache_manager.dart';
+import '../../core/download/auto_download.dart';
 import '../../core/theme/accent.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/settings_prefs.dart';
@@ -47,6 +51,8 @@ class SettingsScreen extends ConsumerWidget {
     final powerSave = ref.watch(powerSaveProvider);
     final streaming = ref.watch(streamingSettingsProvider);
     final network = ref.watch(networkSettingsProvider);
+    final cache = ref.watch(cacheSettingsProvider);
+    final cacheSize = ref.watch(audioCacheSizeProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
     return Scaffold(
@@ -154,6 +160,51 @@ class SettingsScreen extends ConsumerWidget {
                     ? '超时 ${network.timeoutSeconds}s · 直连'
                     : '超时 ${network.timeoutSeconds}s · 代理 ${network.proxy}',
                 onTap: () => _showNetworkSettings(context, ref),
+              ),
+            ],
+          ),
+          _GroupCard(
+            title: '缓存',
+            children: [
+              _SwitchTile(
+                icon: Icons.save_alt,
+                title: '边听边存',
+                subtitle: '播放时缓存音频，断网可续播已缓存段落',
+                value: cache.cacheWhileListen,
+                onChanged: (v) => ref
+                    .read(cacheSettingsProvider.notifier)
+                    .set(cache.copyWith(cacheWhileListen: v)),
+              ),
+              _divider,
+              _SwitchTile(
+                icon: Icons.cloud_download_outlined,
+                title: '自动下载',
+                subtitle: '后台离线「我喜欢」的歌曲（最多 50 首）',
+                value: cache.autoDownload,
+                onChanged: (v) {
+                  ref
+                      .read(cacheSettingsProvider.notifier)
+                      .set(cache.copyWith(autoDownload: v));
+                  if (v) unawaited(AutoDownload.run(ref.read));
+                },
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.storage,
+                title: '缓存限额',
+                subtitle: cache.limit.label,
+                onTap: () => _showCacheLimitPicker(context, ref),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.cleaning_services,
+                title: '清理播放缓存',
+                subtitle: cacheSize.when(
+                  data: (bytes) => '当前占用 ${_fmtBytes(bytes)}',
+                  loading: () => '统计中…',
+                  error: (_, _) => '统计失败',
+                ),
+                onTap: () => _clearAudioCache(context, ref),
               ),
             ],
           ),
@@ -347,6 +398,97 @@ class SettingsScreen extends ConsumerWidget {
 // ---------- 分组卡片组件 ----------
 
 const _divider = Divider(height: 1, indent: 56);
+
+/// 缓存限额选择（附录·四）：2GB / 5GB / 10GB / 无限制
+Future<void> _showCacheLimitPicker(BuildContext context, WidgetRef ref) {
+  final settings = ref.read(cacheSettingsProvider);
+  return glassBottomSheet<void>(
+    context,
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '缓存限额',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        for (final l in CacheLimit.values)
+          ListTile(
+            leading: l == settings.limit
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : const SizedBox(width: 24),
+            title: Text(
+              l.label,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            onTap: () {
+              ref
+                  .read(cacheSettingsProvider.notifier)
+                  .set(settings.copyWith(limit: l));
+              Navigator.of(context).pop();
+            },
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Text(
+            '超出限额时从最旧的缓存文件开始清理',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 清理播放缓存（边听边存产生的音频缓存，不影响离线下载文件）
+Future<void> _clearAudioCache(BuildContext context, WidgetRef ref) async {
+  final confirmed = await glassDialog<bool>(
+    context,
+    title: '清理播放缓存',
+    content: const Text(
+      '将删除边听边存产生的音频缓存文件，离线下载不受影响。确定清理？',
+      style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(false),
+        child: const Text('取消'),
+      ),
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(true),
+        child: const Text('清理'),
+      ),
+    ],
+  );
+  if (confirmed != true) return;
+  await AudioCache.clear();
+  ref.invalidate(audioCacheSizeProvider);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('播放缓存已清理'), duration: Duration(seconds: 2)),
+  );
+}
+
+/// 字节数人性化显示
+String _fmtBytes(int bytes) {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+  if (bytes >= 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  return '$bytes B';
+}
 
 /// 在线音质分档选择（附录·四）：Wi-Fi 与移动网络独立配置
 Future<void> _showQualityPicker(

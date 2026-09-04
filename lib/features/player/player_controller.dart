@@ -7,6 +7,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
+import '../../core/cache/cache_manager.dart';
+import '../../core/download/auto_download.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../auth/auth_controller.dart';
@@ -167,6 +169,7 @@ class PlayerActions {
     _ref.listen<Song?>(currentSongProvider, (_, _) => _schedulePersist());
     _ref.listen<List<Song>>(queueProvider, (_, _) => _schedulePersist());
     _restore();
+    maybeAutoDownload(_ref.read);
   }
 
   final Ref _ref;
@@ -195,8 +198,22 @@ class PlayerActions {
     _ref.read(currentSongProvider.notifier).state = song;
     try {
       final source = await adapter.resolveStream(song, quality: hint);
-      await _player.setUrl(source.url, headers: source.headers);
+      final cache = _ref.read(cacheSettingsProvider);
+      if (cache.cacheWhileListen) {
+        // 边听边存：走磁盘缓存源，断网可续播已缓存段落
+        // LockCachingAudioSource 在 0.10 仍标记 experimental，API 或随版本变动
+        await _player.setAudioSource(
+          // ignore: experimental_member_use
+          LockCachingAudioSource(
+            Uri.parse(source.url),
+            headers: source.headers.isNotEmpty ? source.headers : null,
+          ),
+        );
+      } else {
+        await _player.setUrl(source.url, headers: source.headers);
+      }
       await _player.play();
+      unawaited(AudioCache.enforceLimit(cache.limit));
     } catch (_) {
       // 流加载失败不中断 UI（网络抖动场景，状态保持可重试）
     }
