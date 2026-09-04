@@ -440,7 +440,10 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   };
 
   /// 取歌曲时必须显式请求，否则响应里没有 MediaSources（音质徽标的唯一数据源）
-  static const String _songFields = 'MediaSources';
+  // Path/ProductionYear/IndexNumber 等详情字段一并请求（列表接口缺省不返回）
+  static const String _songFields =
+      'MediaSources,Path,ProductionYear,'
+      'IndexNumber,ParentIndexNumber,AlbumArtist,DateCreated';
 
   Future<Map<String, dynamic>> _items(Map<String, String> params) async {
     final res = await _dio.get<Map<String, dynamic>>(
@@ -480,6 +483,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     final audio = _audioStream(j);
     // Jellyfin/Emby 的 BitRate 单位是 bps，其余后端统一按 kbps 表达
     final bps = _i(audio, 'BitRate');
+    final albumArtists = j['AlbumArtists'] as List<dynamic>?;
+    final userData = j['UserData'] as Map<String, dynamic>? ?? const {};
     return Song(
       id: _s(j, 'Id'),
       title: _s(j, 'Name', '未知歌曲'),
@@ -501,6 +506,17 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       bitRate: bps > 0 ? (bps / 1000).round() : null,
       sampleRate: _i(audio, 'SampleRate') > 0 ? _i(audio, 'SampleRate') : null,
       bitDepth: _i(audio, 'BitDepth') > 0 ? _i(audio, 'BitDepth') : null,
+      albumArtist: albumArtists?.isNotEmpty == true
+          ? albumArtists![0]['Name']?.toString()
+          : j['AlbumArtist']?.toString(),
+      year: _i(j, 'ProductionYear') > 0 ? _i(j, 'ProductionYear') : null,
+      discNumber: _i(j, 'ParentIndexNumber') > 0
+          ? _i(j, 'ParentIndexNumber')
+          : null,
+      trackNumber: _i(j, 'IndexNumber') > 0 ? _i(j, 'IndexNumber') : null,
+      path: j['Path']?.toString(),
+      lastPlayed: userData['LastPlayedDate']?.toString(),
+      created: j['DateCreated']?.toString(),
     );
   }
 

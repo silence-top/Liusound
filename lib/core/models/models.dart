@@ -87,6 +87,14 @@ class Song {
     this.bitRate,
     this.sampleRate,
     this.bitDepth,
+    this.albumArtist,
+    this.year,
+    this.discNumber,
+    this.trackNumber,
+    this.path,
+    this.lastPlayed,
+    this.created,
+    this.replayGain,
     this.localCoverPath,
   });
 
@@ -109,6 +117,16 @@ class Song {
   final int? bitRate; // kbps
   final int? sampleRate; // Hz（已由 _sampleRateHz 归一）
   final int? bitDepth; // 位深，如 16 / 24
+
+  // 歌曲详情页扩展元数据（Subsonic child / 各后端等价字段，缺省 null）
+  final String? albumArtist; // 专辑艺术家名
+  final int? year; // 年代
+  final int? discNumber; // 碟号
+  final int? trackNumber; // 音轨号
+  final String? path; // 服务端文件路径
+  final String? lastPlayed; // 上次播放时间（ISO8601 原文）
+  final String? created; // 入库时间（ISO8601 原文）
+  final ReplayGain? replayGain; // 回放增益（专辑/音轨的增益与峰值）
 
   // 本地歌曲专属：内嵌封面已抽取到文件的路径（服务端歌曲恒为 null）
   final String? localCoverPath;
@@ -135,6 +153,25 @@ class Song {
     bitRate: _Json.intOrNull(j, const ['bitRate', 'bitrate']),
     sampleRate: _sampleRateHz(j),
     bitDepth: _Json.intOrNull(j, const ['bitDepth']),
+    albumArtist: _Json.strOrNull(j, const ['albumArtist', 'albumArtistName']),
+    year: _Json.intOrNull(j, const ['year']),
+    discNumber: _Json.intOrNull(j, const ['discNumber']),
+    trackNumber: _Json.intOrNull(j, const ['trackNumber', 'track']),
+    path: _Json.strOrNull(j, const ['path', 'filePath']),
+    lastPlayed: _Json.strOrNull(j, const [
+      'played',
+      'lastPlayed',
+      'lastPlayedAt',
+    ]),
+    created: _Json.strOrNull(j, const [
+      'created',
+      'createdAt',
+      'created_at',
+      'dateCreated',
+    ]),
+    replayGain: j['replayGain'] is Map<String, dynamic>
+        ? ReplayGain.fromJson(j['replayGain'] as Map<String, dynamic>)
+        : null,
   );
 
   Song copyWith({bool? starred, int? rating}) => Song(
@@ -155,6 +192,14 @@ class Song {
     bitRate: bitRate,
     sampleRate: sampleRate,
     bitDepth: bitDepth,
+    albumArtist: albumArtist,
+    year: year,
+    discNumber: discNumber,
+    trackNumber: trackNumber,
+    path: path,
+    lastPlayed: lastPlayed,
+    created: created,
+    replayGain: replayGain,
     localCoverPath: localCoverPath,
   );
 
@@ -181,6 +226,43 @@ class Song {
     if (bitRate != null) 'bitRate': bitRate,
     if (sampleRate != null) 'sampleRate': sampleRate,
     if (bitDepth != null) 'bitDepth': bitDepth,
+    if (albumArtist != null) 'albumArtist': albumArtist,
+    if (year != null) 'year': year,
+    if (discNumber != null) 'discNumber': discNumber,
+    if (trackNumber != null) 'trackNumber': trackNumber,
+    if (path != null) 'path': path,
+    if (lastPlayed != null) 'lastPlayed': lastPlayed,
+    if (created != null) 'created': created,
+    'replayGain': ?replayGain,
+  };
+}
+
+/// 回放增益（OpenSubsonic replayGain 对象）；单位 dB / 线性峰值
+class ReplayGain {
+  const ReplayGain({
+    this.albumGain,
+    this.albumPeak,
+    this.trackGain,
+    this.trackPeak,
+  });
+
+  final double? albumGain;
+  final double? albumPeak;
+  final double? trackGain;
+  final double? trackPeak;
+
+  factory ReplayGain.fromJson(Map<String, dynamic> j) => ReplayGain(
+    albumGain: _Json.doubleOrNull(j, const ['albumGain']),
+    albumPeak: _Json.doubleOrNull(j, const ['albumPeak']),
+    trackGain: _Json.doubleOrNull(j, const ['trackGain']),
+    trackPeak: _Json.doubleOrNull(j, const ['trackPeak']),
+  );
+
+  Map<String, dynamic> toJson() => {
+    if (albumGain != null) 'albumGain': albumGain,
+    if (albumPeak != null) 'albumPeak': albumPeak,
+    if (trackGain != null) 'trackGain': trackGain,
+    if (trackPeak != null) 'trackPeak': trackPeak,
   };
 }
 

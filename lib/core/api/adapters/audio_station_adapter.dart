@@ -507,6 +507,12 @@ class AudioStationAdapter implements ServerAdapter {
       sampleRate: _hzOrNull(
         _firstNum(audio, const ['sample_rate', 'frequency']),
       ),
+      albumArtist: _firstStr(tag, const ['album_artist']),
+      year: _positiveInt(_firstNum(tag, const ['year'])),
+      discNumber: _positiveInt(_firstNum(tag, const ['disc_number'])),
+      trackNumber: _positiveInt(_firstNum(tag, const ['track_number'])),
+      // AudioStation 的歌曲 id 就是音乐库相对路径，可直接当文件路径展示
+      path: id,
     );
   }
 
@@ -535,6 +541,8 @@ class AudioStationAdapter implements ServerAdapter {
 
   static int? _hzOrNull(double? hz) =>
       hz == null || hz <= 0 ? null : hz.round();
+
+  static int? _positiveInt(double? v) => v == null || v <= 0 ? null : v.round();
 
   /// AudioStation 的歌曲 id 就是音乐库相对路径，扩展名即容器格式
   static String? _extOf(String path) {
