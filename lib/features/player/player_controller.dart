@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/server_adapter.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/download/auto_download.dart';
+import '../../core/download/download_service.dart';
+import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../auth/auth_controller.dart';
@@ -258,8 +261,15 @@ class PlayerActions {
   // ---------- 播放控制 ----------
 
   /// 播放指定歌曲（替换当前曲目）。
-  /// 音质档位按当前网络（Wi-Fi / 蜂窝）解析；蜂窝下关闭传输开关则拒播
+  /// 本地歌曲（id 为 local: 前缀）或已离线下载的歌曲直接走本地文件，
+  /// 不消耗流量；否则按当前网络（Wi-Fi / 蜂窝）解析音质档位，
+  /// 蜂窝下关闭传输开关则拒播
   Future<void> play(Song song) async {
+    final localPath = localSongPath(song) ?? await findDownloadedSong(song);
+    if (localPath != null && File(localPath).existsSync()) {
+      await _playLocal(song, localPath);
+      return;
+    }
     final adapter = _adapter;
     if (adapter == null) return;
     final settings = _ref.read(streamingSettingsProvider);
@@ -292,6 +302,19 @@ class PlayerActions {
       unawaited(_resumeLongTrack(song));
     } catch (_) {
       // 流加载失败不中断 UI（网络抖动场景，状态保持可重试）
+    }
+  }
+
+  /// 本地文件播放（本地扫描歌曲 / 已离线下载歌曲）
+  Future<void> _playLocal(Song song, String path) async {
+    await _saveLongTrackBreakpoint();
+    _ref.read(currentSongProvider.notifier).state = song;
+    try {
+      await _player.setAudioSource(AudioSource.file(path));
+      await _player.play();
+      unawaited(_resumeLongTrack(song));
+    } catch (_) {
+      // 文件被移动/删除等场景静默，状态保持可重试
     }
   }
 

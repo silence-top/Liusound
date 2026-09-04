@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
+import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
@@ -31,7 +32,7 @@ class MusicLibraryScreen extends ConsumerWidget {
           _EntryGrid(
             onSongs: () => _openSongs(context, '歌曲', librarySongsProvider),
             onLiked: () => _openSongs(context, '我喜欢的', likedSongsProvider),
-            onLocal: () => _openSongs(context, '本地音乐', librarySongsProvider),
+            onLocal: () => _openSongs(context, '本地音乐', localSongsProvider),
             onAlbums: () => _openAlbums(context),
           ),
           const SizedBox(height: 20),
