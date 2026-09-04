@@ -31,7 +31,7 @@ class ArtistDetailScreen extends ConsumerWidget {
     final songs = songsAsync.value ?? const <Song>[];
 
     return Scaffold(
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: AppTheme.detailBgOf(context),
       bottomNavigationBar: const MiniPlayer(),
       body: CustomScrollView(
         slivers: [
@@ -45,8 +45,8 @@ class ArtistDetailScreen extends ConsumerWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppTheme.detailBg,
-                    AppTheme.detailBg.withValues(alpha: 0.85),
+                    AppTheme.detailBgOf(context),
+                    AppTheme.detailBgOf(context).withValues(alpha: 0.85),
                   ],
                 ),
               ),

@@ -45,7 +45,6 @@ Widget glassEmptyState({
         GlassSurface(
           radius: GlassTokens.radiusPill,
           blur: 0,
-          tint: GlassTokens.tint,
           gradientBorder: true,
           shadow: false,
           child: SizedBox(

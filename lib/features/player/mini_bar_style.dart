@@ -37,8 +37,8 @@ class MiniBarStyleController extends Notifier<MiniBarStyle> {
 
 final miniBarStyleProvider =
     NotifierProvider<MiniBarStyleController, MiniBarStyle>(
-  MiniBarStyleController.new,
-);
+      MiniBarStyleController.new,
+    );
 
 /// 控制栏高度偏移（§8.2），单位逻辑像素，持久化
 class MiniBarOffsetController extends Notifier<double> {
@@ -60,7 +60,6 @@ class MiniBarOffsetController extends Notifier<double> {
   }
 }
 
-final miniBarOffsetProvider =
-    NotifierProvider<MiniBarOffsetController, double>(
+final miniBarOffsetProvider = NotifierProvider<MiniBarOffsetController, double>(
   MiniBarOffsetController.new,
 );

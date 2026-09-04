@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'app_skin.dart';
+import 'skin_tokens.dart';
+
 /// 间距标尺（对齐 2.1 设计系统：8pt 基 + 4 半步）
 /// features 层 EdgeInsets 一律引用此处，禁止手写标尺外数值
 abstract final class AppSpacing {
@@ -47,23 +50,23 @@ abstract final class AppText {
 }
 
 /// 全局主题（对齐 1.x 配色）：
-/// 页面背景 #001B2E、框架/播放器 #0a1428、卡片 #1a2c3a、主色 #2196F3。
-/// 所有页面禁止再手写这些色值，一律引用此处常量，保证全局一致。
+/// 皮肤相关色（背景/面/文本灰阶）随 AppSkin 走 SkinTokens，经 context 读取；
+/// 点缀/装饰色与皮肤无关，保持 const。所有页面禁止再手写这些色值。
 abstract final class AppTheme {
-  static const primary = Color(0xFF2196F3); // 主蓝（按钮/激活态）
-  static const background = Color(0xFF001B2E); // 页面背景（首页/搜索/登录）
-  static const shell = Color(0xFF0A1428); // 主框架与全屏播放器背景
-  static const detailBg = Color(0xFF0A1A2A); // 详情/列表二级页背景
+  static const primary = Color(0xFF2196F3); // 主蓝（按钮/激活态默认值）
   static const bar = Color(0xFF222B3A); // 详情页全播栏
-  static const surface = Color(0xFF1A2C3A); // 卡片 / 输入框
   static const searchbar = Color(0xFF13304a); // 首页装饰搜索栏 / Tab 激活背景
   static const miniPlayer = Color(0xFF8B8A5F); // 迷你播放条胶囊（军绿，对齐设计图）
   static const queuePanel = Color(0xFF23272E); // 播放队列弹窗 / 底部操作面板
   static const queueActive = Color(0xFF1EB4FF); // 队列当前播放项（蓝，对齐设计图）
 
-  // 文本灰阶（标题走 textTheme 白色，此处只收弱化层级）
-  static const textDim = Color(0xFF888888); // 次要文本 / 弱图标
-  static const textFaint = Color(0xFF444444); // 装饰图标 / 占位
+  // ---- 皮肤相关色（context 访问器） ----
+  static Color backgroundOf(BuildContext c) => SkinTokens.of(c).background;
+  static Color shellOf(BuildContext c) => SkinTokens.of(c).shell;
+  static Color detailBgOf(BuildContext c) => SkinTokens.of(c).detailBg;
+  static Color surfaceOf(BuildContext c) => SkinTokens.of(c).surface;
+  static Color textDimOf(BuildContext c) => SkinTokens.of(c).textDim;
+  static Color textFaintOf(BuildContext c) => SkinTokens.of(c).textFaint;
 
   // 点缀色
   static const indexGreen = Color(0xFF3EC06C); // 歌曲序号绿
@@ -74,21 +77,23 @@ abstract final class AppTheme {
   static const formatBg = Color(0x593C5078); // rgba(60,80,120,0.35)
   static const formatText = Color(0xFFE0F6FF);
 
-  static ThemeData get dark => build(primary);
+  static ThemeData get dark => build(AppSkin.liquidGlass, primary);
 
-  /// 按指定主题色构建深色 ThemeData（§8.1）：
+  /// 按皮肤 + 主题色构建深色 ThemeData（§8.1 / P1 主题系统化）：
   /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制
   /// 主色等于用户选的色值，保证按钮/激活态颜色与预设完全一致。
-  static ThemeData build(Color accentColor) {
+  static ThemeData build(AppSkin skin, Color accentColor) {
+    final t = SkinTokens.forSkin(skin);
     final scheme = ColorScheme.fromSeed(
       seedColor: accentColor,
       brightness: Brightness.dark,
-      surface: surface,
+      surface: t.surface,
     ).copyWith(primary: accentColor);
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: t.background,
+      extensions: [t],
       // 统一文本基线（对齐 2.1 字阶：H1 28 / H2 22 / H3 19 / 正文 16 / 辅助 14 / 说明 12）：
       // 未显式指定样式的 Text 自动获得深色背景下的可读样式
       textTheme: const TextTheme(
@@ -122,22 +127,20 @@ abstract final class AppTheme {
         ),
         labelSmall: TextStyle(color: Colors.white38, fontSize: 12),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: t.background,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 19,
           fontWeight: FontWeight.w600,
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: Color(0x14FFFFFF),
-      ), // 统一 8% 白分隔线
+      dividerTheme: DividerThemeData(color: t.divider),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: t.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,

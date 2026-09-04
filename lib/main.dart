@@ -1,11 +1,13 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/scrobble/scrobble_service.dart';
 import 'core/theme/accent.dart';
+import 'core/theme/app_skin.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
@@ -44,6 +46,9 @@ class MusicApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     // Scrobble 上报服务随 App 存活（50%/2min 触发 + 离线队列补发）
     ref.watch(scrobbleServiceProvider);
+    final skin = ref.watch(appSkinProvider);
+    final accent = ref.watch(appAccentProvider);
+    final explicit = ref.watch(accentExplicitProvider);
     // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       if (prev?.activeServerId != next.activeServerId) {
@@ -56,15 +61,25 @@ class MusicApp extends ConsumerWidget {
         statusBarColor: Colors.transparent,
         systemNavigationBarColor: Colors.transparent,
       ),
-      child: MaterialApp(
-        title: '流声',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.build(ref.watch(appAccentProvider).color),
-        home: !auth.initialized
-            ? const _Splash()
-            : auth.isAuthenticated
-            ? const AppShell()
-            : const ServerSelectScreen(),
+      // DynamicColorBuilder 取系统动态色：仅 Material You 皮肤且用户未显式
+      // 选过主题色时以壁纸色为主色，否则跟随用户选择
+      child: DynamicColorBuilder(
+        builder: (lightDynamic, darkDynamic) {
+          final effectiveAccent =
+              skin == AppSkin.materialYou && darkDynamic != null && !explicit
+              ? darkDynamic.primary
+              : accent.color;
+          return MaterialApp(
+            title: '流声',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.build(skin, effectiveAccent),
+            home: !auth.initialized
+                ? const _Splash()
+                : auth.isAuthenticated
+                ? const AppShell()
+                : const ServerSelectScreen(),
+          );
+        },
       ),
     );
   }

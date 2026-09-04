@@ -206,7 +206,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
         ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
     final selectedCount = selectionOf(songs).length;
     return Scaffold(
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: AppTheme.detailBgOf(context),
       bottomNavigationBar: selectMode
           ? _BatchBar(
               count: selectedCount,
@@ -219,6 +219,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
       body: CustomScrollView(
         slivers: [
           _detailAppBar(
+            context: context,
             title: widget.title,
             selectMode: selectMode,
             selectedCount: selectedCount,
@@ -357,7 +358,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
         ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
     final selectedCount = selectionOf(songs).length;
     return Scaffold(
-      backgroundColor: AppTheme.detailBg,
+      backgroundColor: AppTheme.detailBgOf(context),
       bottomNavigationBar: selectMode
           ? _BatchBar(
               count: selectedCount,
@@ -370,6 +371,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
       body: CustomScrollView(
         slivers: [
           _detailAppBar(
+            context: context,
             title: widget.title,
             selectMode: selectMode,
             selectedCount: selectedCount,
@@ -651,6 +653,7 @@ Widget _filterAction({
 /// 详情页顶栏（专辑页与歌单页共用）：
 /// 常态「标题 + 批量选择 + 筛选」，选择态换成「已选 N 首 + 全选 + 退出」
 SliverAppBar _detailAppBar({
+  required BuildContext context,
   required String title,
   required bool selectMode,
   required int selectedCount,
@@ -674,8 +677,8 @@ SliverAppBar _detailAppBar({
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppTheme.detailBg,
-            AppTheme.detailBg.withValues(alpha: 0.85),
+            AppTheme.detailBgOf(context),
+            AppTheme.detailBgOf(context).withValues(alpha: 0.85),
           ],
         ),
       ),

@@ -98,8 +98,8 @@ class _PressableScaleState extends State<PressableScale> {
 /// 减少 GPU 渲染压力同时保留基本过渡反馈
 abstract final class AppMotion {
   static Duration duration(BuildContext context, Duration base) {
-    final powerSave =
-        ProviderScope.containerOf(context).read(powerSaveProvider);
+    final powerSave = ProviderScope.containerOf(context)
+        .read(powerSaveProvider);
     return powerSave
         ? Duration(milliseconds: (base.inMilliseconds * 0.4).round())
         : base;

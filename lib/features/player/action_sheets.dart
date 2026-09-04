@@ -402,7 +402,7 @@ class _Cover extends StatelessWidget {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
@@ -414,7 +414,7 @@ class _Cover extends StatelessWidget {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: AppTheme.surface,
+          color: AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
@@ -434,7 +434,7 @@ class _Cover extends StatelessWidget {
         errorWidget: (_, _, _) => Container(
           width: 52,
           height: 52,
-          color: AppTheme.surface,
+          color: AppTheme.surfaceOf(context),
           child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
         ),
       ),

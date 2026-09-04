@@ -126,17 +126,17 @@ class _SearchBar extends StatelessWidget {
       child: GlassSurface(
         radius: GlassTokens.radiusPill,
         blur: 0,
-        tint: GlassTokens.tint,
+        tint: GlassTokens.tint(context),
         gradientBorder: true,
         shadow: false,
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: SizedBox(
           height: 38,
-          child: const Row(
+          child: Row(
             children: [
               SizedBox(width: 4),
-              Icon(Icons.search, size: 20, color: AppTheme.textDim),
+              Icon(Icons.search, size: 20, color: AppTheme.textDimOf(context)),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -144,7 +144,7 @@ class _SearchBar extends StatelessWidget {
                   style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16),
                 ),
               ),
-              Icon(Icons.qr_code, size: 20, color: AppTheme.textDim),
+              Icon(Icons.qr_code, size: 20, color: AppTheme.textDimOf(context)),
               SizedBox(width: 4),
             ],
           ),

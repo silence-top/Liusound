@@ -36,6 +36,7 @@ class AccentController extends Notifier<AppAccent> {
 
   Future<void> setAccent(AppAccent accent) async {
     state = accent;
+    ref.read(accentExplicitProvider.notifier).state = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, accent.name);
   }
@@ -43,4 +44,21 @@ class AccentController extends Notifier<AppAccent> {
 
 final appAccentProvider = NotifierProvider<AccentController, AppAccent>(
   AccentController.new,
+);
+
+/// 用户是否显式选过主题色：Material You 动态取色仅在未显式选择时生效，
+/// 一旦手动选色即以用户选择为准
+class AccentExplicitController extends Notifier<bool> {
+  @override
+  bool build() {
+    SharedPreferences.getInstance().then((prefs) {
+      final v = prefs.containsKey('app_accent');
+      if (v != state) state = v;
+    });
+    return false;
+  }
+}
+
+final accentExplicitProvider = NotifierProvider<AccentExplicitController, bool>(
+  AccentExplicitController.new,
 );
