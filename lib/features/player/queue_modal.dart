@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
@@ -39,6 +40,8 @@ class _QueueSheet extends ConsumerWidget {
     final queue = ref.watch(queueProvider);
     final current = ref.watch(currentSongProvider);
     final mode = ref.watch(playModeProvider);
+    final tokens = SkinTokens.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
     // 流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住
     final playing = ref.watch(isPlayingProvider).value ?? true;
     final modeIcon = switch (mode) {
@@ -50,14 +53,14 @@ class _QueueSheet extends ConsumerWidget {
     return GlassSurface(
       radius: GlassTokens.radiusSheet,
       blur: GlassTokens.blurHeavy,
-      tint: Colors.black.withValues(alpha: 0.35),
       gradientBorder: true,
       shadow: false,
+      // 顶部避开状态栏：isScrollControlled 全高弹层必须自己吃掉顶部安全区
       padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // 顶部拖动条
           Container(
@@ -65,7 +68,7 @@ class _QueueSheet extends ConsumerWidget {
             height: 4,
             margin: const EdgeInsets.only(top: 12, bottom: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: tokens.textFaint,
               // 圆角豁免：弹窗顶部拖动条 4px 高，仅 2px 圆角
               borderRadius: BorderRadius.circular(2),
             ),
@@ -101,13 +104,10 @@ class _QueueSheet extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: tokens.tintLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      '清空',
-                      style: TextStyle(fontSize: 14, color: Colors.white),
-                    ),
+                    child: const Text('清空', style: TextStyle(fontSize: 14)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -120,19 +120,16 @@ class _QueueSheet extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: tokens.tintLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        Icon(modeIcon, size: 22, color: Colors.white),
+                        Icon(modeIcon, size: 22),
                         const SizedBox(width: 6),
                         Text(
                           _modeText[mode] ?? '',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
+                          style: const TextStyle(fontSize: 14),
                         ),
                       ],
                     ),
@@ -142,13 +139,17 @@ class _QueueSheet extends ConsumerWidget {
             ),
           ),
           if (queue.isEmpty)
-            glassEmptyState(
-              text: '队列为空\n去首页挑几首歌开始播放',
-              icon: Icons.queue_music_outlined,
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            Expanded(
+              child: Center(
+                child: glassEmptyState(
+                  text: '队列为空\n去首页挑几首歌开始播放',
+                  icon: Icons.queue_music_outlined,
+                  padding: const EdgeInsets.all(16),
+                ),
+              ),
             )
           else
-            Flexible(
+            Expanded(
               // 拖动排序（现代播放器标配）：行首把手拖动 + 拖动中浮起高亮
               child: ReorderableListView.builder(
                 shrinkWrap: true,
@@ -162,7 +163,7 @@ class _QueueSheet extends ConsumerWidget {
                 proxyDecorator: (child, index, animation) => AnimatedBuilder(
                   animation: animation,
                   builder: (_, child) => Material(
-                    color: const Color(0x2E1EB4FF),
+                    color: primary.withValues(alpha: 0.18),
                     borderRadius: const BorderRadius.all(
                       Radius.circular(AppRadius.s),
                     ),
@@ -188,16 +189,16 @@ class _QueueSheet extends ConsumerWidget {
                         ? GlassSurface(
                             radius: AppRadius.m,
                             blur: 0,
-                            tint: AppTheme.queueActive.withValues(alpha: 0.14),
+                            tint: primary.withValues(alpha: 0.14),
                             shadow: false,
                             margin: const EdgeInsets.fromLTRB(8, 3, 8, 3),
                             child: row,
                           )
                         : Container(
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
                                 bottom: BorderSide(
-                                  color: Color(0x14FFFFFF),
+                                  color: tokens.divider,
                                   width: 0.5,
                                 ),
                               ),
@@ -223,6 +224,8 @@ class _QueueSheet extends ConsumerWidget {
     bool isCurrent,
     bool playing,
   ) {
+    final tokens = SkinTokens.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: () {
         Navigator.of(context).pop();
@@ -238,10 +241,10 @@ class _QueueSheet extends ConsumerWidget {
               height: 48,
               child: ReorderableDragStartListener(
                 index: index,
-                child: const Icon(
+                child: Icon(
                   Icons.drag_indicator,
                   size: 22,
-                  color: Colors.white38,
+                  color: tokens.textFaint,
                 ),
               ),
             ),
@@ -251,18 +254,15 @@ class _QueueSheet extends ConsumerWidget {
               child: isCurrent
                   ? Align(
                       alignment: Alignment.centerRight,
-                      child: _EqualizerBars(
-                        color: AppTheme.queueActive,
-                        playing: playing,
-                      ),
+                      child: _EqualizerBars(color: primary, playing: playing),
                     )
                   : Text(
                       '${index + 1}',
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontFeatures: [FontFeature.tabularFigures()],
-                        color: Colors.white38,
+                        color: tokens.textFaint,
                       ),
                     ),
             ),
@@ -285,7 +285,7 @@ class _QueueSheet extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 16,
-                      color: isCurrent ? AppTheme.queueActive : Colors.white,
+                      color: isCurrent ? primary : null,
                       fontWeight: isCurrent
                           ? FontWeight.bold
                           : FontWeight.normal,
@@ -296,13 +296,13 @@ class _QueueSheet extends ConsumerWidget {
                     song.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Colors.white54),
+                    style: TextStyle(fontSize: 12, color: tokens.textDim),
                   ),
                 ],
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close, size: 22, color: Colors.white),
+              icon: Icon(Icons.close, size: 22, color: tokens.textDim),
               onPressed: () =>
                   ref.read(playerActionsProvider).removeFromQueue(song.id),
             ),
