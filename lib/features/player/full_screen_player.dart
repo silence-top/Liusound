@@ -2136,12 +2136,16 @@ class _ProgressSlider extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final position = ref.watch(positionProvider).valueOrNull ?? Duration.zero;
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
+    final buffered = ref.watch(bufferedPositionProvider).valueOrNull;
     final drag = ref.watch(sliderDragValueProvider);
     final maxMs = duration.inMilliseconds.toDouble();
     final value = (drag ?? position.inMilliseconds.toDouble()).clamp(
       0.0,
       maxMs <= 0 ? 1.0 : maxMs,
     );
+    final bufferedMs = math
+        .max(buffered?.inMilliseconds.toDouble() ?? 0, value)
+        .clamp(0.0, maxMs <= 0 ? 1.0 : maxMs);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2155,6 +2159,9 @@ class _ProgressSlider extends ConsumerWidget {
             child: Slider(
               value: value,
               max: maxMs <= 0 ? 1 : maxMs,
+              // 缓冲条：白色半透明副轨道，体现边放边加载的已缓冲区间
+              secondaryTrackValue: bufferedMs,
+              secondaryActiveColor: Colors.white38,
               activeColor: Colors.white,
               inactiveColor: const Color(0xFF444444),
               onChanged: (v) =>
@@ -2258,12 +2265,14 @@ class _ModeButton extends ConsumerWidget {
 }
 
 /// 播放/暂停大按钮：56 圆形白描边 + 半透明底（对齐 1.x playPauseBtn）
+/// 缓冲中（起播/卡顿加载）显示 spinner，给出「在加载」的可见反馈
 class _PlayButton extends ConsumerWidget {
   const _PlayButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPlaying = ref.watch(isPlayingProvider).valueOrNull ?? false;
+    final buffering = ref.watch(isBufferingProvider).valueOrNull ?? false;
     return GestureDetector(
       onTap: () => ref.read(playerActionsProvider).toggle(),
       child: Container(
@@ -2274,11 +2283,19 @@ class _PlayButton extends ConsumerWidget {
           color: Colors.white.withValues(alpha: 0.08),
           shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
         ),
-        child: Icon(
-          isPlaying ? Icons.pause : Icons.play_arrow,
-          size: 36,
-          color: Colors.white,
-        ),
+        child: buffering
+            ? const Padding(
+                padding: EdgeInsets.all(15),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                isPlaying ? Icons.pause : Icons.play_arrow,
+                size: 36,
+                color: Colors.white,
+              ),
       ),
     );
   }
