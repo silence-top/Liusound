@@ -54,6 +54,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     lyrics: true,
     artistBio: true,
     transcoding: true,
+    scrobbling: true,
+    incrementalSync: true,
   );
 
   @override
@@ -282,6 +284,53 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
 
   @override
   Future<bool> setRating(String id, int rating) async => false;
+
+  /// 完成上报：标记为已播放（Jellyfin/Emby 的 PlayedItems）
+  @override
+  Future<bool> scrobble(String songId) async {
+    try {
+      await _post('/Users/$_userId/PlayedItems/$songId', {});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 正在上报：Jellyfin/Emby 的 Sessions/Playing
+  @override
+  Future<bool> nowPlaying(String songId) async {
+    try {
+      await _post('/Sessions/Playing', {'ItemId': songId});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 变更标记：最新专辑创建时间 + 专辑总数（数量或最新条目变化即视为库变更）
+  @override
+  Future<String?> libraryVersion() async {
+    try {
+      final data = await _items({
+        'IncludeItemTypes': 'MusicAlbum',
+        'SortBy': 'DateCreated',
+        'SortOrder': 'Descending',
+        'StartIndex': '0',
+        'Limit': '1',
+        'Recursive': 'true',
+      });
+      final items = data['Items'] as List<dynamic>? ?? const [];
+      final total = data['TotalRecordCount']?.toString() ?? '';
+      final latest = items.isEmpty
+          ? ''
+          : (items.first as Map<String, dynamic>)['DateCreated']?.toString() ??
+                '';
+      if (total.isEmpty) return null;
+      return '$total|$latest';
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Future<bool> addToPlaylist(String playlistId, String songId) async {

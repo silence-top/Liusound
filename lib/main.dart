@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/scrobble/scrobble_service.dart';
 import 'core/theme/accent.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_controller.dart';
@@ -41,6 +42,8 @@ class MusicApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
+    // Scrobble 上报服务随 App 存活（50%/2min 触发 + 离线队列补发）
+    ref.watch(scrobbleServiceProvider);
     // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       if (prev?.activeServerId != next.activeServerId) {

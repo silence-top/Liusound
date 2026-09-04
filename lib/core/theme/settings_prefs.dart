@@ -21,8 +21,7 @@ class SettingsIconsController extends Notifier<bool> {
   }
 }
 
-final settingsIconsProvider =
-    NotifierProvider<SettingsIconsController, bool>(
+final settingsIconsProvider = NotifierProvider<SettingsIconsController, bool>(
   SettingsIconsController.new,
 );
 
@@ -51,8 +50,7 @@ class ListEndTextController extends Notifier<String> {
   }
 }
 
-final listEndTextProvider =
-    NotifierProvider<ListEndTextController, String>(
+final listEndTextProvider = NotifierProvider<ListEndTextController, String>(
   ListEndTextController.new,
 );
 
@@ -76,5 +74,6 @@ class PowerSaveController extends Notifier<bool> {
   }
 }
 
-final powerSaveProvider =
-    NotifierProvider<PowerSaveController, bool>(PowerSaveController.new);
+final powerSaveProvider = NotifierProvider<PowerSaveController, bool>(
+  PowerSaveController.new,
+);

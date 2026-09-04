@@ -41,5 +41,6 @@ class AccentController extends Notifier<AppAccent> {
   }
 }
 
-final appAccentProvider =
-    NotifierProvider<AccentController, AppAccent>(AccentController.new);
+final appAccentProvider = NotifierProvider<AccentController, AppAccent>(
+  AccentController.new,
+);

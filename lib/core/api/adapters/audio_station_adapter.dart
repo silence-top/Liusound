@@ -44,6 +44,16 @@ class AudioStationAdapter implements ServerAdapter {
     lyrics: true,
   );
 
+  // Audio Station 无 Scrobble/曲库变更标记接口（能力矩阵如实降级）
+  @override
+  Future<bool> scrobble(String songId) async => false;
+
+  @override
+  Future<bool> nowPlaying(String songId) async => false;
+
+  @override
+  Future<String?> libraryVersion() async => null;
+
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final dio = Dio(
       BaseOptions(

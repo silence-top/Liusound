@@ -47,6 +47,8 @@ class PlexAdapter implements ServerAdapter {
     lyrics: true,
     artistBio: true,
     transcoding: true,
+    scrobbling: true,
+    incrementalSync: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -359,6 +361,41 @@ class PlexAdapter implements ServerAdapter {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<bool> scrobble(String songId) async {
+    try {
+      // Plex 上报端点：/:/scrobble（与 /:/rate 同族的写接口）
+      await _api('/:/scrobble', {
+        'key': songId,
+        'identifier': 'com.plexapp.plugins.library',
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Plex「正在播放」需 /:/timeline 全量会话参数，客户端无法完整构造（如实降级）
+  @override
+  Future<bool> nowPlaying(String songId) async => false;
+
+  @override
+  Future<String?> libraryVersion() async {
+    try {
+      final data = await _api('/library/sections', {});
+      final mc = data['MediaContainer'] as Map<String, dynamic>? ?? const {};
+      final dirs = mc['Directory'] as List<dynamic>? ?? const [];
+      var latest = 0;
+      for (final d in dirs.whereType<Map<String, dynamic>>()) {
+        final v = int.tryParse('${d['updatedAt'] ?? ''}') ?? 0;
+        if (v > latest) latest = v;
+      }
+      return latest > 0 ? '$latest' : null;
+    } catch (_) {
+      return null;
     }
   }
 

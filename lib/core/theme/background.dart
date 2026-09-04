@@ -84,6 +84,7 @@ class BackgroundController extends Notifier<BackgroundConfig> {
   }
 }
 
-final backgroundProvider = NotifierProvider<BackgroundController, BackgroundConfig>(
-  BackgroundController.new,
-);
+final backgroundProvider =
+    NotifierProvider<BackgroundController, BackgroundConfig>(
+      BackgroundController.new,
+    );
