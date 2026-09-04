@@ -71,6 +71,30 @@ List<(String, List<LyricLine>)> parseLyricsTracks(String? lyricsText) {
   }
 }
 
+/// 解析经典 LRC 文本（`[mm:ss.xx]歌词`，本地导入歌词用）：
+/// 支持一行多时间戳、[ti:]/[ar:]/[by:] 等元数据标签（忽略）、
+/// 毫秒 2 位或 3 位均可。无法解析任何时间行时返回空列表。
+List<LyricLine> parseLrcText(String lrc) {
+  final result = <LyricLine>[];
+  final tag = RegExp(r'\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]');
+  for (final raw in const LineSplitter().convert(lrc)) {
+    final matches = tag.allMatches(raw);
+    if (matches.isEmpty) continue;
+    final text = raw.substring(matches.last.end).trim();
+    if (text.isEmpty) continue;
+    for (final m in matches) {
+      final minutes = int.parse(m.group(1)!);
+      final seconds = int.parse(m.group(2)!);
+      final fracRaw = m.group(3) ?? '0';
+      // 2 位 = 厘秒，3 位 = 毫秒
+      final frac = int.parse(fracRaw) / (fracRaw.length == 3 ? 1000 : 100);
+      result.add(LyricLine(time: minutes * 60 + seconds + frac, text: text));
+    }
+  }
+  result.sort((a, b) => a.time.compareTo(b.time));
+  return result;
+}
+
 /// 单轨便捷封装：仅返回主轨歌词行
 List<LyricLine> parseLyrics(String? lyricsText) =>
     parseLyricsData(lyricsText).lines;

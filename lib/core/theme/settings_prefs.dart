@@ -77,3 +77,28 @@ class PowerSaveController extends Notifier<bool> {
 final powerSaveProvider = NotifierProvider<PowerSaveController, bool>(
   PowerSaveController.new,
 );
+
+/// Android 悬浮歌词开关：仅 Android 有效（iOS 无悬浮窗能力，入口隐藏），
+/// 首次开启前需授予悬浮窗（SYSTEM_ALERT_WINDOW）权限
+class FloatingLyricsController extends Notifier<bool> {
+  static const _key = 'floating_lyrics';
+
+  @override
+  bool build() {
+    SharedPreferences.getInstance().then((prefs) {
+      final v = prefs.getBool(_key);
+      if (v != null && v != state) state = v;
+    });
+    return false;
+  }
+
+  Future<void> setEnabled(bool v) async {
+    state = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, v);
+  }
+}
+
+final floatingLyricsProvider = NotifierProvider<FloatingLyricsController, bool>(
+  FloatingLyricsController.new,
+);

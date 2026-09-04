@@ -1,20 +1,36 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/floating/floating_lyrics.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/theme/accent.dart';
 import 'core/theme/app_skin.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/settings_prefs.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
 import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
 import 'shared/widgets/glass.dart';
 import 'shell/app_shell.dart';
+
+/// 省电模式 → Android 刷新率切换（flutter_displaymode；iOS 无公开 API，忽略）
+bool? _lastDisplayPowerSave;
+void _applyDisplayMode(bool powerSave) {
+  if (!Platform.isAndroid || _lastDisplayPowerSave == powerSave) return;
+  _lastDisplayPowerSave = powerSave;
+  (powerSave
+          ? FlutterDisplayMode.setLowRefreshRate()
+          : FlutterDisplayMode.setHighRefreshRate())
+      .catchError((_) {});
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +69,16 @@ class MusicApp extends ConsumerWidget {
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       if (prev?.activeServerId != next.activeServerId) {
         ref.read(playerActionsProvider).stop();
+      }
+    });
+    // 省电模式 → 低刷新率（Android）
+    _applyDisplayMode(ref.watch(powerSaveProvider));
+    // 悬浮歌词：当前行变化即推送到 Android 小窗，null 时隐藏
+    ref.listen<String?>(floatingLyricsLineProvider, (_, line) {
+      if (line == null) {
+        FloatingLyrics.hide();
+      } else {
+        FloatingLyrics.update(line);
       }
     });
     // 沉浸式状态栏：全局浅色图标 + 透明底（全屏播放器/详情页无 AppBar 时图标仍可见）

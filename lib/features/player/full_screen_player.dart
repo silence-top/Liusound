@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/server_adapter.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
+import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
@@ -1016,6 +1019,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   void initState() {
     super.initState();
     _parseLyrics();
+    _loadLocalLyrics();
     _loadOffset();
     _loadBilingual();
     _volume = ref.read(audioPlayerProvider).volume;
@@ -1026,6 +1030,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     super.didUpdateWidget(oldWidget);
     if (widget.song.id != oldWidget.song.id) {
       _parseLyrics();
+      _loadLocalLyrics();
       _offset = 0;
       _currentIndex.value = -2;
       _previewIndex = -1;
@@ -1053,6 +1058,115 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       _showTrackPicker = false;
       _applyLines(data.lines, data.translations);
     });
+  }
+
+  /// 本地导入歌词（SQLite lyrics_local，按「标题|歌手」键）：
+  /// 命中后优先于服务端 JSON 歌词
+  Future<void> _loadLocalLyrics() async {
+    final songId = widget.song.id;
+    final content = await AppDb.loadLocalLyrics(
+      widget.song.title,
+      widget.song.artist,
+    );
+    if (content == null || songId != widget.song.id || !mounted) return;
+    final lines = parseLrcText(content);
+    if (lines.isEmpty) return;
+    setState(() {
+      _lyrics = LyricsData(lines: lines);
+      _tracks = const [];
+      _currentTrackIndex = 0;
+      _showTrackPicker = false;
+      _applyLines(lines, const []);
+    });
+  }
+
+  /// LRC 手动导入弹层：粘贴文本或选 .lrc 文件，校验时间轴后存库并即时生效
+  Future<void> _showImportSheet() async {
+    final controller = TextEditingController();
+    await glassBottomSheet<void>(
+      context,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              '导入歌词',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextField(
+            controller: controller,
+            maxLines: 6,
+            minLines: 4,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: const InputDecoration(
+              hintText: '粘贴 .lrc 歌词文本（[mm:ss.xx] 歌词）',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  final files = await FilePicker.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['lrc', 'txt'],
+                  );
+                  final path = files.isEmpty ? null : files.first.path;
+                  if (path == null) return;
+                  try {
+                    controller.text = await File(path).readAsString();
+                  } catch (_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('文件读取失败')));
+                    }
+                  }
+                },
+                icon: const Icon(Icons.folder_open_outlined, size: 18),
+                label: const Text('选择文件'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () async {
+                  final lines = parseLrcText(controller.text);
+                  if (lines.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('未识别到 LRC 时间轴')),
+                    );
+                    return;
+                  }
+                  await AppDb.saveLocalLyrics(
+                    widget.song.title,
+                    widget.song.artist,
+                    controller.text,
+                  );
+                  if (mounted) Navigator.of(context).pop();
+                  if (!mounted) return;
+                  setState(() {
+                    _lyrics = LyricsData(lines: lines);
+                    _tracks = const [];
+                    _currentTrackIndex = 0;
+                    _showTrackPicker = false;
+                    _applyLines(lines, const []);
+                  });
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
   }
 
   /// 由主轨/译轨构建展示行：LRC 相邻同时间轴两行合并为 原文+译文，
@@ -1218,8 +1332,19 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
 
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
-      return const Center(
-        child: Text('暂无歌词', style: TextStyle(color: Colors.white38)),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('暂无歌词', style: TextStyle(color: Colors.white38)),
+            const SizedBox(height: AppSpacing.m),
+            TextButton.icon(
+              onPressed: _showImportSheet,
+              icon: const Icon(Icons.upload_file_outlined, size: 18),
+              label: const Text('导入歌词'),
+            ),
+          ],
+        ),
       );
     }
 

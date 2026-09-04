@@ -1053,13 +1053,18 @@ class SongRow extends ConsumerWidget {
   }
 }
 
-/// 列表底部触底标记（§8.4 支持自定义文案）
+/// 列表底部触底标记（§8.4 支持自定义文案 + {nTitle}/{nArtist}/{nAlbum} 占位符）
 class _EndMark extends ConsumerWidget {
   const _EndMark();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final text = ref.watch(listEndTextProvider);
+    final template = ref.watch(listEndTextProvider);
+    final next = ref.watch(nextSongProvider);
+    final text = template
+        .replaceAll('{nTitle}', next?.title ?? '？')
+        .replaceAll('{nArtist}', next?.artist ?? '？')
+        .replaceAll('{nAlbum}', next?.album ?? '？');
     return Padding(
       padding: const EdgeInsets.only(top: 32, bottom: 48),
       child: Center(

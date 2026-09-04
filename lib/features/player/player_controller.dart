@@ -64,6 +64,25 @@ final queueProvider = NotifierProvider<QueueNotifier, List<Song>>(
   QueueNotifier.new,
 );
 
+/// 下一首预判（触底文案 {nTitle} 占位符用）：与交叉淡化的下一首逻辑一致，
+/// 单曲循环返回 null（下一首仍是当前曲）、随机取其余一首、顺序取下一条
+final nextSongProvider = Provider<Song?>((ref) {
+  final queue = ref.watch(queueProvider);
+  final current = ref.watch(currentSongProvider);
+  if (current == null || queue.isEmpty) return null;
+  switch (ref.watch(playModeProvider)) {
+    case PlayMode.repeatOne:
+      return null;
+    case PlayMode.shuffle:
+      final others = queue.where((s) => s.id != current.id).toList();
+      return others.isEmpty ? null : others.first;
+    case PlayMode.order:
+      final index = queue.indexWhere((s) => s.id == current.id);
+      if (index >= 0 && index < queue.length - 1) return queue[index + 1];
+      return ref.watch(loopPlaybackProvider) ? queue.first : null;
+  }
+});
+
 /// 播放模式
 enum PlayMode { order, shuffle, repeatOne }
 
