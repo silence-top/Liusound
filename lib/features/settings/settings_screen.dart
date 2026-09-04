@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +11,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/cache/cache_manager.dart';
+import '../../core/audio/audio_effects.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/floating/floating_lyrics.dart';
 import '../../core/theme/accent.dart';
@@ -44,6 +47,7 @@ class SettingsScreen extends ConsumerWidget {
     final autoPlay = ref.watch(autoPlayProvider);
     final autoOpen = ref.watch(autoOpenPlayerProvider);
     final crossfade = ref.watch(crossfadeSecondsProvider);
+    final effects = ref.watch(audioEffectsProvider);
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
     final glassLevel = ref.watch(glassQualityProvider);
@@ -118,6 +122,13 @@ class SettingsScreen extends ConsumerWidget {
                 title: '交叉淡入淡出',
                 subtitle: crossfade == 0 ? '关闭' : '$crossfade 秒',
                 onTap: () => showCrossfadePicker(context),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.equalizer,
+                title: '音效（均衡器 / 低音 / 空间）',
+                subtitle: effects.enabled ? '已开启' : '关闭',
+                onTap: () => _showEffectsPanel(context),
               ),
               _divider,
               const _VolumeTile(),
@@ -962,6 +973,249 @@ Future<void> _showSkinPicker(BuildContext context, WidgetRef ref) {
         ],
         const SizedBox(height: 8),
       ],
+    ),
+  );
+}
+
+/// 音效面板（Android）：EQ 波段滑杆 + 预设曲线 + 低音/空间近似 + 参数剪贴板导入导出
+Future<void> _showEffectsPanel(BuildContext context) {
+  String freqLabel(int hz) => hz >= 1000
+      ? '${(hz / 1000).toStringAsFixed(hz % 1000 == 0 ? 0 : 1)} kHz'
+      : '$hz Hz';
+
+  return glassBottomSheet<void>(
+    context,
+    Consumer(
+      builder: (context, ref, _) {
+        final st = ref.watch(audioEffectsProvider);
+        final notifier = ref.read(audioEffectsProvider.notifier);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                '音效',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (!Platform.isAndroid)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Text(
+                  '音效仅在 Android 设备上可用',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              )
+            else if (st.bands.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Text(
+                  '未获取到设备音效通道，播放一首歌曲后重试',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                child: Row(
+                  children: [
+                    const Text('均衡器', style: TextStyle(color: Colors.white)),
+                    const Spacer(),
+                    Switch(value: st.enabled, onChanged: notifier.setEnabled),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final name in eqPresets.keys)
+                      GestureDetector(
+                        onTap: () => notifier.applyPreset(name),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final band in st.bands.indexed)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 68,
+                        child: Text(
+                          freqLabel(band.$2.centerHz),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          min: band.$2.minMb.toDouble(),
+                          max: band.$2.maxMb.toDouble(),
+                          divisions: ((band.$2.maxMb - band.$2.minMb) / 50)
+                              .round(),
+                          value: (st.gains[band.$1] ?? 0)
+                              .clamp(band.$2.minMb, band.$2.maxMb)
+                              .toDouble(),
+                          onChanged: (v) =>
+                              notifier.setBand(band.$1, v.round()),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 48,
+                        child: Text(
+                          '${((st.gains[band.$1] ?? 0) / 100).toStringAsFixed(1)} dB',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 68,
+                      child: Text(
+                        '低音增强',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        min: 0,
+                        max: 1000,
+                        divisions: 20,
+                        value: st.bass.toDouble(),
+                        onChanged: (v) => notifier.setBass(v.round()),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 68,
+                      child: Text(
+                        '空间音效',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        min: 0,
+                        max: 1000,
+                        divisions: 20,
+                        value: st.virtualizer.toDouble(),
+                        onChanged: (v) => notifier.setVirtualizer(v.round()),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: jsonEncode(st.gains)),
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('EQ 曲线已复制到剪贴板'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.ios_share, size: 16),
+                      label: const Text('导出曲线'),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final raw = await Clipboard.getData('text/plain');
+                        final text = raw?.text;
+                        if (text == null || text.isEmpty) return;
+                        try {
+                          final map = jsonDecode(text) as Map<String, dynamic>;
+                          for (final e in map.entries) {
+                            final index = int.parse(e.key);
+                            if (index >= st.bands.length) continue;
+                            await notifier.setBand(
+                              index,
+                              (e.value as num).round(),
+                            );
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('EQ 曲线已导入'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('剪贴板内容不是有效的 EQ 曲线'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('导入曲线'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+          ],
+        );
+      },
     ),
   );
 }

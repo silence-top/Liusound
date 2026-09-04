@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/audio/audio_effects.dart';
 import 'core/floating/floating_lyrics.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/theme/accent.dart';
@@ -62,6 +63,8 @@ class MusicApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     // Scrobble 上报服务随 App 存活（50%/2min 触发 + 离线队列补发）
     ref.watch(scrobbleServiceProvider);
+    // 音效链随 App 存活：监听音频会话并在会话建立后挂载 EQ/低音/空间
+    ref.watch(audioEffectsProvider);
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
