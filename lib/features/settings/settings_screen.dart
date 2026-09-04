@@ -1693,20 +1693,17 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
 
 /// 列表触底文案编辑（§8.4）
 Future<void> _showEndTextEditor(BuildContext context, WidgetRef ref) async {
-  final current = ref.read(listEndTextProvider);
-  final controller = TextEditingController(text: current);
+  // controller 必须由弹窗内容的 State 持有：await 返回时退场动画尚未结束，
+  // TextField 仍挂在树上，此时在外层 dispose 会在键盘收起的动画帧命中
+  // 已释放对象，炸断元素树清理（_dependents 断言）
+  final text = ValueNotifier<String>(ref.read(listEndTextProvider));
   final result = await glassDialog<String>(
     context,
     title: '列表触底文案',
-    content: TextField(
-      controller: controller,
-      autofocus: true,
-      textInputAction: TextInputAction.done,
-      onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-      decoration: const InputDecoration(
-        hintText: '留空恢复默认',
-        helperText: '支持占位符：{nTitle} 下一首歌名 / {nArtist} 歌手 / {nAlbum} 专辑',
-      ),
+    content: _EndTextEditorField(
+      initialText: text.value,
+      onChanged: (v) => text.value = v,
+      onDone: (v) => Navigator.of(context).pop(v),
     ),
     actions: [
       TextButton(
@@ -1714,14 +1711,54 @@ Future<void> _showEndTextEditor(BuildContext context, WidgetRef ref) async {
         child: const Text('取消'),
       ),
       FilledButton(
-        onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+        onPressed: () => Navigator.of(context).pop(text.value.trim()),
         child: const Text('保存'),
       ),
     ],
   );
-  controller.dispose();
+  text.dispose();
   if (result != null) {
     ref.read(listEndTextProvider.notifier).setText(result);
+  }
+}
+
+class _EndTextEditorField extends StatefulWidget {
+  const _EndTextEditorField({
+    required this.initialText,
+    required this.onChanged,
+    required this.onDone,
+  });
+
+  final String initialText;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onDone;
+
+  @override
+  State<_EndTextEditorField> createState() => _EndTextEditorFieldState();
+}
+
+class _EndTextEditorFieldState extends State<_EndTextEditorField> {
+  late final _controller = TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      autofocus: true,
+      textInputAction: TextInputAction.done,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onDone,
+      decoration: const InputDecoration(
+        hintText: '留空恢复默认',
+        helperText: '支持占位符：{nTitle} 下一首歌名 / {nArtist} 歌手 / {nAlbum} 专辑',
+      ),
+    );
   }
 }
 
