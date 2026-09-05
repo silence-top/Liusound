@@ -85,6 +85,23 @@ final playlistSongsProvider = FutureProvider.family<List<Song>, String>((
   return adapter.fetchPlaylistSongs(playlistId);
 });
 
+/// 歌单拼贴封面：前 4 首歌的去重专辑 id（资料库歌单行 2×2 封面用）
+final playlistCoverIdsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  playlistId,
+) async {
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return [];
+  final songs = await adapter.fetchPlaylistSongs(playlistId);
+  final ids = <String>[];
+  for (final s in songs) {
+    if (ids.contains(s.albumId)) continue;
+    ids.add(s.albumId);
+    if (ids.length == 4) break;
+  }
+  return ids;
+});
+
 /// 曲库歌曲总数（负一屏服务器卡片展示）
 final songTotalProvider = FutureProvider<int>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);

@@ -185,6 +185,7 @@ class SubsonicAdapter implements ServerAdapter {
         id: _str(e, 'id'),
         name: _str(e, 'name', '未命名歌单'),
         songCount: _int(e, 'songCount'),
+        owner: e['owner']?.toString(),
       );
     }).toList();
   }
