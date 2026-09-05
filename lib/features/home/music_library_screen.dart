@@ -400,7 +400,9 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     String? username,
   ) {
     final hasOwnerInfo = all.any((p) => p.owner?.isNotEmpty == true);
-    final mine = username == null
+    // 后端没返回 owner（或未登录）时无法区分归属，「我的歌单」回退为全部，
+    // 避免过滤出空列表导致整个歌单区看起来消失
+    final mine = username == null || !hasOwnerInfo
         ? all
         : all
               .where(

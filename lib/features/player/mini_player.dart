@@ -296,6 +296,10 @@ class _MiniTextBlockState extends ConsumerState<_MiniTextBlock> {
       final i = idx >= 0 ? idx : 0;
       main = _lines[i].text;
       if (showBilingual) sub = _translations[i];
+      // 非双语或本行无译文 → 第二行滚动预览下一句，保持双行歌词形态
+      if (sub == null || sub.isEmpty) {
+        sub = i + 1 < _lines.length ? _lines[i + 1].text : null;
+      }
     } else {
       main = widget.song.title;
       sub = widget.song.artist;
