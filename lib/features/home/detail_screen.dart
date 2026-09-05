@@ -293,26 +293,29 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
   }
 }
 
-/// 歌单 / 每日推荐详情页：
+/// 歌单 / 资料库歌曲列表 / 每日推荐详情页（与专辑详情同一套列表结构）：
 /// - 每日推荐：直接传入 songs（首页「查看更多」）
 /// - 我的歌单：传 playlistId 异步加载（/api/playlist/{id}/tracks）
+/// - 资料「歌曲 / 我喜欢的 / 本地音乐」：传 songsProvider 异步加载
 class PlaylistDetailScreen extends ConsumerStatefulWidget {
   const PlaylistDetailScreen({
     super.key,
     this.title = '歌单',
     this.songs,
     this.playlistId,
+    this.songsProvider,
     this.coverAlbumId,
     this.date,
     this.subtitle,
   }) : assert(
-         songs != null || playlistId != null,
-         '必须提供 songs 或 playlistId 之一',
+         songs != null || playlistId != null || songsProvider != null,
+         '必须提供 songs / playlistId / songsProvider 之一',
        );
 
   final String title;
   final List<Song>? songs; // 直接给定（每日推荐）
   final String? playlistId; // 异步加载（我的歌单）
+  final FutureProvider<List<Song>>? songsProvider; // 异步加载（资料库入口）
   final String? coverAlbumId;
   final String? date;
   final String? subtitle;
@@ -347,7 +350,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final async = widget.playlistId == null
+    final async = widget.songsProvider != null
+        ? ref.watch(widget.songsProvider!)
+        : widget.playlistId == null
         ? null
         : ref.watch(playlistSongsProvider(widget.playlistId!));
     final all = widget.songs ?? async?.value ?? const <Song>[];
@@ -357,6 +362,9 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
     final canDownload =
         ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
     final selectedCount = selectionOf(songs).length;
+    // 资料库入口没有歌单封面：回退用第一首歌的专辑封面
+    final coverAlbumId =
+        widget.coverAlbumId ?? (all.isEmpty ? null : all.first.albumId);
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
       bottomNavigationBar: selectMode
@@ -386,7 +394,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
             child: _Header(
               title: widget.title,
               subtitle: widget.date ?? subtitle,
-              coverAlbumId: widget.coverAlbumId,
+              coverAlbumId: coverAlbumId,
               rating: null, // 歌单无评分
               onRating: null,
             ),
@@ -404,9 +412,12 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
           ),
           ...sliverAsyncGuard<Song>(
             async: async ?? AsyncValue.data(all),
-            emptyText: '歌单暂无歌曲',
-            onRetry: () =>
-                ref.invalidate(playlistSongsProvider(widget.playlistId!)),
+            emptyText: widget.playlistId != null
+                ? '歌单暂无歌曲'
+                : '${widget.title}暂无歌曲',
+            onRetry: () => widget.songsProvider != null
+                ? ref.invalidate(widget.songsProvider!)
+                : ref.invalidate(playlistSongsProvider(widget.playlistId!)),
             onData: (_) => _songSlivers(
               songs,
               selectMode: selectMode,
