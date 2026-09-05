@@ -17,15 +17,16 @@ typedef RefReader = T Function<T>(ProviderListenable<T> provider);
 /// 标记未变 → 直接读快照（冷启动免全量拉取）；标记变化 → 全量拉取并更新快照。
 /// 后端不提供标记（incrementalSync=false，如 Audio Station）→ 每次全量，如实降级。
 abstract final class LibrarySync {
-  /// 曲库歌曲列表（title 排序前 200）
+  /// 曲库歌曲列表（资料库「歌曲」入口；全量快照，展示顺序由 UI 侧决定）
   static Future<List<Song>> songs(RefReader read) async {
     final adapter = read(serverAdapterProvider);
     if (adapter == null) return const [];
     return _load<Song>(
       read,
-      kind: 'songs_title',
-      fetch: () =>
-          adapter.fetchSongs(const SongQuery(sort: SongSort.title, limit: 200)),
+      kind: 'songs_all',
+      fetch: () => adapter.fetchSongs(
+        const SongQuery(sort: SongSort.title, limit: 100000),
+      ),
       encode: (list) => jsonEncode(list.map((s) => s.toJson()).toList()),
       decode: (raw) => [
         for (final j in jsonDecode(raw) as List)
