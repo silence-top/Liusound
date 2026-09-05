@@ -43,7 +43,6 @@ class HomeScreen extends ConsumerWidget {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            const SliverToBoxAdapter(child: _Greeting()),
             const SliverToBoxAdapter(child: _SearchBar()),
             SliverToBoxAdapter(
               child: _Section(
@@ -84,37 +83,8 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// 时段问候语（对齐设计图「Good Morning」）：
-/// build 内一次性求值，无 Timer / 无 provider 订阅，保持本页零重建
-String _greetingForNow() {
-  final hour = DateTime.now().hour;
-  if (hour >= 5 && hour < 11) return '早上好';
-  if (hour >= 11 && hour < 13) return '中午好';
-  if (hour >= 13 && hour < 18) return '下午好';
-  if (hour >= 18 && hour < 23) return '晚上好';
-  return '夜深了';
-}
-
-class _Greeting extends StatelessWidget {
-  const _Greeting();
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeSlideIn(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.l,
-          AppSpacing.xl,
-          AppSpacing.l,
-          0,
-        ),
-        child: Text(_greetingForNow(), style: AppText.h1),
-      ),
-    );
-  }
-}
-
-/// 装饰搜索栏（点击进入全屏搜索页，对齐设计图首屏）
+/// 装饰搜索栏（点击进入全屏搜索页）：
+/// 样式与资料库搜索栏完全一致（半透明圆角条 + 扫码图标），两页平齐
 class _SearchBar extends StatelessWidget {
   const _SearchBar();
 
@@ -123,31 +93,28 @@ class _SearchBar extends StatelessWidget {
     return GestureDetector(
       onTap: () =>
           Navigator.of(context).push(fadeRoute<void>(const SearchScreen())),
-      child: GlassSurface(
-        radius: GlassTokens.radiusPill,
-        blur: 0,
-        tint: GlassTokens.tint(context),
-        gradientBorder: true,
-        shadow: false,
-        margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: SizedBox(
-          height: 38,
-          child: Row(
-            children: [
-              SizedBox(width: 4),
-              Icon(Icons.search, size: 20, color: AppTheme.textDimOf(context)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '搜索',
-                  style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16),
-                ),
-              ),
-              Icon(Icons.qr_code, size: 20, color: AppTheme.textDimOf(context)),
-              SizedBox(width: 4),
-            ],
-          ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, size: 22, color: Colors.white54),
+            const SizedBox(width: 10),
+            const Text(
+              '搜索',
+              style: TextStyle(color: Colors.white38, fontSize: 15),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.qr_code_scanner,
+              size: 22,
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ],
         ),
       ),
     );
