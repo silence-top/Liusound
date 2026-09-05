@@ -8,10 +8,8 @@ import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
-import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
-import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
 import 'detail_screen.dart';
@@ -300,8 +298,12 @@ class _EntryGrid extends ConsumerWidget {
     String title,
     FutureProvider<List<Song>> provider,
   ) {
-    Navigator.of(context)
-        .push(fadeRoute<void>(SongListPage(title: title, provider: provider)));
+    // 复用专辑式歌曲列表（头部 + 顶部操作条 + 批量选择）
+    Navigator.of(context).push(
+      fadeRoute<void>(
+        PlaylistDetailScreen(title: title, songsProvider: provider),
+      ),
+    );
   }
 
   void _openArtists(
@@ -400,17 +402,18 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     String? username,
   ) {
     final hasOwnerInfo = all.any((p) => p.owner?.isNotEmpty == true);
-    // 后端没返回 owner（或未登录）时无法区分归属，「我的歌单」回退为全部，
-    // 避免过滤出空列表导致整个歌单区看起来消失
-    final mine = username == null || !hasOwnerInfo
+    final matched = username == null || !hasOwnerInfo
         ? all
         : all
               .where(
                 (p) => p.owner != null && p.owner!.toLowerCase() == username,
               )
               .toList();
-    // 只有 owner 信息能区分两份列表时才显示切换
-    final canToggle = hasOwnerInfo && mine.length != all.length;
+    // owner 与当前用户名都对不上（如后端只返回显示名）时无法区分归属，回退为全部，
+    // 避免过滤出空列表导致整个歌单区看起来消失
+    final mine = matched.isEmpty ? all : matched;
+    // 只要有歌单就允许切换（部分后端全部歌单都属于自己，两份列表一致但切换可用）
+    final canToggle = all.isNotEmpty;
     final list = _all ? all : mine;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,51 +802,6 @@ class _PlaylistRow extends StatelessWidget {
 }
 
 // ---------- 二级页 ----------
-
-/// 通用歌曲列表二级页（歌曲 / 我喜欢的 / 本地音乐入口共用）。
-/// 行为与详情页一致：点击播放整表替换队列，三点打开歌曲操作弹窗。
-class SongListPage extends ConsumerWidget {
-  const SongListPage({super.key, required this.title, required this.provider});
-
-  final String title;
-  final FutureProvider<List<Song>> provider;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(provider);
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
-      bottomNavigationBar: const MiniPlayer(),
-      body: _SongListBody(async: async, provider: provider),
-    );
-  }
-}
-
-class _SongListBody extends ConsumerWidget {
-  const _SongListBody({required this.async, required this.provider});
-
-  final AsyncValue<List<Song>> async;
-  final FutureProvider<List<Song>> provider;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return asyncStateBox<Song>(
-      async: async,
-      emptyText: '暂无歌曲',
-      onRetry: () => ref.invalidate(provider),
-      onData: (songs) => ListView.builder(
-        itemCount: songs.length + 1,
-        itemBuilder: (context, index) {
-          if (index == songs.length) return ListEndMark(songs: songs);
-          return FadeSlideIn(
-            child: SongRow(song: songs[index], index: index, songs: songs),
-          );
-        },
-      ),
-    );
-  }
-}
 
 /// 专辑列表二级页（2 列网格封面）
 class AlbumListPage extends ConsumerWidget {

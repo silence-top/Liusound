@@ -392,7 +392,8 @@ class Playlist {
     name: _Json.str(j, 'name', '未命名歌单'),
     songCount: _Json.intOf(j, 'songCount'),
     coverArt: j['coverArt']?.toString(),
-    owner: j['owner']?.toString(),
+    // Navidrome 返回 owner（用户名）/ownerName（显示名）两个字段，兼容取其一
+    owner: (j['owner'] ?? j['ownerName'])?.toString(),
   );
 
   static List<Playlist> listFromJson(dynamic json) => (json as List<dynamic>)
