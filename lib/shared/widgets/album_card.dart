@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/models.dart';
-import '../../core/theme/app_theme.dart';
 import '../cover_art.dart';
 import 'motion.dart';
 
@@ -30,20 +29,24 @@ class AlbumCard extends StatelessWidget {
             children: [
               CoverArt(albumId: album.id, size: size, radius: 10),
               Positioned(
-                top: 6,
-                right: 6,
+                top: 4,
+                right: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  constraints: const BoxConstraints(minWidth: 18),
+                  height: 18,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFA2C19), // 设计图红色角标
+                    borderRadius: BorderRadius.all(Radius.circular(9)),
                   ),
                   child: Text(
-                    '${album.songCount} 首',
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    album.songCount > 99 ? '99+' : '${album.songCount}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

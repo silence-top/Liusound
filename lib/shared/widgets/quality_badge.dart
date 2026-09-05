@@ -29,12 +29,20 @@ enum _Grade {
 /// 缺位深/采样率就不写 bit 信息，缺格式就只显示码率，全缺则不渲染——
 /// 绝不把 MP3 标成 flac，也不编造后端没给的参数。
 class QualityBadge extends StatelessWidget {
-  const QualityBadge({super.key, required this.song, this.trailingGap = 0});
+  const QualityBadge({
+    super.key,
+    required this.song,
+    this.trailingGap = 0,
+    this.showFileSize = false,
+  });
 
   final Song song;
 
   /// 徽标右侧间距；仅在徽标真的渲染出来时生效（元数据全缺时不留空隙）
   final double trailingGap;
+
+  /// 为真时徽标显示「flac 61 MB」文件大小而非码率（本地音乐列表用）
+  final bool showFileSize;
 
   static const _losslessFormats = {
     'flac',
@@ -75,6 +83,18 @@ class QualityBadge extends StatelessWidget {
     return format != null && _losslessFormats.contains(format);
   }
 
+  /// 文件大小可读文案：61 MB / 145.77 MB / 1.28 GB（末尾零已修剪）
+  static String fileSizeLabel(int bytes) {
+    final gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) return '${gb.toStringAsFixed(2)} GB';
+    final mb = bytes / (1024 * 1024);
+    final text = mb
+        .toStringAsFixed(2)
+        .replaceAll(RegExp(r'0+$'), '')
+        .replaceAll(RegExp(r'\.$'), '');
+    return '$text MB';
+  }
+
   /// Hi-Res 判定必须同时满足「无损容器」，否则 24bit 的 AAC 也会被误判成金色
   static bool isHiRes(Song song) =>
       isLossless(song) &&
@@ -97,7 +117,10 @@ class QualityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final format = _format;
     final kbps = _kbps;
-    if (format == null && kbps == null) return const SizedBox.shrink();
+    final hasSize = showFileSize && song.size > 0;
+    if (format == null && kbps == null && !hasSize) {
+      return const SizedBox.shrink();
+    }
 
     final grade = _isHiRes
         ? _Grade.hiRes
@@ -114,7 +137,7 @@ class QualityBadge extends StatelessWidget {
       shadow: false,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Text(
-        _label(format, kbps),
+        hasSize ? _sizeLabel(format) : _label(format, kbps),
         style: TextStyle(
           color: grade.text,
           fontSize: 11,
@@ -129,6 +152,12 @@ class QualityBadge extends StatelessWidget {
             child: badge,
           )
         : badge;
+  }
+
+  /// flac 61 MB ｜ 61 MB（格式未知）
+  String _sizeLabel(String? format) {
+    final size = fileSizeLabel(song.size);
+    return format == null ? size : '$format $size';
   }
 
   /// flac 24bit/96kHz ｜ flac 1030K ｜ mp3 320K ｜ 320K（格式未知）
