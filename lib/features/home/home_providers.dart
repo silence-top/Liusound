@@ -116,11 +116,24 @@ final likedSongsProvider = FutureProvider<List<Song>>((ref) async {
   return adapter.fetchLikedSongs();
 });
 
-/// 曲库歌曲列表（负一屏「歌曲」/「本地音乐」入口；走增量同步快照）
+/// 曲库歌曲列表（资料库「歌曲」入口；全量快照，默认按加入时间倒序）
 final librarySongsProvider = FutureProvider<List<Song>>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return [];
-  return LibrarySync.songs(ref.read);
+  final songs = await LibrarySync.songs(ref.read);
+  // 加入时间倒序（ISO8601 同源字符串可直接比较）；无入库时间的沉底按标题排
+  int fallback(Song a, Song b) =>
+      a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  songs.sort((a, b) {
+    final ta = a.created;
+    final tb = b.created;
+    if (ta == null && tb == null) return fallback(a, b);
+    if (ta == null) return 1;
+    if (tb == null) return -1;
+    final cmp = tb.compareTo(ta);
+    return cmp != 0 ? cmp : fallback(a, b);
+  });
+  return songs;
 });
 
 /// 专辑列表（负一屏「专辑」入口；走增量同步快照）

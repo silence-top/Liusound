@@ -233,6 +233,7 @@ class Song {
     if (path != null) 'path': path,
     if (lastPlayed != null) 'lastPlayed': lastPlayed,
     if (created != null) 'created': created,
+    if (localCoverPath != null) 'localCoverPath': localCoverPath,
     'replayGain': ?replayGain,
   };
 }

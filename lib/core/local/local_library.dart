@@ -1,10 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
 import '../models/models.dart';
 import '../storage/app_db.dart';
@@ -31,22 +35,46 @@ Future<bool> ensureAudioPermission() async {
 /// 本地音乐扫描：递归扫公共音乐目录，audio_metadata_reader 读标签
 /// （标题/歌手/专辑/时长/内嵌 LRC/内嵌封面）。
 /// 内嵌 LRC 写入本地歌词表（播放页自动命中），内嵌封面抽到应用封面目录。
+/// 目录遍历与标签解析在后台 isolate 执行，结果落 SQLite 快照。
 Future<List<Song>> scanLocalLibrary() async {
   if (!await ensureAudioPermission()) {
     throw StateError('未授予音乐文件访问权限，请到系统设置开启');
   }
-  final dirs = <Directory>[];
-  if (Platform.isAndroid) {
-    dirs.addAll([
-      Directory('/storage/emulated/0/Music'),
-      Directory('/storage/emulated/0/Download'),
-    ]);
-  } else if (Platform.isWindows) {
-    final home = Platform.environment['USERPROFILE'];
-    if (home != null) dirs.add(Directory('$home\\Music'));
+  final dirPaths = <String>[
+    if (Platform.isAndroid) ...[
+      '/storage/emulated/0/Music',
+      '/storage/emulated/0/Download',
+    ] else if (Platform.isWindows)
+      ...[Platform.environment['USERPROFILE']]
+          .whereType<String>()
+          .map((home) => '$home\\Music'),
+  ];
+  final coverPath = (await _coverDir()).path;
+  final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
+  // sqflite 走平台通道，只能在主 isolate 写库
+  for (final (title, artist, content) in result.lyrics) {
+    try {
+      await AppDb.saveLocalLyrics(title, artist, content);
+    } catch (_) {
+      // 歌词落库失败不影响歌曲本身
+    }
   }
+  await _saveLocalCache(result.songs);
+  return result.songs;
+}
+
+/// 扫描 isolate 产物：歌曲 + 待落库的内嵌歌词
+typedef _ScanResult = ({
+  List<Song> songs,
+  List<(String, String, String)> lyrics,
+});
+
+/// 目录遍历 + 标签解析（纯 Dart IO，可在后台 isolate 运行）
+_ScanResult _scanIsolate(List<String> dirPaths, String coverDirPath) {
+  final coverDir = Directory(coverDirPath);
   final files = <File>[];
-  for (final dir in dirs) {
+  for (final dirPath in dirPaths) {
+    final dir = Directory(dirPath);
     if (!dir.existsSync()) continue;
     try {
       for (final entry in dir.listSync(recursive: true, followLinks: false)) {
@@ -61,16 +89,19 @@ Future<List<Song>> scanLocalLibrary() async {
   }
   files.sort((a, b) => a.path.compareTo(b.path));
 
-  final coverDir = await _coverDir();
   final songs = <Song>[];
+  final lyrics = <(String, String, String)>[];
   for (final file in files) {
     try {
-      songs.add(await _buildLocalSong(file, coverDir));
+      final r = _buildLocalSong(file, coverDir);
+      songs.add(r.song);
+      final lrc = r.lyrics;
+      if (lrc != null) lyrics.add(lrc);
     } catch (_) {
       continue; // 单文件解析失败（损坏/被占用）跳过
     }
   }
-  return songs;
+  return (songs: songs, lyrics: lyrics);
 }
 
 Future<Directory> _coverDir() async {
@@ -80,7 +111,10 @@ Future<Directory> _coverDir() async {
   return dir;
 }
 
-Future<Song> _buildLocalSong(File file, Directory coverDir) async {
+({Song song, (String, String, String)? lyrics}) _buildLocalSong(
+  File file,
+  Directory coverDir,
+) {
   AudioMetadata meta;
   try {
     meta = readMetadata(file, getImage: true);
@@ -98,14 +132,7 @@ Future<Song> _buildLocalSong(File file, Directory coverDir) async {
       : (parts.length > 1 ? parts.first : '未知歌手');
   final album = meta.album ?? '';
 
-  final lyrics = (meta.lyrics?.isNotEmpty ?? false) ? meta.lyrics : null;
-  if (lyrics != null) {
-    try {
-      await AppDb.saveLocalLyrics(title, artist, lyrics);
-    } catch (_) {
-      // 歌词落库失败不影响歌曲本身
-    }
-  }
+  final lyricsText = (meta.lyrics?.isNotEmpty ?? false) ? meta.lyrics : null;
 
   String? coverPath;
   final picture = meta.pictures.isEmpty ? null : meta.pictures.first;
@@ -115,7 +142,7 @@ Future<Song> _buildLocalSong(File file, Directory coverDir) async {
     );
     try {
       if (!coverFile.existsSync()) {
-        await coverFile.writeAsBytes(picture.bytes, flush: true);
+        coverFile.writeAsBytesSync(picture.bytes, flush: true);
       }
       coverPath = coverFile.path;
     } catch (_) {
@@ -123,7 +150,7 @@ Future<Song> _buildLocalSong(File file, Directory coverDir) async {
     }
   }
 
-  return Song(
+  final song = Song(
     id: '$localSongIdPrefix${file.path}',
     title: title,
     artist: artist,
@@ -143,9 +170,101 @@ Future<Song> _buildLocalSong(File file, Directory coverDir) async {
     path: file.path,
     localCoverPath: coverPath,
   );
+  return (
+    song: song,
+    lyrics: lyricsText == null ? null : (title, artist, lyricsText),
+  );
 }
 
-/// 本地音乐列表（负一屏「本地音乐」入口）：权限申请 + 目录扫描 + 标签解析
-final localSongsProvider = FutureProvider<List<Song>>(
-  (_) => scanLocalLibrary(),
-);
+// ---------- 快照缓存：进页面先读 SQLite 秒开，后台限流重扫 ----------
+
+/// 后台重扫发现文件变化时 bump，驱动 localSongsProvider 重读快照
+final localScanVersionProvider = StateProvider<int>((ref) => 0);
+
+DateTime? _lastScanFinishedAt;
+
+/// 本地音乐列表（资料库「本地音乐」入口）：
+/// 首次进页面同步扫描；之后读 SQLite 快照秒开，后台限流重扫（5 分钟内不重复），
+/// 文件有增删时 bump 版本自动刷新列表。
+final localSongsProvider = FutureProvider<List<Song>>((ref) async {
+  ref.watch(localScanVersionProvider);
+  final cached = await loadLocalSongsCache();
+  if (cached != null && cached.isNotEmpty) {
+    _rescanInBackground(ref, cached);
+    return cached;
+  }
+  final scanned = await scanLocalLibrary();
+  _lastScanFinishedAt = DateTime.now();
+  return scanned;
+});
+
+void _rescanInBackground(Ref ref, List<Song> served) {
+  final last = _lastScanFinishedAt;
+  if (last != null &&
+      DateTime.now().difference(last) < const Duration(minutes: 5)) {
+    return;
+  }
+  _lastScanFinishedAt = DateTime.now();
+  Future<void> run() async {
+    try {
+      final fresh = await scanLocalLibrary();
+      if (!_sameSongs(fresh, served)) {
+        ref.read(localScanVersionProvider.notifier).state++;
+      }
+    } catch (_) {
+      // 权限被回收等场景静默保留快照
+    }
+  }
+
+  unawaited(run());
+}
+
+/// 快照对比只看关键元数据：数量或任一文件的大小/时长/标签变了才算变化
+bool _sameSongs(List<Song> a, List<Song> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    final x = a[i];
+    final y = b[i];
+    if (x.id != y.id ||
+        x.size != y.size ||
+        x.duration != y.duration ||
+        x.title != y.title ||
+        x.artist != y.artist) {
+      return false;
+    }
+  }
+  return true;
+}
+
+Future<List<Song>?> loadLocalSongsCache() async {
+  try {
+    final db = await AppDb.instance();
+    final rows = await db.query(
+      'library_snapshot',
+      where: "server_key = 'local' AND kind = 'local_songs'",
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final raw = rows.first['payload'] as String;
+    return [
+      for (final j in jsonDecode(raw) as List)
+        Song.fromJson(j as Map<String, dynamic>),
+    ];
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _saveLocalCache(List<Song> songs) async {
+  try {
+    final db = await AppDb.instance();
+    await db.insert('library_snapshot', {
+      'server_key': 'local',
+      'kind': 'local_songs',
+      'version': DateTime.now().toIso8601String(),
+      'payload': jsonEncode(songs.map((s) => s.toJson()).toList()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  } catch (_) {
+    // 缓存失败只影响下次秒开，不影响本次结果
+  }
+}
