@@ -10,6 +10,7 @@ import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
+import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
 import 'detail_screen.dart';
@@ -803,63 +804,163 @@ class _PlaylistRow extends StatelessWidget {
 
 // ---------- 二级页 ----------
 
-/// 专辑列表二级页（2 列网格封面）
-class AlbumListPage extends ConsumerWidget {
+/// 专辑列表二级页（对齐设计图「资料库专辑列表」）：
+/// 常驻搜索栏（按专辑名/歌手过滤）+ 4 列封面网格（右上角歌曲数角标）
+class AlbumListPage extends ConsumerStatefulWidget {
   const AlbumListPage({super.key, required this.title, required this.provider});
 
   final String title;
   final FutureProvider<List<Album>> provider;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(provider);
+  ConsumerState<AlbumListPage> createState() => _AlbumListPageState();
+}
+
+class _AlbumListPageState extends ConsumerState<AlbumListPage> {
+  final _controller = TextEditingController();
+  String _search = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<Album> _filter(List<Album> albums) {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return albums;
+    return albums
+        .where(
+          (a) =>
+              a.name.toLowerCase().contains(q) ||
+              a.artist.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(widget.provider);
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(title)), // 样式走主题 titleTextStyle
-      body: _AlbumGridBody(async: async, provider: provider),
+      appBar: AppBar(title: Text(widget.title)), // 样式走主题 titleTextStyle
+      bottomNavigationBar: const MiniPlayer(),
+      body: asyncStateBox<Album>(
+        async: async,
+        emptyText: '暂无专辑',
+        onRetry: () => ref.invalidate(widget.provider),
+        onData: (albums) {
+          final list = _filter(albums);
+          const padding = 12.0;
+          const spacing = 10.0;
+          final cover =
+              (MediaQuery.sizeOf(context).width - padding * 2 - spacing * 3) /
+              4;
+          return Column(
+            children: [
+              _AlbumSearchBar(
+                controller: _controller,
+                onChanged: (v) => setState(() => _search = v),
+              ),
+              Expanded(
+                child: list.isEmpty
+                    ? glassEmptyState(text: '没有匹配的专辑')
+                    : GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(
+                          padding,
+                          4,
+                          padding,
+                          16,
+                        ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: 14,
+                          // 封面正方形 + 名称/歌手两行文字
+                          childAspectRatio: cover / (cover + 40),
+                        ),
+                        itemCount: list.length,
+                        itemBuilder: (context, index) {
+                          final album = list[index];
+                          return AlbumCard(
+                            album: album,
+                            size: cover,
+                            onTap: () => Navigator.of(context).push(
+                              fadeRoute<void>(
+                                AlbumDetailScreen(
+                                  albumId: album.id,
+                                  title: album.name,
+                                  subtitle:
+                                      '${album.year ?? ''} ${album.artist}'
+                                          .trim(),
+                                  rating: album.rating,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-class _AlbumGridBody extends ConsumerWidget {
-  const _AlbumGridBody({required this.async, required this.provider});
+/// 专辑列表搜索栏：圆角输入框 + 尾部漏斗图标（过滤当前列表，非全局搜索）
+class _AlbumSearchBar extends StatelessWidget {
+  const _AlbumSearchBar({required this.controller, required this.onChanged});
 
-  final AsyncValue<List<Album>> async;
-  final FutureProvider<List<Album>> provider;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return asyncStateBox<Album>(
-      async: async,
-      emptyText: '暂无专辑',
-      onRetry: () => ref.invalidate(provider),
-      onData: (albums) => GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.92,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        itemCount: albums.length,
-        itemBuilder: (context, index) {
-          final album = albums[index];
-          return FadeSlideIn(
-            child: AlbumCard(
-              album: album,
-              onTap: () => Navigator.of(context).push(
-                fadeRoute<void>(
-                  AlbumDetailScreen(
-                    albumId: album.id,
-                    title: album.name,
-                    subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-                    rating: album.rating,
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(19),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, size: 20, color: Colors.white38),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      onChanged: onChanged,
+                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      decoration: const InputDecoration(
+                        hintText: '搜索专辑/歌手',
+                        hintStyle: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 15,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 10),
+          const Icon(
+            Icons.filter_alt_outlined,
+            size: 22,
+            color: Colors.white38,
+          ),
+        ],
       ),
     );
   }

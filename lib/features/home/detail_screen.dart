@@ -24,6 +24,7 @@ import 'home_providers.dart';
 List<Widget> _songSlivers(
   List<Song> songs, {
   bool selectMode = false,
+  bool showFileSize = false,
   Set<String> selected = const {},
   ValueChanged<Song>? onToggle,
 }) {
@@ -40,6 +41,7 @@ List<Widget> _songSlivers(
             song: song,
             index: index,
             songs: songs,
+            showFileSize: showFileSize,
             selected: selectMode ? selected.contains(song.id) : null,
             onToggleSelect: selectMode && onToggle != null
                 ? () => onToggle(song)
@@ -357,8 +359,16 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
         : ref.watch(playlistSongsProvider(widget.playlistId!));
     final all = widget.songs ?? async?.value ?? const <Song>[];
     final songs = _filterSongs(all, _search);
+    // 资料库歌曲入口（歌曲/我喜欢的/本地音乐）头部展示占用空间，对齐设计图
+    final showFileSize = widget.songsProvider != null;
+    final totalBytes = all.fold<int>(0, (sum, s) => sum + s.size);
     final subtitle =
-        widget.subtitle ?? (all.isEmpty ? '' : '共 ${all.length} 首歌曲');
+        widget.subtitle ??
+        (all.isEmpty
+            ? ''
+            : showFileSize && totalBytes > 0
+            ? '共计占用 ${QualityBadge.fileSizeLabel(totalBytes)} 空间'
+            : '共 ${all.length} 首歌曲');
     final canDownload =
         ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
     final selectedCount = selectionOf(songs).length;
@@ -421,6 +431,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
             onData: (_) => _songSlivers(
               songs,
               selectMode: selectMode,
+              showFileSize: showFileSize,
               selected: selectedIds,
               onToggle: toggleSelected,
             ),
@@ -953,6 +964,7 @@ class SongRow extends ConsumerWidget {
     required this.song,
     required this.index,
     required this.songs,
+    this.showFileSize = false,
     this.selected,
     this.onToggleSelect,
   });
@@ -960,6 +972,9 @@ class SongRow extends ConsumerWidget {
   final Song song;
   final int index;
   final List<Song> songs;
+
+  /// 为真时徽标显示文件大小（flac 61 MB）而非码率（本地音乐列表）
+  final bool showFileSize;
 
   /// 非 null 即处于批量选择态，值为该行是否已勾选
   final bool? selected;
@@ -1028,7 +1043,11 @@ class SongRow extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      QualityBadge(song: song, trailingGap: 8),
+                      QualityBadge(
+                        song: song,
+                        trailingGap: 8,
+                        showFileSize: showFileSize,
+                      ),
                       Expanded(
                         child: Text(
                           '${song.artist} - ${song.album}',
