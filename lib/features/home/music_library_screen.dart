@@ -13,14 +13,15 @@ import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
+import '../search/search_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
 import 'library_entries_screen.dart';
+import 'server_detail_screen.dart';
 
-/// 负一屏音乐库（设计图「负一屏」）：
-/// 服务器卡片（Navidrome / 主线路 / 歌曲总数）
-/// → 八入口（歌曲 / 我喜欢的 / 本地音乐 / 专辑 / 专辑艺术家 / 歌手 / 流派 / 电台）
-/// → 我的歌单列表（点击进歌单详情，三点菜单支持播放/加入队列）。
+/// 负一屏音乐库（对齐设计图「资料库」）：
+/// 搜索栏 → 服务器大卡片（类型名 + 别名/歌曲数，内嵌八入口可折叠，点头像进服务器详情）
+/// → 歌单列表（我的/全部切换，点击进歌单详情，三点菜单支持播放/加入队列）。
 class MusicLibraryScreen extends ConsumerWidget {
   const MusicLibraryScreen({super.key});
 
@@ -29,10 +30,10 @@ class MusicLibraryScreen extends ConsumerWidget {
     final total = ref.watch(songTotalProvider);
     return Scaffold(
       body: ListView(
-        padding: const EdgeInsets.only(top: 12, bottom: 96),
+        padding: const EdgeInsets.only(top: 4, bottom: 96),
         children: [
-          _ServerCard(total: total.value ?? 0),
-          const _EntryGrid(),
+          const _SearchBar(),
+          _ServerPanel(total: total.value ?? 0),
           const SizedBox(height: 20),
           const _PlaylistSection(),
         ],
@@ -41,85 +42,181 @@ class MusicLibraryScreen extends ConsumerWidget {
   }
 }
 
-/// 服务器卡片：后端图标 + 服务器名 + 类型/账号 + 歌曲总数
-/// 标题与副标题读自当前激活服务器，六种后端各自正确显示（不再硬编码 Navidrome）
-class _ServerCard extends ConsumerWidget {
-  const _ServerCard({required this.total});
+/// 顶部搜索栏：圆角半透明条 + 扫码图标，点击进搜索页
+class _SearchBar extends ConsumerWidget {
+  const _SearchBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () =>
+          Navigator.of(context).push(fadeRoute<void>(const SearchScreen())),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, size: 22, color: Colors.white54),
+            const SizedBox(width: 10),
+            const Text(
+              '搜索',
+              style: TextStyle(color: Colors.white38, fontSize: 15),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.qr_code_scanner,
+              size: 22,
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 服务器大卡片（设计图）：头部（后端 Logo + 类型名 + 「别名 · 歌曲数」副行，
+/// 点击进服务器详情页）→ 分隔线 → 内嵌八入口网格（可折叠）→ 底部折叠箭头。
+class _ServerPanel extends ConsumerStatefulWidget {
+  const _ServerPanel({required this.total});
 
   final int total;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ServerPanel> createState() => _ServerPanelState();
+}
+
+class _ServerPanelState extends ConsumerState<_ServerPanel> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(authControllerProvider).activeConfig;
     final type = config?.type;
+    final primary = Theme.of(context).colorScheme.primary;
     return GlassContainer(
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.l,
-        AppSpacing.s,
-        AppSpacing.l,
-        AppSpacing.s,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.l),
-      child: Row(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary
-                  .withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(AppRadius.m),
+          InkWell(
+            onTap: config == null
+                ? null
+                : () =>
+                      Navigator.of(context)
+                          .push(fadeRoute<void>(ServerDetailScreen())),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppRadius.l),
             ),
-            child: Icon(
-              type?.fallbackIcon ?? Icons.album,
-              color: Theme.of(context).colorScheme.primary,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.m),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  config?.name ?? '未连接服务器',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Row(
+                children: [
+                  if (type != null && type.hasLogoAsset)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.m),
+                      child: Image.asset(type.iconAsset, width: 44, height: 44),
+                    )
+                  else
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(AppRadius.m),
+                      ),
+                      child: Icon(
+                        type?.fallbackIcon ?? Icons.album,
+                        color: primary,
+                        size: 26,
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          type?.displayName ?? '未连接服务器',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.alt_route,
+                              size: 13,
+                              color: Colors.white38,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                config?.name ?? '点击设置添加服务器',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.music_note,
+                              size: 13,
+                              color: Colors.white38,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.total}',
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  type == null
-                      ? '点击设置添加服务器'
-                      : '${type.displayName} · ${config!.username}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                '歌曲总数',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+          // 入口网格可折叠：收起时高度压缩为 0，箭头随状态翻转
+          ClipRect(
+            child: AnimatedAlign(
+              alignment: Alignment.topCenter,
+              heightFactor: _expanded ? 1 : 0,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              child: const _EntryGrid(),
+            ),
+          ),
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: SizedBox(
+              height: 30,
+              width: double.infinity,
+              child: Icon(
+                _expanded
+                    ? Icons.keyboard_double_arrow_up
+                    : Icons.keyboard_double_arrow_down,
+                size: 20,
+                color: Colors.white38,
               ),
-              const SizedBox(height: 2),
-              Text(
-                '$total',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -258,83 +355,180 @@ class _Entry extends StatelessWidget {
   }
 }
 
-/// 我的歌单：标题 + 歌单列表（封面 + 名称 + N 首歌曲 + 三点菜单）
-class _PlaylistSection extends ConsumerWidget {
+/// 歌单区：标题旁三角图标切换「我的歌单 / 全部歌单」（owner 匹配当前用户名）；
+/// 后端不提供 owner（全部为空）时两份列表一致，切换图标隐藏。
+class _PlaylistSection extends ConsumerStatefulWidget {
   const _PlaylistSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PlaylistSection> createState() => _PlaylistSectionState();
+}
+
+class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
+  bool _all = false; // false = 我的歌单，true = 全部歌单
+
+  @override
+  Widget build(BuildContext context) {
     final playlists = ref.watch(playlistsProvider);
+    final username = ref
+        .watch(authControllerProvider)
+        .activeConfig
+        ?.username
+        .toLowerCase();
+    return playlists.when(
+      loading: () => _header(context, null, const [], username),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: TextButton(
+            onPressed: () => ref.invalidate(playlistsProvider),
+            child: const Text(
+              '加载失败，点击重试',
+              style: TextStyle(color: Colors.white38),
+            ),
+          ),
+        ),
+      ),
+      data: (list) => _header(context, list, list, username),
+    );
+  }
+
+  Widget _header(
+    BuildContext context,
+    List<Playlist>? asyncList,
+    List<Playlist> all,
+    String? username,
+  ) {
+    final hasOwnerInfo = all.any((p) => p.owner?.isNotEmpty == true);
+    final mine = username == null
+        ? all
+        : all
+              .where(
+                (p) => p.owner != null && p.owner!.toLowerCase() == username,
+              )
+              .toList();
+    // 只有 owner 信息能区分两份列表时才显示切换
+    final canToggle = hasOwnerInfo && mine.length != all.length;
+    final list = _all ? all : mine;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            '我的歌单',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        playlists.when(
-          loading: () => const SizedBox(
-            height: 120,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: TextButton(
-                onPressed: () => ref.invalidate(playlistsProvider),
-                child: const Text(
-                  '加载失败，点击重试',
-                  style: TextStyle(color: Colors.white38),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
+          child: Row(
+            children: [
+              Text(
+                _all ? '全部歌单' : '我的歌单',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ),
-          data: (list) {
-            if (list.isEmpty) {
-              return glassEmptyState(
-                text: '还没有歌单\n新建一个，或从服务器重新同步',
-                icon: Icons.queue_music_outlined,
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.xl,
-                  horizontal: AppSpacing.l,
+              if (canToggle)
+                GestureDetector(
+                  onTap: () => setState(() => _all = !_all),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+                    child: Icon(
+                      _all ? Icons.arrow_right : Icons.arrow_left,
+                      size: 22,
+                      color: Colors.white54,
+                    ),
+                  ),
                 ),
-                actions: [
-                  FilledButton.icon(
-                    onPressed: () => glassDialog<void>(
+              const Spacer(),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz, color: Colors.white54),
+                onSelected: (action) {
+                  if (action == 'create') {
+                    glassDialog<void>(
                       context,
                       title: '新建歌单',
                       content: const _CreatePlaylistForm(),
+                    );
+                  } else if (action == 'sync') {
+                    ref.invalidate(playlistsProvider);
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'create',
+                    child: Row(
+                      children: [
+                        Icon(Icons.playlist_add, size: 18),
+                        SizedBox(width: 8),
+                        Text('新建歌单'),
+                      ],
                     ),
-                    icon: const Icon(Icons.playlist_add, size: 18),
-                    label: const Text('新建歌单'),
                   ),
-                  FilledButton.icon(
-                    onPressed: () => ref.invalidate(playlistsProvider),
-                    icon: const Icon(Icons.sync, size: 18),
-                    label: const Text('重新同步'),
+                  PopupMenuItem(
+                    value: 'sync',
+                    child: Row(
+                      children: [
+                        Icon(Icons.sync, size: 18),
+                        SizedBox(width: 8),
+                        Text('重新同步'),
+                      ],
+                    ),
                   ),
                 ],
-              );
-            }
-            return GlassCard(
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                children: list
-                    .map((p) => _PlaylistRow(playlist: p, ref: ref))
-                    .toList(),
               ),
-            );
-          },
+            ],
+          ),
         ),
+        if (asyncList == null)
+          const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else
+          _buildList(context, list, mine),
       ],
+    );
+  }
+
+  Widget _buildList(
+    BuildContext context,
+    List<Playlist> list,
+    List<Playlist> mine,
+  ) {
+    if (list.isEmpty) {
+      // 我的歌单为空但服务器有歌单 → 引导切换查看；否则走新建/同步引导
+      final guideSwitch = !_all && mine.isEmpty;
+      return glassEmptyState(
+        text: guideSwitch ? '没有你的歌单\n点击标题旁箭头查看全部歌单' : '还没有歌单\n新建一个，或从服务器重新同步',
+        icon: Icons.queue_music_outlined,
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.xl,
+          horizontal: AppSpacing.l,
+        ),
+        actions: guideSwitch
+            ? const <Widget>[]
+            : <Widget>[
+                FilledButton.icon(
+                  onPressed: () => glassDialog<void>(
+                    context,
+                    title: '新建歌单',
+                    content: const _CreatePlaylistForm(),
+                  ),
+                  icon: const Icon(Icons.playlist_add, size: 18),
+                  label: const Text('新建歌单'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => ref.invalidate(playlistsProvider),
+                  icon: const Icon(Icons.sync, size: 18),
+                  label: const Text('重新同步'),
+                ),
+              ],
+      );
+    }
+    return GlassCard(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
+      ),
     );
   }
 }
@@ -441,6 +635,85 @@ class _CreatePlaylistFormState extends ConsumerState<_CreatePlaylistForm> {
   }
 }
 
+/// 歌单封面：优先用前 4 首歌的去重专辑封面拼 2×2（对齐设计图）；
+/// 不足 2 张时回退歌单自带封面 / 占位图标。
+class _PlaylistCover extends ConsumerWidget {
+  const _PlaylistCover({required this.playlist});
+
+  final Playlist playlist;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final covers = ref.watch(playlistCoverIdsProvider(playlist.id));
+    return covers.when(
+      loading: () => _fallback(context),
+      error: (_, _) => _fallback(context),
+      data: (ids) {
+        if (ids.length >= 2) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Column(
+                children: [
+                  for (var r = 0; r < 2; r++)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          for (var c = 0; c < 2; c++)
+                            Expanded(
+                              // 不足 4 张时循环复用已有封面补位
+                              child: CoverArt(
+                                albumId: ids[(r * 2 + c) % ids.length],
+                                size: 26,
+                                radius: 0,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
+        if (ids.length == 1) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CoverArt(albumId: ids.first, size: 52, radius: 8),
+          );
+        }
+        return _fallback(context);
+      },
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    final adapter = ProviderScope.containerOf(context)
+        .read(serverAdapterProvider);
+    final hasCover =
+        playlist.coverArt != null &&
+        playlist.coverArt!.isNotEmpty &&
+        adapter != null;
+    if (hasCover) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CoverArt(albumId: playlist.coverArt!, size: 52, radius: 8),
+      );
+    }
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceOf(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(Icons.queue_music, color: Colors.white24, size: 26),
+    );
+  }
+}
+
 class _PlaylistRow extends StatelessWidget {
   const _PlaylistRow({required this.playlist, required this.ref});
 
@@ -449,12 +722,6 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final adapter = ProviderScope.containerOf(context)
-        .read(serverAdapterProvider);
-    final hasCover =
-        playlist.coverArt != null &&
-        playlist.coverArt!.isNotEmpty &&
-        adapter != null;
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
@@ -469,28 +736,7 @@ class _PlaylistRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            hasCover
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: CoverArt(
-                      albumId: playlist.coverArt!,
-                      size: 52,
-                      radius: 8,
-                    ),
-                  )
-                : Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.queue_music,
-                      color: Colors.white24,
-                      size: 26,
-                    ),
-                  ),
+            _PlaylistCover(playlist: playlist),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

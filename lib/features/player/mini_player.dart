@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
+import '../../core/settings/prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
@@ -42,24 +43,7 @@ class MiniPlayer extends ConsumerWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => openFullScreenPlayer(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  song.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                _LyricSubtitle(song: song),
-              ],
-            ),
+            child: _MiniTextBlock(song: song),
           ),
         ),
         const SizedBox(width: 12),
@@ -256,18 +240,20 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.accentColor != accentColor;
 }
 
-/// 副标题：优先当前歌词行，其次下一行，无歌词时显示「歌手 - 专辑」（对齐 1.x）。
-class _LyricSubtitle extends ConsumerStatefulWidget {
-  const _LyricSubtitle({required this.song});
+/// 中部文字块：播放时双行歌词（双语歌单第二行译文，跟随全局双语开关），
+/// 暂停或无歌词时显示歌名 + 歌手。局部订阅 isPlaying/position 高频流，外壳零重建。
+class _MiniTextBlock extends ConsumerStatefulWidget {
+  const _MiniTextBlock({required this.song});
 
   final Song song;
 
   @override
-  ConsumerState<_LyricSubtitle> createState() => _LyricSubtitleState();
+  ConsumerState<_MiniTextBlock> createState() => _MiniTextBlockState();
 }
 
-class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
+class _MiniTextBlockState extends ConsumerState<_MiniTextBlock> {
   List<LyricLine> _lines = const [];
+  List<String?> _translations = const [];
 
   @override
   void initState() {
@@ -276,7 +262,7 @@ class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
   }
 
   @override
-  void didUpdateWidget(_LyricSubtitle oldWidget) {
+  void didUpdateWidget(_MiniTextBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.song.id != oldWidget.song.id) {
       _parse();
@@ -284,29 +270,64 @@ class _LyricSubtitleState extends ConsumerState<_LyricSubtitle> {
   }
 
   void _parse() {
-    setState(() => _lines = parseLyricsData(widget.song.lyrics).lines);
+    final data = parseLyricsData(widget.song.lyrics);
+    final (merged, inline) = mergeDuplicateTimestamps(data.lines);
+    final aligned = alignTranslations(merged, data.translations);
+    setState(() {
+      _lines = merged;
+      _translations = [
+        for (var i = 0; i < merged.length; i++) inline[i] ?? aligned[i],
+      ];
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    String text;
-    if (_lines.isEmpty) {
-      text = '${widget.song.artist} - ${widget.song.album}';
-    } else {
+    final isPlaying = ref.watch(isPlayingProvider).valueOrNull ?? false;
+    final showBilingual =
+        ref.watch(sharedPrefsProvider).getBool(bilingualLyricsKey) ?? true;
+
+    String? main;
+    String? sub;
+    if (isPlaying && _lines.isNotEmpty) {
       final position = ref.watch(positionProvider).valueOrNull ?? Duration.zero;
       final idx = findLyricIndex(_lines, position.inMilliseconds / 1000.0);
-      // 前奏（-1）时显示第一句（对齐 1.x currentLyric→nextLyric 回退）
-      text = idx >= 0 ? _lines[idx].text : _lines.first.text;
+      // 前奏（-1）时显示第一句（对齐全屏播放页回退策略）
+      final i = idx >= 0 ? idx : 0;
+      main = _lines[i].text;
+      if (showBilingual) sub = _translations[i];
+    } else {
+      main = widget.song.title;
+      sub = widget.song.artist;
     }
 
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: 14,
-        color: Colors.white.withValues(alpha: 0.8),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          main,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: isPlaying && _lines.isNotEmpty ? 15 : 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        if (sub != null && sub.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.65),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

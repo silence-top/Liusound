@@ -378,18 +378,21 @@ class Playlist {
     required this.name,
     required this.songCount,
     this.coverArt,
+    this.owner,
   });
 
   final String id;
   final String name;
   final int songCount;
   final String? coverArt; // 封面 id（getCoverArt 用）
+  final String? owner; // 所有者用户名（区分「我的歌单 / 全部歌单」）
 
   factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
     id: _Json.str(j, 'id'),
     name: _Json.str(j, 'name', '未命名歌单'),
     songCount: _Json.intOf(j, 'songCount'),
     coverArt: j['coverArt']?.toString(),
+    owner: j['owner']?.toString(),
   );
 
   static List<Playlist> listFromJson(dynamic json) => (json as List<dynamic>)
