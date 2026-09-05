@@ -69,10 +69,10 @@ class SettingsScreen extends ConsumerWidget {
     final cacheSize = ref.watch(audioCacheSizeProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
+    // 嵌在 AppShell 顶部图标导航之下：不再自带 AppBar，避免双层标题栏叠加
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 48),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 48),
         children: [
           _GroupCard(
             title: '播放',
