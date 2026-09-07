@@ -35,6 +35,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     required this.blurScale,
     required this.blurEnabled,
     required this.highlightStrength,
+    required this.radiusScale,
     required this.language,
   });
 
@@ -56,6 +57,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
   final double blurScale; // 模糊强度缩放
   final bool blurEnabled; // 极简/高对比强制关模糊
   final double highlightStrength; // 镜面高光强度（0 = 无高光，改实色描边）
+  final double radiusScale; // 圆角档位缩放（玻璃面基准圆角 × scale；1.0 = 现状）
   final SurfaceLanguage language;
 
   static SkinTokens of(BuildContext c) => Theme.of(c).extension<SkinTokens>()!;
@@ -79,6 +81,8 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 1.0,
     blurEnabled: true,
     highlightStrength: 1.0,
+    // 液态玻璃是基准皮肤：scale 恒为 1.0（播放页视觉已冻结在此皮肤）
+    radiusScale: 1.0,
     language: SurfaceLanguage.liquidGlass,
   );
 
@@ -101,38 +105,42 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 1.1,
     blurEnabled: false,
     highlightStrength: 0,
+    radiusScale: 0.7, // 赛博几何感：中锐利圆角
     language: SurfaceLanguage.deepSpace,
   );
 
   static const minimal = SkinTokens(
-    background: Color(0xFF111111),
-    shell: Color(0xFF161616),
-    detailBg: Color(0xFF141414),
-    surface: Color(0xFF1F1F1F),
+    // 暖炭纸感：黑阶带微暖色温，与液态玻璃的冷蓝形成对比
+    background: Color(0xFF141210),
+    shell: Color(0xFF1A1714),
+    detailBg: Color(0xFF171412),
+    surface: Color(0xFF221E1A),
     divider: Color(0x14FFFFFF),
-    glassTint: Color(0xF01F1F1F),
+    glassTint: Color(0xF0221E1A),
     tintLight: Color(0x0DFFFFFF),
     borderTop: Color(0x1FFFFFFF),
     borderBottom: Color(0x0AFFFFFF),
     borderHairline: Color(0x1FFFFFFF),
     shadowColor: Color(0x33000000),
-    textDim: Color(0xFFAAAAAA),
-    textFaint: Color(0xFF666666),
-    textPrimary: Color(0xFFF5F5F5),
+    textDim: Color(0xFFB3ABA2),
+    textFaint: Color(0xFF6E655C),
+    textPrimary: Color(0xFFF7F3EC),
     glow: Color(0x00000000),
     blurScale: 0,
     blurEnabled: false,
     highlightStrength: 0.2,
+    radiusScale: 0.55, // 纸感：小圆角
     language: SurfaceLanguage.minimal,
   );
 
   static const materialYou = SkinTokens(
-    background: Color(0xFF131318),
-    shell: Color(0xFF1B1B21),
-    detailBg: Color(0xFF191920),
-    surface: Color(0xFF232329),
+    // M3 暗色紫调面（tonal surface）：背景与面板带明显紫罗兰色温
+    background: Color(0xFF14121B),
+    shell: Color(0xFF1D1B22),
+    detailBg: Color(0xFF1A181F),
+    surface: Color(0xFF282430),
     divider: Color(0x14FFFFFF),
-    glassTint: Color(0x52262630),
+    glassTint: Color(0x522A2536),
     tintLight: Color(0x14FFFFFF),
     borderTop: Color(0x33FFFFFF),
     borderBottom: Color(0x0AFFFFFF),
@@ -145,6 +153,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 1.0,
     blurEnabled: false,
     highlightStrength: 0,
+    radiusScale: 1.3, // M3 大圆角
     language: SurfaceLanguage.materialYou,
   );
 
@@ -167,6 +176,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: 0,
     blurEnabled: false,
     highlightStrength: 0.0,
+    radiusScale: 0.0, // 无障碍：直角
     language: SurfaceLanguage.highContrast,
   );
 
@@ -198,6 +208,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     double? blurScale,
     bool? blurEnabled,
     double? highlightStrength,
+    double? radiusScale,
     SurfaceLanguage? language,
   }) => SkinTokens(
     background: background ?? this.background,
@@ -218,6 +229,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     blurScale: blurScale ?? this.blurScale,
     blurEnabled: blurEnabled ?? this.blurEnabled,
     highlightStrength: highlightStrength ?? this.highlightStrength,
+    radiusScale: radiusScale ?? this.radiusScale,
     language: language ?? this.language,
   );
 
@@ -245,6 +257,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
       blurEnabled: t < 0.5 ? blurEnabled : other.blurEnabled,
       highlightStrength:
           highlightStrength + (other.highlightStrength - highlightStrength) * t,
+      radiusScale: radiusScale + (other.radiusScale - radiusScale) * t,
       language: t < 0.5 ? language : other.language,
     );
   }

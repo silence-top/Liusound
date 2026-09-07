@@ -67,15 +67,15 @@ class GlassSurface extends ConsumerWidget {
         tint ??
         Color.alphaBlend(accent.withValues(alpha: 0.08), tokens.glassTint);
     final highlight = tokens.highlightStrength;
-    final borderRadius = BorderRadius.circular(radius);
+    // 皮肤圆角档位：玻璃面基准圆角 × 皮肤缩放（胶囊 999 保持全圆不缩放）
+    final scaledRadius = radius == GlassTokens.radiusPill
+        ? radius
+        : radius * tokens.radiusScale;
+    final borderRadius = BorderRadius.circular(scaledRadius);
 
     if (tokens.language != SurfaceLanguage.liquidGlass) {
       return RepaintBoundary(
-        child: _buildNonGlassSurface(
-          context,
-          tokens: tokens,
-          borderRadius: borderRadius,
-        ),
+        child: _buildNonGlassSurface(context, tokens: tokens),
       );
     }
 
@@ -125,7 +125,7 @@ class GlassSurface extends ConsumerWidget {
 
     if (gradientBorder && borderColor == null) {
       result = _GradientBorderWrapper(
-        radius: radius,
+        radius: scaledRadius,
         strength: highlight,
         accent: accent,
         fallback: tokens.borderHairline,
@@ -137,7 +137,7 @@ class GlassSurface extends ConsumerWidget {
       result = Container(
         margin: margin,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
+          borderRadius: BorderRadius.circular(scaledRadius),
           boxShadow: [
             if (tokens.shadowColor.a > 0)
               BoxShadow(
@@ -161,14 +161,13 @@ class GlassSurface extends ConsumerWidget {
   Widget _buildNonGlassSurface(
     BuildContext context, {
     required SkinTokens tokens,
-    required BorderRadius borderRadius,
   }) {
     final requestedTint = tint == tokens.glassTint ? null : tint;
-    final isHighContrast = tokens.language == SurfaceLanguage.highContrast;
-    final isMinimal = tokens.language == SurfaceLanguage.minimal;
-    final effectiveRadius = isMinimal || isHighContrast
-        ? BorderRadius.circular(radius == GlassTokens.radiusPill ? radius : 8)
-        : borderRadius;
+    // 非玻璃面同样走皮肤圆角档位（radiusScale 表达高对比直角/极简小圆角；
+    // 胶囊仍保持全圆）
+    final effectiveRadius = BorderRadius.circular(
+      radius == GlassTokens.radiusPill ? radius : radius * tokens.radiusScale,
+    );
     final decoration = switch (tokens.language) {
       SurfaceLanguage.deepSpace => BoxDecoration(
         color: requestedTint ?? tokens.surface,

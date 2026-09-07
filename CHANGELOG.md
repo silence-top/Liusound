@@ -2,6 +2,11 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 主题阶段1：皮肤圆角档位 + 色温差异化
+- **SkinTokens 新增 `radiusScale`**：玻璃面/弹层/导航基准圆角 × 皮肤缩放（GlassSurface 统一收口，胶囊 999 不缩放；copyWith/lerp 同步支持）。liquidGlass 恒 1.0（播放页冻结不变）、deepSpace 0.7（赛博几何）、minimal 0.55（纸感小圆角）、materialYou 1.3（M3 大圆角）、highContrast 0.0（无障碍直角，替代原先写死的 8px）
+- **色温差异化**（不动 liquidGlass/highContrast）：minimal 冷灰改暖炭纸感（背景/面板/文本阶全部带微暖色温）；materialYou 改 M3 暗色紫调 tonal surface；deepSpace 蓝黑加深——五套皮肤色温+圆角两维同时拉开，肉眼可辨
+- 非玻璃面（_buildNonGlassSurface）同样走 radiusScale，删除 minimal/highContrast 写死 8px 的特例分支
+
 ## 2026-09-08 — 外部评审落地（首批小修）
 - **auto_download 换服中止**：下载循环每轮重读 activeServerId，切换服务器后旧流程立即中止，杜绝把旧服务器歌曲下到新服务器归属
 - **LRC 导入覆盖确认**：导入前查 AppDb 已有歌词，存在时 glassDialog 确认「覆盖/取消」，不再静默覆盖
