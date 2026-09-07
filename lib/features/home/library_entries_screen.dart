@@ -7,7 +7,6 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
-import 'artist_detail_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
 import 'music_library_screen.dart';
@@ -224,9 +223,12 @@ class _GroupedArtistListState extends ConsumerState<_GroupedArtistList> {
                                               artist.id,
                                             ),
                                           )
-                                        : ArtistDetailScreen(
-                                            artistId: artist.id,
-                                            artistName: artist.name,
+                                        : PlaylistDetailScreen(
+                                            title: artist.name,
+                                            songsProvider:
+                                                artistAllSongsProvider(
+                                                  artist.id,
+                                                ),
                                           ),
                                   ),
                                 ),

@@ -272,3 +272,12 @@ final artistSongsProvider = NotifierProvider.autoDispose
     .family<ArtistSongsController, ArtistSongsState, String>(
       ArtistSongsController.new,
     );
+
+/// 艺人歌曲全量列表（资料库歌手列表复用 PlaylistDetailScreen；该页无分页，
+/// 一次性取全量——上限 1000 已远超常规单曲艺人产出）
+final artistAllSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>, String>((ref, artistId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return const [];
+      return adapter.fetchArtistSongs(artistId, limit: 1000);
+    });
