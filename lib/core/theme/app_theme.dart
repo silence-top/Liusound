@@ -67,6 +67,15 @@ abstract final class AppTheme {
   static const accentSoft = Color(0xFF9EC1F0); // 操作网格柔和蓝
   static const heartRed = Color(0xFFE57373); // 收藏 / 危险操作
   static const actionBlue = Color(0xFFB2D7F7); // 详情页操作图标
+  static const ratingGold = Color(0xFFFFC53D); // 五星评分金
+
+  // 音质徽标分级色板（quality_badge 三档：Hi-Res / 无损 / 有损）
+  static const hiResBg = Color(0x33C89B3C); // 金色琥珀高光底
+  static const hiResBorder = Color(0xFFFFD479);
+  static const hiResText = Color(0xFFFFEBC2);
+  static const lossyBg = Color(0x1FFFFFFF); // 中灰半透明低调
+  static const lossyBorder = Color(0x40FFFFFF);
+  static const lossyText = Color(0xFFBDBDBD);
   static const formatBorder = Color(0xFF7ECFFF); // 无损格式标签
   static const formatBg = Color(0x593C5078); // rgba(60,80,120,0.35)
   static const formatText = Color(0xFFE0F6FF);

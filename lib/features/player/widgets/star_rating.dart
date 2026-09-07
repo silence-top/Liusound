@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+
 /// 五星评分组件（详情页头部 / 歌曲操作弹窗共用）：
 /// 点击第 n 颗提交 n；再次点击当前星级清零（Subsonic setRating rating=0）。
 class StarRating extends StatelessWidget {
@@ -8,7 +10,7 @@ class StarRating extends StatelessWidget {
     required this.rating,
     required this.onRating,
     this.size = 22,
-    this.color = const Color(0xFFFFC53D),
+    this.color = AppTheme.ratingGold,
   });
 
   final int rating;
@@ -30,7 +32,7 @@ class StarRating extends StatelessWidget {
             child: Icon(
               filled ? Icons.star_rounded : Icons.star_border_rounded,
               size: size,
-              color: filled ? color : Colors.white24,
+              color: filled ? color : AppTheme.textFaintOf(context),
             ),
           ),
         );

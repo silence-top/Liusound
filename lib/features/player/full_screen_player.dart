@@ -94,6 +94,33 @@ const double _lyricDualHeight = 64; // 双语歌词行高（原文 + 译文）
 Color _lyricFadeColor(BuildContext context) =>
     SkinTokens.of(context).background.withValues(alpha: 0.93);
 
+/// 黑胶/CD/唱针拟物色板：固定装饰色，不随皮肤走（原散落各 painter/widget 的 hex 收拢于此）
+class _VinylPalette {
+  _VinylPalette._();
+
+  static const discOuter = Color(0xFF2A2A2A); // 唱片径向渐变外圈
+  static const discMid = Color(0xFF161616);
+  static const discInner = Color(0xFF060606);
+
+  static const cdSheen = <Color>[
+    Color(0xFFDDE2E8), // CD 镀膜扫掠渐变（首尾同色闭合）
+    Color(0xFFB7C6DC),
+    Color(0xFFEAEFF6),
+    Color(0xFFD3C3E2),
+    Color(0xFFBFDAD6),
+    Color(0xFFDDE2E8),
+  ];
+  static const cdHub = Color(0xFFEDEFF3); // 内圈镀层
+  static const cdHole = Color(0xFF0C0E12); // 中心孔
+
+  static const armLight = Color(0xFFF1F2F4); // 唱臂银色渐变
+  static const armDark = Color(0xFF9BA2AB);
+  static const headShell = Color(0xFF24272D); // 唱头壳
+  static const pivotShadow = Color(0x66000000); // 支点底座影
+  static const pivotLight = Color(0xFFF6F7F9); // 支点高光渐变
+  static const pivotDark = Color(0xFF868D96);
+}
+
 /// 歌词行时间戳 mm:ss（§4.3 点击行预览胶囊）
 String _fmtLyricTime(double seconds) {
   final total = seconds.round();
@@ -894,9 +921,9 @@ class _VinylDisc extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        Color(0xFF2A2A2A),
-                        Color(0xFF161616),
-                        Color(0xFF060606),
+                        _VinylPalette.discOuter,
+                        _VinylPalette.discMid,
+                        _VinylPalette.discInner,
                       ],
                       stops: [0.0, 0.72, 1.0],
                     ),
@@ -966,14 +993,7 @@ class _CdDisc extends StatelessWidget {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
-                  colors: [
-                    Color(0xFFDDE2E8),
-                    Color(0xFFB7C6DC),
-                    Color(0xFFEAEFF6),
-                    Color(0xFFD3C3E2),
-                    Color(0xFFBFDAD6),
-                    Color(0xFFDDE2E8),
-                  ],
+                  colors: _VinylPalette.cdSheen,
                   stops: [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
                 ),
                 boxShadow: [
@@ -991,7 +1011,7 @@ class _CdDisc extends StatelessWidget {
               height: 188,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFEDEFF3),
+                color: _VinylPalette.cdHub,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
               ),
             ),
@@ -1003,7 +1023,7 @@ class _CdDisc extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF0C0E12),
+                color: _VinylPalette.cdHole,
                 border: Border.all(color: Colors.white24),
               ),
             ),
@@ -1107,7 +1127,7 @@ class _TonearmPainter extends CustomPainter {
       tip,
       Paint()
         ..shader = const LinearGradient(
-          colors: [Color(0xFFF1F2F4), Color(0xFF9BA2AB)],
+          colors: [_VinylPalette.armLight, _VinylPalette.armDark],
         ).createShader(Rect.fromPoints(pivot, tip))
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round,
@@ -1123,18 +1143,18 @@ class _TonearmPainter extends CustomPainter {
           Rect.fromCenter(center: const Offset(0, 8), width: 12, height: 22),
           const Radius.circular(3),
         ),
-        Paint()..color = const Color(0xFF24272D),
+        Paint()..color = _VinylPalette.headShell,
       )
       ..restore();
 
     // 支点底座 + 高光
-    canvas.drawCircle(pivot, 12, Paint()..color = const Color(0x66000000));
+    canvas.drawCircle(pivot, 12, Paint()..color = _VinylPalette.pivotShadow);
     canvas.drawCircle(
       pivot,
       8,
       Paint()
         ..shader = const RadialGradient(
-          colors: [Color(0xFFF6F7F9), Color(0xFF868D96)],
+          colors: [_VinylPalette.pivotLight, _VinylPalette.pivotDark],
         ).createShader(Rect.fromCircle(center: pivot, radius: 8)),
     );
   }

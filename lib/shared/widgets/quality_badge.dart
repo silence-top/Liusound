@@ -7,13 +7,13 @@ import 'glass.dart';
 /// 音质分级（决定胶囊配色与文案形态）
 enum _Grade {
   /// 24bit / ≥96kHz 的无损：金色琥珀高光
-  hiRes(Color(0x33C89B3C), Color(0xFFFFD479), Color(0xFFFFEBC2)),
+  hiRes(AppTheme.hiResBg, AppTheme.hiResBorder, AppTheme.hiResText),
 
   /// 16bit 无损：主题天蓝微亮（沿用既有格式标签配色）
   lossless(AppTheme.formatBg, AppTheme.formatBorder, AppTheme.formatText),
 
   /// AAC / MP3 等有损转码：中灰半透明低调展示
-  lossy(Color(0x1FFFFFFF), Color(0x40FFFFFF), Color(0xFFBDBDBD));
+  lossy(AppTheme.lossyBg, AppTheme.lossyBorder, AppTheme.lossyText);
 
   const _Grade(this.bg, this.border, this.text);
 
