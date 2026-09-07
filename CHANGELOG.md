@@ -2,6 +2,11 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页相关弹层全部随封面主色
+- **取色下沉共享**：`albumDominantColorProvider` 从 full_screen_player 迁出到新文件 `album_tint.dart`，新增 `albumAdaptiveTint()` 统一公式（主色 lerp 黑 0.42 × alpha 0.55，与页面背景渐变顶端一致）
+- **接入弹层**：歌曲操作弹窗（随目标歌曲封面）、添加到歌单（批量取第一首）、播放队列面板（随当前歌曲）、歌词页 4 个浮层（LRC 菜单/音轨选择/歌词偏移/音量条，随当前歌曲）——与底部控制栏同一色系；取色中/失败回退 GlassTokens.tint
+- 队列当前行高亮胶囊（primary 0.14）与歌词跳播 chip 保持原样，仅面板级 tint 跟随封面
+
 ## 2026-09-08 — 播放页底部控制栏随封面主色
 - **底部控制区 tint 跟随歌曲封面**：_BottomArea 的 GlassSurface 由固定皮肤 glassTint 改为封面主色（与页面背景渐变同一取色 albumDominantColorProvider，lerp 黑 0.42 × alpha 0.55 半透明叠在模糊背景上）——歌词区背景随歌曲变色，底部栏原先固定近黑两截断开，现在整页上下同色系连贯；封面取色中/失败回退默认玻璃 tint。属审计「内容驱动取色」合理保留类的用户钦定例外
 

@@ -16,6 +16,7 @@ import '../auth/auth_controller.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
 import '../home/song_info_screen.dart';
+import 'album_tint.dart';
 import 'player_controller.dart';
 import 'widgets/star_rating.dart';
 
@@ -97,11 +98,16 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final caps = ref.watch(serverAdapterProvider)?.capabilities;
     final canRate = caps?.ratings ?? false;
     final canDownload = caps?.download ?? true;
+    // 弹层 tint 随封面主色（内容驱动取色）：与播放页背景同色系
+    final adaptiveTint = albumAdaptiveTint(
+      ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
+    );
     return GlassSurface(
       radius: GlassTokens.radiusSheet,
       blur: GlassTokens.blurHeavy,
       gradientBorder: true,
       shadow: false,
+      tint: adaptiveTint,
       padding: EdgeInsets.only(
         top: 12,
         bottom: MediaQuery.of(context).padding.bottom + 10,
@@ -710,11 +716,20 @@ class _PlaylistPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(playlistsProvider);
+    // 弹层 tint 随封面主色（内容驱动取色）：批量时取第一首的专辑
+    final adaptiveTint = albumAdaptiveTint(
+      songs.isEmpty
+          ? null
+          : ref
+                .watch(albumDominantColorProvider(songs.first.albumId))
+                .valueOrNull,
+    );
     return GlassSurface(
       radius: GlassTokens.radiusSheet,
       blur: GlassTokens.blurHeavy,
       gradientBorder: true,
       shadow: false,
+      tint: adaptiveTint,
       padding: EdgeInsets.only(
         top: 12,
         bottom: MediaQuery.of(context).padding.bottom + 10,

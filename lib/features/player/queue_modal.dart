@@ -7,6 +7,7 @@ import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import 'album_tint.dart';
 import 'player_controller.dart';
 
 /// 打开播放队列弹窗（对标 1.x QueueModal：底部滑出 + 下拉关闭）。
@@ -44,6 +45,12 @@ class _QueueSheet extends ConsumerWidget {
     final primary = Theme.of(context).colorScheme.primary;
     // 流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住
     final playing = ref.watch(isPlayingProvider).value ?? true;
+    // 弹层面板 tint 随当前歌曲封面主色（内容驱动取色）：与播放页同色系
+    final adaptiveTint = albumAdaptiveTint(
+      current == null
+          ? null
+          : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull,
+    );
     final modeIcon = switch (mode) {
       PlayMode.order => Icons.repeat,
       PlayMode.shuffle => Icons.shuffle,
@@ -60,6 +67,7 @@ class _QueueSheet extends ConsumerWidget {
         blur: GlassTokens.blurHeavy,
         gradientBorder: true,
         shadow: false,
+        tint: adaptiveTint,
         // 弹层底部锚定，不会顶到状态栏，顶部只需给拖动条留白
         padding: EdgeInsets.only(
           top: 8,

@@ -8,10 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/api/server_adapter.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
@@ -24,34 +22,10 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import 'action_sheets.dart';
+import 'album_tint.dart';
 import 'cover_style.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
-
-/// 专辑封面主色取色（动态背景，对标 Spotify 沉浸式播放页）。
-/// autoDispose 按封面 id 缓存；64px 缩样取 vibrant/muted/dominant，
-/// 任何异常返回 null（回退框架色），绝不阻塞播放器打开。
-final albumDominantColorProvider = FutureProvider.autoDispose
-    .family<Color?, String>((ref, albumId) async {
-      if (albumId.isEmpty) return null;
-      final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return null;
-      try {
-        final ImageSource? cover = adapter.coverImage(albumId, size: 64);
-        if (cover == null) return null;
-        final palette = await PaletteGenerator.fromImageProvider(
-          NetworkImage(cover.url),
-          size: const Size(64, 64),
-          maximumColorCount: 16,
-        );
-        return (palette.vibrantColor ??
-                palette.mutedColor ??
-                palette.dominantColor)
-            ?.color;
-      } catch (_) {
-        return null;
-      }
-    });
 
 /// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
 /// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
@@ -1537,6 +1511,14 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     ref.listen(positionProvider, (_, _) => _scheduleSyncIndex());
     ref.listen(sliderDragValueProvider, (_, _) => _scheduleSyncIndex());
 
+    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色，与整页同色系
+    final current = ref.watch(currentSongProvider);
+    final adaptiveTint = albumAdaptiveTint(
+      current == null
+          ? null
+          : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull,
+    );
+
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
       return Center(
@@ -1708,7 +1690,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: AppRadius.l,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint(context),
+                tint: adaptiveTint ?? GlassTokens.tint(context),
                 gradientBorder: true,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
@@ -1752,7 +1734,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: AppRadius.l,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint(context),
+                tint: adaptiveTint ?? GlassTokens.tint(context),
                 gradientBorder: true,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
@@ -1794,7 +1776,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             child: GlassSurface(
               radius: AppRadius.xl,
               blur: GlassTokens.blurMedium,
-              tint: GlassTokens.tint(context),
+              tint: adaptiveTint ?? GlassTokens.tint(context),
               gradientBorder: true,
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
               child: SizedBox(
@@ -1856,7 +1838,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               child: GlassSurface(
                 radius: GlassTokens.radiusPill,
                 blur: GlassTokens.blurMedium,
-                tint: GlassTokens.tint(context),
+                tint: adaptiveTint ?? GlassTokens.tint(context),
                 gradientBorder: true,
                 child: SizedBox(
                   width: 180,
@@ -2184,12 +2166,8 @@ class _BottomArea extends ConsumerWidget {
     // 半透明叠在模糊背景上，整页上下连成一体而不是固定深色两截
     final tint = song == null
         ? null
-        : ref
-              .watch(albumDominantColorProvider(song.albumId))
-              .valueOrNull;
-    final barTint = tint == null
-        ? null
-        : Color.lerp(tint, Colors.black, 0.42)!.withValues(alpha: 0.55);
+        : ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull;
+    final barTint = albumAdaptiveTint(tint);
 
     return GlassSurface(
       radius: 0,
