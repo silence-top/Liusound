@@ -73,8 +73,22 @@ final queueProvider = NotifierProvider<QueueNotifier, List<Song>>(
   QueueNotifier.new,
 );
 
-/// 下一首预判（触底文案 {nTitle} 占位符用）：与交叉淡化的下一首逻辑一致，
-/// 单曲循环返回 null（下一首仍是当前曲）、随机取其余一首、顺序取下一条
+/// Shuffle 遍历序（P1-ShuffleOrder）：队列 id 的随机全排列 + 游标。
+/// next 沿序前进、一轮完整遍历后重新洗牌，previous 沿序回退，
+/// 一轮内不重复；nextSongProvider 预判与 playNext 实际取歌共用此序
+class ShuffleOrderState {
+  const ShuffleOrderState({this.order = const [], this.pos = -1});
+
+  final List<String> order;
+  final int pos; // 当前歌曲在 order 中的下标（-1 尚未开始/当前歌不在序中）
+}
+
+final shuffleOrderProvider = StateProvider<ShuffleOrderState>(
+  (ref) => const ShuffleOrderState(),
+);
+
+/// 下一首预判（触底文案 {nTitle} 占位符与交叉淡化共用）：与 playNext 的
+/// 实际取歌逻辑严格一致——单曲循环返回 null、随机走遍历序游标、顺序取下一条
 final nextSongProvider = Provider<Song?>((ref) {
   final queue = ref.watch(queueProvider);
   final current = ref.watch(currentSongProvider);
@@ -83,8 +97,14 @@ final nextSongProvider = Provider<Song?>((ref) {
     case PlayMode.repeatOne:
       return null;
     case PlayMode.shuffle:
-      final others = queue.where((s) => s.id != current.id).toList();
-      return others.isEmpty ? null : others.first;
+      final so = ref.watch(shuffleOrderProvider);
+      final nextPos = so.pos + 1;
+      if (nextPos <= 0 || nextPos >= so.order.length) return null;
+      final nextId = so.order[nextPos];
+      for (final s in queue) {
+        if (s.id == nextId) return s;
+      }
+      return null;
     case PlayMode.order:
       final index = queue.indexWhere((s) => s.id == current.id);
       if (index >= 0 && index < queue.length - 1) return queue[index + 1];
@@ -253,7 +273,9 @@ class PlayerActions {
     // 播放器事件流与恢复流程按严格顺序在 _initialize 中执行：
     // RESTORING（队列/当前歌/进度）→ 绑定事件 → READY → 自动播放/自动下载
     _ref.listen<PlayMode>(playModeProvider, (_, mode) {
-      _ref.read(audioPlayerProvider).setLoopMode(
+      _ref
+          .read(audioPlayerProvider)
+          .setLoopMode(
             mode == PlayMode.repeatOne ? LoopMode.one : LoopMode.off,
           );
       _schedulePersist();
@@ -261,8 +283,14 @@ class PlayerActions {
     _ref.listen<double>(playbackSpeedProvider, (_, speed) {
       _ref.read(audioPlayerProvider).setSpeed(speed);
     });
-    _ref.listen<Song?>(currentSongProvider, (_, _) => _schedulePersist());
-    _ref.listen<List<Song>>(queueProvider, (_, _) => _schedulePersist());
+    _ref.listen<Song?>(currentSongProvider, (_, song) {
+      if (song != null) _syncShufflePos(song.id);
+      _schedulePersist();
+    });
+    _ref.listen<List<Song>>(queueProvider, (_, queue) {
+      _syncShuffleOrder(queue);
+      _schedulePersist();
+    });
     unawaited(_initialize());
   }
 
@@ -517,7 +545,8 @@ class PlayerActions {
   /// 暂停（定时停止到点时调用）
   Future<void> pause() => _player.pause();
 
-  /// 下一首（order：尾部循环回首；shuffle：排除当前随机；repeatOne：重播当前）
+  /// 下一首（order：尾部循环回首；shuffle：沿遍历序前进，一轮播完重新洗牌；
+  /// repeatOne：重播当前）
   Future<void> playNext() async {
     final queue = _ref.read(queueProvider);
     final current = _ref.read(currentSongProvider);
@@ -528,10 +557,27 @@ class PlayerActions {
       return;
     }
     if (mode == PlayMode.shuffle) {
-      final others = queue.where((s) => s.id != current.id).toList();
-      if (others.isNotEmpty) {
-        await play(others[_random.nextInt(others.length)]);
+      final so = _ref.read(shuffleOrderProvider);
+      if (so.order.isEmpty) return;
+      var order = so.order;
+      var nextPos = so.pos + 1;
+      if (nextPos >= order.length) {
+        // 本轮完整遍历结束：重新洗牌开启新一轮，避免与当前曲重复起头
+        order = [...order]..shuffle(_random);
+        nextPos = 0;
+        if (order.length > 1 && order[0] == current.id) {
+          final swap = 1 + _random.nextInt(order.length - 1);
+          final tmp = order[0];
+          order[0] = order[swap];
+          order[swap] = tmp;
+        }
       }
+      _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+        order: order,
+        pos: nextPos,
+      );
+      final next = _songById(queue, order[nextPos]);
+      if (next != null) await play(next);
       return;
     }
     final index = queue.indexWhere((s) => s.id == current.id);
@@ -546,7 +592,7 @@ class PlayerActions {
     }
   }
 
-  /// 上一首（order：首曲不动；shuffle：随机；repeatOne：重播当前）
+  /// 上一首（order：首曲不动；shuffle：沿遍历序回退；repeatOne：重播当前）
   Future<void> playPrevious() async {
     final queue = _ref.read(queueProvider);
     final current = _ref.read(currentSongProvider);
@@ -557,16 +603,77 @@ class PlayerActions {
       return;
     }
     if (mode == PlayMode.shuffle) {
-      final others = queue.where((s) => s.id != current.id).toList();
-      if (others.isNotEmpty) {
-        await play(others[_random.nextInt(others.length)]);
-      }
+      final so = _ref.read(shuffleOrderProvider);
+      if (so.pos <= 0) return; // 本轮开头，无历史可回退
+      _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+        order: so.order,
+        pos: so.pos - 1,
+      );
+      final prev = _songById(queue, so.order[so.pos - 1]);
+      if (prev != null) await play(prev);
       return;
     }
     final index = queue.indexWhere((s) => s.id == current.id);
     if (index > 0) {
       await play(queue[index - 1]);
     }
+  }
+
+  Song? _songById(List<Song> queue, String id) {
+    for (final s in queue) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  // ---------- Shuffle 遍历序维护（P1-ShuffleOrder） ----------
+
+  /// 队列变化时增量维护遍历序：剔除已删歌曲、新歌随机插入当前位之后，
+  /// 保证本轮遍历仍完整覆盖队列且不重复
+  void _syncShuffleOrder(List<Song> queue) {
+    final ids = <String>{for (final s in queue) s.id};
+    final prev = _ref.read(shuffleOrderProvider);
+    final order = prev.order.where(ids.contains).toList();
+    final currentId = _ref.read(currentSongProvider)?.id;
+    final pos = currentId == null ? -1 : order.indexOf(currentId);
+    final fresh = ids.where((id) => !order.contains(id)).toList()
+      ..shuffle(_random);
+    for (final id in fresh) {
+      final insertAt = pos < 0
+          ? _random.nextInt(order.length + 1)
+          : pos + 1 + _random.nextInt(order.length - pos);
+      order.insert(insertAt, id);
+    }
+    _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+      order: order,
+      pos: pos,
+    );
+  }
+
+  /// 播放时对齐游标；当前歌不在遍历序中（队列外点播）则以它为起点重建全序
+  void _syncShufflePos(String songId) {
+    final prev = _ref.read(shuffleOrderProvider);
+    final idx = prev.order.indexOf(songId);
+    if (idx >= 0) {
+      if (idx != prev.pos) {
+        _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+          order: prev.order,
+          pos: idx,
+        );
+      }
+      return;
+    }
+    final ids =
+        _ref
+            .read(queueProvider)
+            .map((s) => s.id)
+            .where((id) => id != songId)
+            .toList()
+          ..shuffle(_random);
+    _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+      order: [songId, ...ids],
+      pos: 0,
+    );
   }
 
   /// 单曲循环重播（对齐 1.x：seekTo(0) 后继续播放）
@@ -611,33 +718,17 @@ class PlayerActions {
         duration - pos > Duration(seconds: seconds)) {
       return;
     }
-    final next = _peekNextForCrossfade();
+    final next = _ref.read(nextSongProvider);
     if (next == null) return;
     _runCrossfade(seconds, next);
   }
 
-  /// 交叉淡化的下一首预判（单曲循环/无后续不淡化，让其自然播完/循环）
-  Song? _peekNextForCrossfade() {
-    final queue = _ref.read(queueProvider);
-    final current = _ref.read(currentSongProvider);
-    if (current == null || queue.isEmpty) return null;
-    switch (_ref.read(playModeProvider)) {
-      case PlayMode.repeatOne:
-        return null;
-      case PlayMode.shuffle:
-        final others = queue.where((s) => s.id != current.id).toList();
-        return others.isEmpty ? null : others.first;
-      case PlayMode.order:
-        final index = queue.indexWhere((s) => s.id == current.id);
-        if (index >= 0 && index < queue.length - 1) return queue[index + 1];
-        return _ref.read(loopPlaybackProvider) ? queue.first : null;
-    }
-  }
-
   Future<void> _runCrossfade(int seconds, Song next) async {
     _fading = true;
-    const steps = 24;
-    final stepMs = seconds * 1000 ~/ steps;
+    // P1-Crossfade 语义统一：seconds 即实际淡化时长，步进固定 100ms，
+    // 步数随时长派生（不再固定 24 steps 作为业务语义）
+    const stepMs = 100;
+    final steps = seconds * 1000 ~/ stepMs;
     try {
       for (var i = 1; i <= steps; i++) {
         await Future<void>.delayed(Duration(milliseconds: stepMs));
