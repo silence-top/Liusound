@@ -307,7 +307,7 @@ class _EntryGrid extends ConsumerWidget {
     // 复用专辑式歌曲列表（头部 + 顶部操作条 + 批量选择）
     Navigator.of(context).push(
       fadeRoute<void>(
-        PlaylistDetailScreen(title: title, songsProvider: provider),
+        SongListScreen(title: title, songsProvider: provider),
       ),
     );
   }
@@ -743,7 +743,7 @@ class _PlaylistRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
-          PlaylistDetailScreen(
+          SongListScreen(
             playlistId: playlist.id,
             title: playlist.name,
             coverAlbumId: playlist.coverArt,
@@ -900,8 +900,8 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
                             size: cover,
                             onTap: () => Navigator.of(context).push(
                               fadeRoute<void>(
-                                AlbumDetailScreen(
-                                  albumId: album.id,
+                                SongListScreen(
+                                  rateTargetId: album.id,
                                   title: album.name,
                                   subtitle:
                                       '${album.year ?? ''} ${album.artist}'

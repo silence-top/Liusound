@@ -133,32 +133,55 @@ mixin _BatchSelect<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   }
 }
 
-/// 专辑详情页（设计图「歌单和专辑点击后进入的页面」）：
-/// 静态头部（封面 90 + 标题 + 年份/歌手 + 五星评分 setRating）
-/// → 全部播放栏（随机播放 / 加入队列 / 顺序播放，全部功能可用）
-/// → 过滤框 → 歌曲列表（绿序号 + flac 码率 + 行菜单）→ 到底啦。
-class AlbumDetailScreen extends ConsumerStatefulWidget {
-  const AlbumDetailScreen({
+/// 统一歌曲列表页（原专辑详情 / 歌单详情 / 艺人详情三页合一）：
+/// 静态头部（封面 90 + 标题/副标题 + 可选五星评分 setRating）
+/// → 全部播放栏（随机播放 / 加入队列 / 顺序播放）
+/// → 可收纳过滤框 → 歌曲列表（绿序号 + flac 码率 + 行菜单）→ 到底啦/加载更多。
+/// 数据源四选一（优先级从高到低）：
+/// - songs：直接给定（每日推荐「查看更多」）
+/// - pagedSongsProvider：分页加载（艺人歌曲，含「加载更多」）
+/// - songsProvider：一次性异步加载（资料库歌曲/我喜欢的/本地音乐/流派）
+/// - playlistId：异步加载歌单（/api/playlist/{id}/tracks）
+class SongListScreen extends ConsumerStatefulWidget {
+  const SongListScreen({
     super.key,
-    required this.albumId,
     required this.title,
+    this.songs,
+    this.pagedSongsProvider,
+    this.songsProvider,
+    this.playlistId,
+    this.coverAlbumId,
+    this.date,
     this.subtitle,
     this.rating = 0,
-    this.coverAlbumId,
-  });
+    this.rateTargetId,
+  }) : assert(
+         songs != null ||
+             pagedSongsProvider != null ||
+             songsProvider != null ||
+             playlistId != null,
+         '必须提供 songs / pagedSongsProvider / songsProvider / playlistId 之一',
+       );
 
-  final String albumId;
   final String title;
-  final String? subtitle; // 如 "2011 SARA"
-  final int rating; // 专辑初始评分
-  final String? coverAlbumId; // 默认用 albumId
+  final List<Song>? songs;
+  final AutoDisposeFamilyNotifierProvider<ArtistSongsController,
+  ArtistSongsState, String>? pagedSongsProvider;
+  // 同时接受普通与 autoDispose（含 family 已取参）的 provider（资料库入口/流派）
+  final ProviderBase<AsyncValue<List<Song>>>? songsProvider;
+  final String? playlistId;
+  final String? coverAlbumId;
+  final String? date;
+  final String? subtitle;
+  final int rating;
+  final String? rateTargetId; // 非 null 且后端支持评分时显示五星评分（专辑）
 
   @override
-  ConsumerState<AlbumDetailScreen> createState() => _AlbumDetailScreenState();
+  ConsumerState<SongListScreen> createState() => _SongListScreenState();
 }
 
-class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
-    with _BatchSelect<AlbumDetailScreen> {
+class _SongListScreenState extends ConsumerState<SongListScreen>
+    with _BatchSelect<SongListScreen> {
   late int _rating = widget.rating;
   String _search = '';
   bool _filterExpanded = false;
@@ -182,12 +205,14 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
   }
 
   Future<void> _rate(int rating) async {
+    final target = widget.rateTargetId;
+    if (target == null) return;
     final before = _rating;
     setState(() => _rating = rating);
     final ok =
         await ref
             .read(serverAdapterProvider)
-            ?.setRating(widget.albumId, rating) ??
+            ?.setRating(target, rating) ??
         false;
     if (!ok && mounted) {
       setState(() => _rating = before);
@@ -199,167 +224,29 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final songsAsync = ref.watch(albumSongsProvider(widget.albumId));
-    final all = songsAsync.value ?? const <Song>[];
+    final paged = widget.pagedSongsProvider == null
+        ? null
+        : ref.watch(widget.pagedSongsProvider!);
+    final AsyncValue<List<Song>>? async;
+    if (paged != null) {
+      async = null;
+    } else if (widget.songs != null) {
+      async = AsyncValue.data(widget.songs!);
+    } else if (widget.songsProvider != null) {
+      async = ref.watch(widget.songsProvider!);
+    } else if (widget.playlistId != null) {
+      async = ref.watch(playlistSongsProvider(widget.playlistId!));
+    } else {
+      async = null;
+    }
+    final all = paged?.songs ?? async?.value ?? const <Song>[];
     final songs = _filterSongs(all, _search);
     final canRate =
-        ref.watch(serverAdapterProvider)?.capabilities.ratings ?? false;
+        widget.rateTargetId != null &&
+        (ref.watch(serverAdapterProvider)?.capabilities.ratings ?? false);
     final canDownload =
         ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
     final selectedCount = selectionOf(songs).length;
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      bottomNavigationBar: selectMode
-          ? _BatchBar(
-              count: selectedCount,
-              canDownload: canDownload,
-              onPlayNext: () => batchPlayNext(songs),
-              onAddToPlaylist: () => batchAddToPlaylist(songs),
-              onDownload: () => batchDownload(songs),
-            )
-          : const MiniPlayer(),
-      body: CustomScrollView(
-        slivers: [
-          _detailAppBar(
-            context: context,
-            title: widget.title,
-            selectMode: selectMode,
-            selectedCount: selectedCount,
-            totalCount: songs.length,
-            onToggleSelectMode: toggleSelectMode,
-            onSelectAll: () => toggleSelectAll(songs),
-            filterExpanded: _filterExpanded,
-            onToggleFilter: _toggleFilter,
-            primaryColor: Theme.of(context).colorScheme.primary,
-          ),
-          SliverToBoxAdapter(
-            child: _Header(
-              title: widget.title,
-              subtitle: widget.subtitle,
-              coverAlbumId: widget.coverAlbumId ?? widget.albumId,
-              rating: canRate ? _rating : null,
-              onRating: canRate ? _rate : null,
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _ListTop(
-              count: songs.length,
-              onPlayAll: () => _playAll(songs),
-              onShuffle: () => _playShuffle(songs),
-              onQueue: () => _enqueue(songs),
-              onChanged: (v) => setState(() => _search = v),
-              controller: _filterController,
-              expanded: _filterExpanded,
-            ),
-          ),
-          ...sliverAsyncGuard<Song>(
-            async: songsAsync,
-            emptyText: '专辑暂无歌曲',
-            onRetry: () => ref.invalidate(albumSongsProvider(widget.albumId)),
-            onData: (_) => _songSlivers(
-              songs,
-              selectMode: selectMode,
-              selected: selectedIds,
-              onToggle: toggleSelected,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _playAll(List<Song> songs) {
-    if (songs.isEmpty) return;
-    final actions = ref.read(playerActionsProvider);
-    actions.replaceQueue(songs);
-    actions.play(songs.first);
-  }
-
-  void _playShuffle(List<Song> songs) {
-    if (songs.isEmpty) return;
-    final actions = ref.read(playerActionsProvider);
-    actions.replaceQueue(songs);
-    ref.read(playModeProvider.notifier).state = PlayMode.shuffle;
-    actions.play(songs[DateTime.now().millisecond % songs.length]);
-  }
-
-  void _enqueue(List<Song> songs) {
-    if (songs.isEmpty) return;
-    ref.read(playerActionsProvider).addToQueue(songs);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已将 ${songs.length} 首歌曲加入队列'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-}
-
-/// 歌单 / 资料库歌曲列表 / 每日推荐详情页（与专辑详情同一套列表结构）：
-/// - 每日推荐：直接传入 songs（首页「查看更多」）
-/// - 我的歌单：传 playlistId 异步加载（/api/playlist/{id}/tracks）
-/// - 资料「歌曲 / 我喜欢的 / 本地音乐」：传 songsProvider 异步加载
-class PlaylistDetailScreen extends ConsumerStatefulWidget {
-  const PlaylistDetailScreen({
-    super.key,
-    this.title = '歌单',
-    this.songs,
-    this.playlistId,
-    this.songsProvider,
-    this.coverAlbumId,
-    this.date,
-    this.subtitle,
-  }) : assert(
-         songs != null || playlistId != null || songsProvider != null,
-         '必须提供 songs / playlistId / songsProvider 之一',
-       );
-
-  final String title;
-  final List<Song>? songs; // 直接给定（每日推荐）
-  final String? playlistId; // 异步加载（我的歌单）
-  // 同时接受普通与 autoDispose（含 family 已取参）的 provider（资料库入口/流派）
-  final ProviderBase<AsyncValue<List<Song>>>? songsProvider;
-  final String? coverAlbumId;
-  final String? date;
-  final String? subtitle;
-
-  @override
-  ConsumerState<PlaylistDetailScreen> createState() =>
-      _PlaylistDetailScreenState();
-}
-
-class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
-    with _BatchSelect<PlaylistDetailScreen> {
-  String _search = '';
-  bool _filterExpanded = false;
-  final TextEditingController _filterController = TextEditingController();
-
-  @override
-  void dispose() {
-    _filterController.dispose();
-    super.dispose();
-  }
-
-  /// 收起时一并清空关键词，避免「看不见但仍在过滤」
-  void _toggleFilter() {
-    setState(() {
-      _filterExpanded = !_filterExpanded;
-      if (!_filterExpanded) {
-        _filterController.clear();
-        _search = '';
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final async = widget.songsProvider != null
-        ? ref.watch(widget.songsProvider!)
-        : widget.playlistId == null
-        ? null
-        : ref.watch(playlistSongsProvider(widget.playlistId!));
-    final all = widget.songs ?? async?.value ?? const <Song>[];
-    final songs = _filterSongs(all, _search);
     // 资料库歌曲入口（歌曲/我喜欢的/本地音乐）头部展示占用空间，对齐设计图
     final showFileSize = widget.songsProvider != null;
     final totalBytes = all.fold<int>(0, (sum, s) => sum + s.size);
@@ -370,10 +257,7 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
             : showFileSize && totalBytes > 0
             ? '共计占用 ${QualityBadge.fileSizeLabel(totalBytes)} 空间'
             : '共 ${all.length} 首歌曲');
-    final canDownload =
-        ref.watch(serverAdapterProvider)?.capabilities.download ?? true;
-    final selectedCount = selectionOf(songs).length;
-    // 资料库入口没有歌单封面：回退用第一首歌的专辑封面
+    // 资料库入口没有固定封面：回退用第一首歌的专辑封面（艺人页传 artistId）
     final coverAlbumId =
         widget.coverAlbumId ?? (all.isEmpty ? null : all.first.albumId);
     return Scaffold(
@@ -406,8 +290,8 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
               title: widget.title,
               subtitle: widget.date ?? subtitle,
               coverAlbumId: coverAlbumId,
-              rating: null, // 歌单无评分
-              onRating: null,
+              rating: canRate ? _rating : null,
+              onRating: canRate ? _rate : null,
             ),
           ),
           SliverToBoxAdapter(
@@ -421,24 +305,84 @@ class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen>
               expanded: _filterExpanded,
             ),
           ),
-          ...sliverAsyncGuard<Song>(
-            async: async ?? AsyncValue.data(all),
-            emptyText: widget.playlistId != null
-                ? '歌单暂无歌曲'
-                : '${widget.title}暂无歌曲',
-            onRetry: () => widget.songsProvider != null
-                ? ref.invalidate(widget.songsProvider!)
-                : ref.invalidate(playlistSongsProvider(widget.playlistId!)),
-            onData: (_) => _songSlivers(
-              songs,
-              selectMode: selectMode,
-              showFileSize: showFileSize,
-              selected: selectedIds,
-              onToggle: toggleSelected,
-            ),
-          ),
+          ..._listSlivers(paged: paged, async: async, songs: songs),
         ],
       ),
+    );
+  }
+
+  /// 列表分区块：分页源走 loading/重试/空态 + 加载更多；
+  /// 非分页源走 sliverAsyncGuard（错误重试 + 空态 + 过滤无匹配）。
+  List<Widget> _listSlivers({
+    required ArtistSongsState? paged,
+    required AsyncValue<List<Song>>? async,
+    required List<Song> songs,
+  }) {
+    List<Widget> rows() => _songSlivers(
+      songs,
+      selectMode: selectMode,
+      showFileSize: widget.songsProvider != null,
+      selected: selectedIds,
+      onToggle: toggleSelected,
+    );
+    if (paged != null) {
+      final controller = ref.read(widget.pagedSongsProvider!.notifier);
+      if (songs.isNotEmpty) {
+        return [
+          ...rows(),
+          SliverToBoxAdapter(
+            child: LoadMoreRow(
+              loading: paged.loading,
+              failed: paged.error,
+              noMore: paged.noMore,
+              onLoadMore: controller.loadMore,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 64)),
+        ];
+      }
+      if (paged.loading) {
+        return const [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(48),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ];
+      }
+      if (paged.error) {
+        return [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(48),
+              child: Center(
+                child: TextButton(
+                  onPressed: controller.retry,
+                  child: const Text('加载失败，点击重试'),
+                ),
+              ),
+            ),
+          ),
+        ];
+      }
+      return [SliverToBoxAdapter(child: glassEmptyState(text: '暂无歌曲'))];
+    }
+    return sliverAsyncGuard<Song>(
+      async: async ?? AsyncValue.data(const []),
+      emptyText: widget.playlistId != null
+          ? '歌单暂无歌曲'
+          : '${widget.title}暂无歌曲',
+      onRetry: () {
+        final p = widget.songsProvider;
+        if (p != null) {
+          ref.invalidate(p);
+          return;
+        }
+        final id = widget.playlistId;
+        if (id != null) ref.invalidate(playlistSongsProvider(id));
+      },
+      onData: (_) => rows(),
     );
   }
 

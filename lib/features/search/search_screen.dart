@@ -9,8 +9,8 @@ import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
-import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
+import '../home/home_providers.dart';
 
 /// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）。
 /// 页面级 autoDispose：离开搜索页即销毁，重进时输入框与结果一致。
@@ -370,7 +370,11 @@ class _ArtistRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
-          ArtistDetailScreen(artistId: artist.id, artistName: artist.name),
+          SongListScreen(
+            title: artist.name,
+            pagedSongsProvider: artistSongsProvider(artist.id),
+            coverAlbumId: artist.id,
+          ),
         ),
       ),
       child: Padding(
@@ -420,8 +424,8 @@ class _AlbumRowCard extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.of(context).push(
         fadeRoute<void>(
-          AlbumDetailScreen(
-            albumId: album.id,
+          SongListScreen(
+            rateTargetId: album.id,
             title: album.name,
             subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
             rating: album.rating,

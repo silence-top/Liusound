@@ -173,7 +173,7 @@ final radioStationsProvider = FutureProvider<List<RadioStation>?>((ref) async {
   return adapter.fetchRadioStations();
 });
 
-/// 流派歌曲（流派二级页复用 PlaylistDetailScreen；不支持流派歌曲的
+/// 流派歌曲（流派二级页复用 SongListScreen；不支持流派歌曲的
 /// 后端返回空列表，由页面空态兜底）
 final genreSongsProvider = FutureProvider.autoDispose
     .family<List<Song>, String>((ref, genre) async {
@@ -272,12 +272,3 @@ final artistSongsProvider = NotifierProvider.autoDispose
     .family<ArtistSongsController, ArtistSongsState, String>(
       ArtistSongsController.new,
     );
-
-/// 艺人歌曲全量列表（资料库歌手列表复用 PlaylistDetailScreen；该页无分页，
-/// 一次性取全量——上限 1000 已远超常规单曲艺人产出）
-final artistAllSongsProvider = FutureProvider.autoDispose
-    .family<List<Song>, String>((ref, artistId) async {
-      final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return const [];
-      return adapter.fetchArtistSongs(artistId, limit: 1000);
-    });

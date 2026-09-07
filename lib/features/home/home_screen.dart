@@ -18,7 +18,7 @@ import 'home_providers.dart';
 /// 首页（对标 1.x HomeScreen）：
 /// 装饰搜索栏 + 分区顺序：最新专辑 / 每日推荐 / 最近播放 / 最常播放 / 随机专辑。
 /// 歌曲分区（每日推荐 / 最近播放 / 最常播放）展示 3 行歌曲，
-/// 点「查看更多」进入全屏列表（PlaylistDetailScreen）。
+/// 点「查看更多」进入全屏列表（SongListScreen）。
 ///
 /// 性能设计：本页不订阅任何播放进度 provider → 播放期间零重建；
 /// 横向分区使用 ListView.builder 惰性构建 + 固定 itemExtent。
@@ -228,8 +228,8 @@ class _AlbumCard extends StatelessWidget {
       child: PressableScale(
         onTap: () => Navigator.of(context).push(
           fadeRoute<void>(
-            AlbumDetailScreen(
-              albumId: album.id,
+            SongListScreen(
+              rateTargetId: album.id,
               title: album.name,
               subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
               rating: album.rating,
@@ -289,7 +289,7 @@ class _SongListSection extends ConsumerWidget {
   void _openDetail(BuildContext context, List<Song> songs) {
     Navigator.of(context).push(
       fadeRoute<void>(
-        PlaylistDetailScreen(
+        SongListScreen(
           title: title,
           songs: songs,
           coverAlbumId: songs.first.albumId,

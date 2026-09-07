@@ -1291,7 +1291,7 @@ lyricsKey(title, artist) = '${title.trim().toLowerCase()}|${artist.trim().toLowe
 - `latestAlbumsProvider` → FutureProvider<List<Album>>
 - `_AlbumRow`: ListView.builder(itemExtent=140)
 - `_AlbumCard`: 128×128 封面 + MarqueeText(name, fontSize=14) + Text(artist, fontSize=12)
-- 点击 → push fadeRoute(AlbumDetailScreen(album))
+- 点击 → push fadeRoute(SongListScreen(rateTargetId: album.id, rating: album.rating))
 
 #### 5.2.4 每日推荐 / 最近播放 / 最常播放
 
@@ -1335,9 +1335,9 @@ lyricsKey(title, artist) = '${title.trim().toLowerCase()}|${artist.trim().toLowe
 
 | 入口 | 打开方式 | 数据源 | 页面类型 |
 |------|----------|--------|----------|
-| 歌曲 | _openSongs('歌曲', librarySongsProvider) | songsProvider | PlaylistDetailScreen |
-| 我喜欢的 | _openSongs('我喜欢的', likedSongsProvider) | songsProvider | PlaylistDetailScreen |
-| 本地音乐 | _openLocalSongs(localSongsProvider) | songsProvider | PlaylistDetailScreen |
+| 歌曲 | _openSongs('歌曲', librarySongsProvider) | songsProvider | SongListScreen |
+| 我喜欢的 | _openSongs('我喜欢的', likedSongsProvider) | songsProvider | SongListScreen |
+| 本地音乐 | _openLocalSongs(localSongsProvider) | songsProvider | SongListScreen |
 | 专辑 | push fadeRoute(AlbumListPage(title, libraryAlbumsProvider)) | StatefulWidget | 独立页面 |
 
 #### 5.3.4 AlbumListPage（专辑列表页）
@@ -1399,27 +1399,29 @@ GridView.builder(
 
 ### 5.4 详情页（features/home/detail_screen.dart）
 
-#### 5.4.1 PlaylistDetailScreen 构造函数
+#### 5.4.1 SongListScreen 构造函数（三页合一：专辑/歌单/艺人）
 
 ```dart
-class PlaylistDetailScreen extends ConsumerStatefulWidget {
-  const PlaylistDetailScreen({
+class SongListScreen extends ConsumerStatefulWidget {
+  const SongListScreen({
     super.key,
-    this.title = '歌单',
-    this.songs,                           // 直接给定（每日推荐）
-    this.playlistId,                      // 异步加载（我的歌单）
-    this.songsProvider,                   // 异步加载（资料库入口）
-    this.coverAlbumId,                    // 封面 albumId（回退到 first.albumId）
-    this.date,                            // 副标题（本地音乐为占用空间文本）
-  }) : assert(songs != null || playlistId != null || songsProvider != null);
-  final String title;
-  final List<Song>? songs;
-  final String? playlistId;
-  final FutureProvider<List<Song>>? songsProvider;
-  final String? coverAlbumId;
-  final String? date;
+    required this.title,
+    this.songs,                 // 直接给定（每日推荐）
+    this.pagedSongsProvider,    // 分页加载（艺人歌曲，含「加载更多」）
+    this.songsProvider,         // 一次性异步加载（资料库入口/流派）
+    this.playlistId,            // 异步加载（我的歌单）
+    this.coverAlbumId,          // 封面（回退到 first.albumId；艺人页传 artistId）
+    this.date,                  // 副标题（本地音乐为占用空间文本）
+    this.subtitle,
+    this.rating = 0,
+    this.rateTargetId,          // 非 null 且后端支持评分时显示五星评分（专辑）
+  });
 }
 ```
+
+- 数据源优先级：songs > pagedSongsProvider > songsProvider > playlistId
+- 分页源复用 `artistSongsProvider`（ArtistSongsController 累计 limit 策略），
+  列表尾部挂 `LoadMoreRow`，空态/失败重试独立于 sliverAsyncGuard
 
 #### 5.4.2 Build 数据获取
 
@@ -1513,32 +1515,17 @@ SizedBox(
 - `_BatchBar`: 底部 Fixed 栏，显示选中数量 + 操作按钮（下一首/添加到歌单/下载）
 - 序号列切换为 Checkbox
 
-#### 5.4.8 AlbumDetailScreen 特有
+#### 5.4.8 可选评分（专辑入口）
 
-- 额外显示五星评分 StarRating(songCount/date)
-- 过滤框: SearchDelegate 样式
+- rateTargetId 非 null 且 capabilities.ratings 为真时显示五星评分 StarRating
+- _rate 失败回滚并提示「评分提交失败」
 
-### 5.5 歌手详情页（features/home/artist_detail_screen.dart）
+### 5.5 艺人歌曲入口（原独立 ArtistDetailScreen 已删除）
 
-#### 5.5.1 头部
-
-- ArtistName 大字标题
-- Artist
-Bio 简介文本（fetchArtistBio，null 时隐藏整块）
-  - 头像/封面图（coverArt + coverImage / fetchCoverBytes）
-
-#### 5.5.2 作品列表
-
-- TabBar: 专辑 / 歌曲 双页签
-- 专辑 Tab: 复用 GridAlbumList（4 列网格），每个卡片显示 songCount + duration
-- 歌曲 Tab: 复用 SongItemRow（播放按钮 + 标题 + 艺术家 + 时长 + ...更多菜单）
-- 空状态: showEmpty(context, '暂无作品') — 当 songs.allSongs.isEmpty 且 albums.isEmpty 时显示
-
-#### 5.5.3 相似歌手
-
-- SectionTitle: "相似歌手" + viewAll
-- MasonryGridAlbumList（4 列瀑布流），点击跳转至对应歌手详情页
-- 数据来源: adapter.fetchSimilarArtistIds（如有）
+- 所有艺人歌曲入口（歌曲信息页 / 操作弹窗 / 搜索艺人行 / 资料库歌手列表）
+  统一 push SongListScreen(pagedSongsProvider: artistSongsProvider(artistId), coverAlbumId: artistId)
+- 分页数据源 ArtistSongsController（home_providers.dart）：累计 limit 策略、
+  按 id 去重合并、返回少于请求量或无新增判定 noMore
 
 ---
 
@@ -1597,7 +1584,7 @@ Bio 简介文本（fetchArtistBio，null 时隐藏整块）
 #### 5.8.1 搜索入口
 
 - HomePage 搜索栏: TextField + onSubmitted(query) → Push/SearchScreen(query)
-- SearchDelegate (过滤框): 从 AlbumDetailScreen 等页面唤起
+- SearchDelegate (过滤框): 从 SongListScreen 等页面唤起
 
 #### 5.8.2 搜索结果聚合
 

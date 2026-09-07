@@ -223,12 +223,13 @@ class _GroupedArtistListState extends ConsumerState<_GroupedArtistList> {
                                               artist.id,
                                             ),
                                           )
-                                        : PlaylistDetailScreen(
+                                        : SongListScreen(
                                             title: artist.name,
-                                            songsProvider:
-                                                artistAllSongsProvider(
+                                            pagedSongsProvider:
+                                                artistSongsProvider(
                                                   artist.id,
                                                 ),
+                                            coverAlbumId: artist.id,
                                           ),
                                   ),
                                 ),
@@ -405,7 +406,7 @@ class GenrePage extends ConsumerWidget {
             child: InkWell(
               onTap: () => Navigator.of(context).push(
                 fadeRoute<void>(
-                  PlaylistDetailScreen(
+                  SongListScreen(
                     title: genre.value,
                     songsProvider: genreSongsProvider(genre.value),
                   ),

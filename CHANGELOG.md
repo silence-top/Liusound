@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 歌曲列表页三页合一（SongListScreen）
+- **AlbumDetailScreen + PlaylistDetailScreen 合并为 `SongListScreen`**：消除两份逐字重复的 `_playAll/_playShuffle/_enqueue` 与过滤状态；评分改为可选参数（rateTargetId + capabilities.ratings 门控），数据源四选一（songs / pagedSongsProvider / songsProvider / playlistId）
+- **新增分页能力**：`pagedSongsProvider` 接 `artistSongsProvider`（ArtistSongsController 累计 limit 策略），列表尾部 LoadMoreRow「加载更多」
+- **删除 ArtistDetailScreen**（~90% 与 Playlist 同构 / ~25% 复用度评估后收敛）：歌曲信息页、歌曲操作弹窗、搜索艺人行、资料库歌手列表全部改跳 SongListScreen(paged)，封面用 artistId；同时删除临时方案 `artistAllSongsProvider`（1000 上限一次性取全量）
+- 歌曲列表页实现从 3 种收敛为 1 种；FEATURES.md §5.4/§5.5 同步改写
+
 ## 2026-09-07（深夜 II）— 列表页统一复用 + 拼音索引
 - **歌手列表页**（资料库「歌手」/「专辑艺术家」）：顶部加常驻搜索栏（复用专辑列表 ListSearchBar，按名称或拼音过滤）；右侧 A-Z 索引条支持中文拼音首字母——中文名经 lpinyin 取无音调拼音排序归组（阿悄→A、周杰伦→Z），罕见字转换失败回退 '#' 组
 - **歌手列表行点击**：改跳 PlaylistDetailScreen（与流派/歌曲/我喜欢的同一套结构），新增 artistAllSongsProvider 一次性取全量（上限 1000）；歌手详情页仍供歌曲信息页/操作弹窗/搜索入口使用

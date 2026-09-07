@@ -13,7 +13,6 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
-import '../home/artist_detail_screen.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
 import '../home/song_info_screen.dart';
@@ -310,7 +309,11 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       fadeRoute<void>(
-        ArtistDetailScreen(artistId: song.artistId, artistName: song.artist),
+        SongListScreen(
+          title: song.artist,
+          pagedSongsProvider: artistSongsProvider(song.artistId),
+          coverAlbumId: song.artistId,
+        ),
       ),
     );
   }
@@ -323,8 +326,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       fadeRoute<void>(
-        AlbumDetailScreen(
-          albumId: song.albumId,
+        SongListScreen(
+          rateTargetId: song.albumId,
           title: song.album,
           subtitle: song.artist,
         ),

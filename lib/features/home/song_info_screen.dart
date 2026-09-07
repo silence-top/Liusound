@@ -6,8 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../player/mini_player.dart';
-import 'artist_detail_screen.dart';
 import 'detail_screen.dart';
+import 'home_providers.dart';
 
 /// 歌曲详情页（对标设计图「歌曲信息」）：基础 / 扩展 / 回放增益 三组信息卡。
 /// 由歌曲操作弹窗的「歌曲信息」入口进入；后端缺字段时显示 —。
@@ -105,8 +105,8 @@ class SongInfoScreen extends StatelessWidget {
   void _openAlbum(BuildContext context) {
     Navigator.of(context).push(
       fadeRoute<void>(
-        AlbumDetailScreen(
-          albumId: song.albumId,
+        SongListScreen(
+          rateTargetId: song.albumId,
           title: song.album,
           subtitle: song.artist,
         ),
@@ -117,7 +117,11 @@ class SongInfoScreen extends StatelessWidget {
   void _openArtist(BuildContext context) {
     Navigator.of(context).push(
       fadeRoute<void>(
-        ArtistDetailScreen(artistId: song.artistId, artistName: song.artist),
+        SongListScreen(
+          title: song.artist,
+          pagedSongsProvider: artistSongsProvider(song.artistId),
+          coverAlbumId: song.artistId,
+        ),
       ),
     );
   }
