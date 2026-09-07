@@ -19,7 +19,6 @@ import '../../core/settings/prefs.dart';
 import '../../core/local/local_library.dart' show localSongFingerprint;
 import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/glass_quality.dart';
@@ -90,36 +89,7 @@ final sliderDragValueProvider = StateProvider<double?>((ref) => null);
 
 const double _lyricRowHeight = 42; // 单语歌词行高（当前行 22px 加大字体留有余量）
 const double _lyricDualHeight = 64; // 双语歌词行高（原文 + 译文）
-/// 歌词渐变遮罩色：随皮肤背景走（原写死 #0a1428ee 即 liquidGlass background）
-Color _lyricFadeColor(BuildContext context) =>
-    SkinTokens.of(context).background.withValues(alpha: 0.93);
-
-/// 黑胶/CD/唱针拟物色板：固定装饰色，不随皮肤走（原散落各 painter/widget 的 hex 收拢于此）
-class _VinylPalette {
-  _VinylPalette._();
-
-  static const discOuter = Color(0xFF2A2A2A); // 唱片径向渐变外圈
-  static const discMid = Color(0xFF161616);
-  static const discInner = Color(0xFF060606);
-
-  static const cdSheen = <Color>[
-    Color(0xFFDDE2E8), // CD 镀膜扫掠渐变（首尾同色闭合）
-    Color(0xFFB7C6DC),
-    Color(0xFFEAEFF6),
-    Color(0xFFD3C3E2),
-    Color(0xFFBFDAD6),
-    Color(0xFFDDE2E8),
-  ];
-  static const cdHub = Color(0xFFEDEFF3); // 内圈镀层
-  static const cdHole = Color(0xFF0C0E12); // 中心孔
-
-  static const armLight = Color(0xFFF1F2F4); // 唱臂银色渐变
-  static const armDark = Color(0xFF9BA2AB);
-  static const headShell = Color(0xFF24272D); // 唱头壳
-  static const pivotShadow = Color(0x66000000); // 支点底座影
-  static const pivotLight = Color(0xFFF6F7F9); // 支点高光渐变
-  static const pivotDark = Color(0xFF868D96);
-}
+const Color _lyricFade = Color(0xEE0A1428); // 歌词渐变遮罩色（#0a1428ee）
 
 /// 歌词行时间戳 mm:ss（§4.3 点击行预览胶囊）
 String _fmtLyricTime(double seconds) {
@@ -299,7 +269,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                               child: IconButton(
                                 icon: const Icon(Icons.keyboard_arrow_down),
                                 iconSize: 32,
-                                color: AppTheme.textPrimaryOf(context),
+                                color: Colors.white,
                                 onPressed: widget.onClose,
                               ),
                             ),
@@ -344,10 +314,8 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                                                     ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
                                                 border: t > 0
                                                     ? Border.all(
-                                                        color:
-                                                            AppTheme.textPrimaryOf(
-                                                              context,
-                                                            ).withValues(
+                                                        color: Colors.white
+                                                            .withValues(
                                                               alpha: 0.15 * t,
                                                             ),
                                                         width: 0.5,
@@ -362,10 +330,8 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                                                       ? FontWeight.bold
                                                       : FontWeight.w400,
                                                   color: Color.lerp(
-                                                    AppTheme.textDimOf(context),
-                                                    AppTheme.textPrimaryOf(
-                                                      context,
-                                                    ),
+                                                    const Color(0xFF888888),
+                                                    Colors.white,
                                                     t,
                                                   ),
                                                 ),
@@ -487,14 +453,14 @@ class _BioSectionState extends State<_BioSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
+        const Padding(
           padding: EdgeInsets.fromLTRB(30, 8, 0, 12),
           child: Text(
             '歌手简介',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryOf(context),
+              color: Colors.white,
             ),
           ),
         ),
@@ -515,10 +481,10 @@ class _BioSectionState extends State<_BioSection> {
                   bio,
                   maxLines: _expanded ? null : 3,
                   overflow: _expanded ? null : TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     height: 1.6,
-                    color: AppTheme.textDimOf(context),
+                    color: Colors.white70,
                   ),
                 ),
                 if (overflowed)
@@ -558,10 +524,10 @@ class _SongSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(30, 8, 0, 12),
           child: Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryOf(context),
+              color: Colors.white,
             ),
           ),
         ),
@@ -569,15 +535,12 @@ class _SongSection extends StatelessWidget {
           null => [const SizedBox.shrink()],
           AsyncValue(:final valueOrNull?) =>
             valueOrNull.isEmpty
-                ? [
+                ? const [
                     Padding(
-                      padding: const EdgeInsets.only(left: 30, bottom: 24),
+                      padding: EdgeInsets.only(left: 30, bottom: 24),
                       child: Text(
                         '暂无数据',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textFaintOf(context),
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.white38),
                       ),
                     ),
                   ]
@@ -624,20 +587,14 @@ class _SongRow extends ConsumerWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryOf(context),
-                    ),
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${song.artist} - ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textFaintOf(context),
-                    ),
+                    style: const TextStyle(fontSize: 14, color: Colors.white38),
                   ),
                 ],
               ),
@@ -648,7 +605,7 @@ class _SongRow extends ConsumerWidget {
               icon: Icon(
                 Icons.playlist_add,
                 size: 22,
-                color: AppTheme.textPrimaryOf(context).withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
               tooltip: '下一首播放',
               onPressed: () {
@@ -787,10 +744,10 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryOf(context),
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -799,10 +756,7 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                   song.artist,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.textFaintOf(context),
-                  ),
+                  style: const TextStyle(fontSize: 16, color: Colors.white38),
                 ),
                 // 当前实际播放音质（含转码回退后的真实档；本地/离线不显示）
                 if (quality != null) ...[
@@ -921,9 +875,9 @@ class _VinylDisc extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        _VinylPalette.discOuter,
-                        _VinylPalette.discMid,
-                        _VinylPalette.discInner,
+                        Color(0xFF2A2A2A),
+                        Color(0xFF161616),
+                        Color(0xFF060606),
                       ],
                       stops: [0.0, 0.72, 1.0],
                     ),
@@ -993,7 +947,14 @@ class _CdDisc extends StatelessWidget {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
-                  colors: _VinylPalette.cdSheen,
+                  colors: [
+                    Color(0xFFDDE2E8),
+                    Color(0xFFB7C6DC),
+                    Color(0xFFEAEFF6),
+                    Color(0xFFD3C3E2),
+                    Color(0xFFBFDAD6),
+                    Color(0xFFDDE2E8),
+                  ],
                   stops: [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
                 ),
                 boxShadow: [
@@ -1011,7 +972,7 @@ class _CdDisc extends StatelessWidget {
               height: 188,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _VinylPalette.cdHub,
+                color: const Color(0xFFEDEFF3),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
               ),
             ),
@@ -1023,7 +984,7 @@ class _CdDisc extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _VinylPalette.cdHole,
+                color: const Color(0xFF0C0E12),
                 border: Border.all(color: Colors.white24),
               ),
             ),
@@ -1127,7 +1088,7 @@ class _TonearmPainter extends CustomPainter {
       tip,
       Paint()
         ..shader = const LinearGradient(
-          colors: [_VinylPalette.armLight, _VinylPalette.armDark],
+          colors: [Color(0xFFF1F2F4), Color(0xFF9BA2AB)],
         ).createShader(Rect.fromPoints(pivot, tip))
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round,
@@ -1143,18 +1104,18 @@ class _TonearmPainter extends CustomPainter {
           Rect.fromCenter(center: const Offset(0, 8), width: 12, height: 22),
           const Radius.circular(3),
         ),
-        Paint()..color = _VinylPalette.headShell,
+        Paint()..color = const Color(0xFF24272D),
       )
       ..restore();
 
     // 支点底座 + 高光
-    canvas.drawCircle(pivot, 12, Paint()..color = _VinylPalette.pivotShadow);
+    canvas.drawCircle(pivot, 12, Paint()..color = const Color(0x66000000));
     canvas.drawCircle(
       pivot,
       8,
       Paint()
         ..shader = const RadialGradient(
-          colors: [_VinylPalette.pivotLight, _VinylPalette.pivotDark],
+          colors: [Color(0xFFF6F7F9), Color(0xFF868D96)],
         ).createShader(Rect.fromCircle(center: pivot, radius: 8)),
     );
   }
@@ -1328,13 +1289,13 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
+          const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
               '导入歌词',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppTheme.textPrimaryOf(context),
+                color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -1344,10 +1305,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             controller: controller,
             maxLines: 6,
             minLines: 4,
-            style: TextStyle(
-              color: AppTheme.textPrimaryOf(context),
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: const InputDecoration(
               hintText: '粘贴 .lrc 歌词文本（[mm:ss.xx] 歌词）',
             ),
@@ -1585,10 +1543,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '暂无歌词',
-              style: TextStyle(color: AppTheme.textFaintOf(context)),
-            ),
+            const Text('暂无歌词', style: TextStyle(color: Colors.white38)),
             const SizedBox(height: AppSpacing.m),
             TextButton.icon(
               onPressed: _showImportSheet,
@@ -1663,9 +1618,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      _lyricFadeColor(context),
-                                      _lyricFadeColor(context)
-                                          .withValues(alpha: 0),
+                                      _lyricFade,
+                                      _lyricFade.withValues(alpha: 0),
                                     ],
                                   ),
                                 ),
@@ -1682,9 +1636,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                                     begin: Alignment.bottomCenter,
                                     end: Alignment.topCenter,
                                     colors: [
-                                      _lyricFadeColor(context),
-                                      _lyricFadeColor(context)
-                                          .withValues(alpha: 0),
+                                      _lyricFade,
+                                      _lyricFade.withValues(alpha: 0),
                                     ],
                                   ),
                                 ),
@@ -1727,10 +1680,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                       minHeight: 36,
                     ),
                     onPressed: () => setState(() => _showVolume = !_showVolume),
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.volume_up,
                       size: 20,
-                      color: AppTheme.textPrimaryOf(context),
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -1808,17 +1761,14 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                   // 子项无限宽导致布局崩溃；收缩包裹最宽子项即等效效果
                   children: [
                     if (_tracks.length <= 1)
-                      Padding(
+                      const Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 10,
                         ),
                         child: Text(
                           '没有其他音轨',
-                          style: TextStyle(
-                            color: AppTheme.textFaintOf(context),
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: Colors.white38, fontSize: 14),
                         ),
                       )
                     else
@@ -1857,9 +1807,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         '${_offset.toStringAsFixed(2)}s',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
-                          color: AppTheme.textPrimaryOf(context),
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1916,9 +1866,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     children: [
                       FractionallySizedBox(
                         widthFactor: _volume.clamp(0.08, 1.0),
-                        child: ColoredBox(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                        child: const ColoredBox(color: Color(0xE6FFFFFF)),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1929,7 +1877,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                               size: 22,
                               color: _volume > 0.5
                                   ? Colors.black87
-                                  : AppTheme.textFaintOf(context),
+                                  : Colors.white38,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -1939,7 +1887,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                                 fontWeight: FontWeight.bold,
                                 color: _volume > 0.5
                                     ? Colors.black87
-                                    : AppTheme.textPrimaryOf(context),
+                                    : Colors.white,
                               ),
                             ),
                           ],
@@ -1989,15 +1937,13 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               size: 18,
               color: _showBilingual
                   ? Theme.of(context).colorScheme.primary
-                  : AppTheme.textFaintOf(context),
+                  : Colors.white38,
             ),
             const SizedBox(width: 12),
             Text(
               '双语歌词',
               style: TextStyle(
-                color: _showBilingual
-                    ? AppTheme.textPrimaryOf(context)
-                    : AppTheme.textFaintOf(context),
+                color: _showBilingual ? Colors.white : Colors.white38,
                 fontSize: 16,
               ),
             ),
@@ -2018,20 +1964,14 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            border: Border.all(
-              color: active
-                  ? AppTheme.textPrimaryOf(context)
-                  : SkinTokens.of(context).borderHairline,
-            ),
+            border: Border.all(color: active ? Colors.white : Colors.white24),
             // 圆角豁免：徽章沿用 1.x 小圆角
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: active
-                  ? AppTheme.textPrimaryOf(context)
-                  : AppTheme.textFaintOf(context),
+              color: active ? Colors.white : Colors.white38,
               fontSize: 14,
             ),
           ),
@@ -2047,14 +1987,11 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.textDimOf(context)),
+            Icon(icon, size: 18, color: Colors.white70),
             const SizedBox(width: 12),
             Text(
               label,
-              style: TextStyle(
-                color: AppTheme.textPrimaryOf(context),
-                fontSize: 16,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
             ),
           ],
         ),
@@ -2067,7 +2004,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: IconButton(
         visualDensity: VisualDensity.compact,
-        icon: Icon(icon, size: 22, color: AppTheme.textDimOf(context)),
+        icon: Icon(icon, size: 22, color: Colors.white70),
         onPressed: onTap,
       ),
     );
@@ -2134,8 +2071,7 @@ class _LyricRowTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: size,
                     fontWeight: weight,
-                    color: AppTheme.textPrimaryOf(context)
-                        .withValues(alpha: alpha),
+                    color: Colors.white.withValues(alpha: alpha),
                     // 双层下投影：当前行像悬浮在背景之上（立体感）
                     shadows: distance == 0
                         ? const [
@@ -2167,9 +2103,9 @@ class _LyricRowTile extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textPrimaryOf(
-                        context,
-                      ).withValues(alpha: distance == 0 ? 0.75 : alpha * 0.58),
+                      color: Colors.white.withValues(
+                        alpha: distance == 0 ? 0.75 : alpha * 0.58,
+                      ),
                     ),
                   ),
               ],
@@ -2205,16 +2141,9 @@ class _LyricRowTile extends StatelessWidget {
           children: [
             Text(
               _fmtLyricTime(previewTime!),
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textPrimaryOf(context),
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
-            Icon(
-              Icons.play_arrow,
-              size: 16,
-              color: AppTheme.textPrimaryOf(context),
-            ),
+            const Icon(Icons.play_arrow, size: 16, color: Colors.white),
           ],
         ),
       ),
@@ -2273,10 +2202,10 @@ class _BottomArea extends ConsumerWidget {
                         song?.title ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryOf(context),
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -2284,9 +2213,9 @@ class _BottomArea extends ConsumerWidget {
                         song != null ? '${song.artist} - ${song.album}' : '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
-                          color: AppTheme.textFaintOf(context),
+                          color: Colors.white38,
                         ),
                       ),
                     ],
@@ -2299,18 +2228,18 @@ class _BottomArea extends ConsumerWidget {
                         : Icons.favorite_border,
                     size: 22,
                     color: (song?.starred ?? false)
-                        ? AppTheme.heartRed
-                        : AppTheme.textPrimaryOf(context),
+                        ? const Color(0xFFE57373)
+                        : Colors.white,
                   ),
                   onPressed: song == null
                       ? null
                       : () => _toggleStar(context, ref, song),
                 ),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.more_vert,
                     size: 22,
-                    color: AppTheme.textPrimaryOf(context),
+                    color: Colors.white,
                   ),
                   onPressed: song == null
                       ? null
@@ -2360,9 +2289,9 @@ class _ProgressSlider extends ConsumerWidget {
               max: maxMs <= 0 ? 1 : maxMs,
               // 缓冲条：白色半透明副轨道，体现边放边加载的已缓冲区间
               secondaryTrackValue: bufferedMs,
-              secondaryActiveColor: AppTheme.textFaintOf(context),
-              activeColor: AppTheme.textPrimaryOf(context),
-              inactiveColor: AppTheme.textFaintOf(context),
+              secondaryActiveColor: Colors.white38,
+              activeColor: Colors.white,
+              inactiveColor: const Color(0xFF444444),
               onChanged: (v) =>
                   ref.read(sliderDragValueProvider.notifier).state = v,
               onChangeEnd: (v) {
@@ -2384,17 +2313,11 @@ class _ProgressSlider extends ConsumerWidget {
                         ? Duration(milliseconds: drag.round())
                         : position,
                   ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textFaintOf(context),
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.white38),
                 ),
                 Text(
                   _formatTime(duration),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textFaintOf(context),
-                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.white38),
                 ),
               ],
             ),
@@ -2425,20 +2348,20 @@ class _ControlsRow extends ConsumerWidget {
           const _ModeButton(),
           IconButton(
             iconSize: 28,
-            color: AppTheme.textPrimaryOf(context),
+            color: Colors.white,
             icon: const Icon(Icons.skip_previous),
             onPressed: () => ref.read(playerActionsProvider).playPrevious(),
           ),
           const _PlayButton(),
           IconButton(
             iconSize: 28,
-            color: AppTheme.textPrimaryOf(context),
+            color: Colors.white,
             icon: const Icon(Icons.skip_next),
             onPressed: () => ref.read(playerActionsProvider).playNext(),
           ),
           IconButton(
             iconSize: 24,
-            color: AppTheme.textPrimaryOf(context),
+            color: Colors.white,
             icon: const Icon(Icons.queue_music),
             onPressed: () => showQueueModal(context),
           ),
@@ -2462,7 +2385,7 @@ class _ModeButton extends ConsumerWidget {
     };
     return IconButton(
       iconSize: 24,
-      color: AppTheme.textPrimaryOf(context),
+      color: Colors.white,
       icon: Icon(icon),
       onPressed: () => ref.read(playerActionsProvider).cyclePlayMode(),
     );
@@ -2486,22 +2409,20 @@ class _PlayButton extends ConsumerWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: ShapeDecoration(
           color: Colors.white.withValues(alpha: 0.08),
-          shape: CircleBorder(
-            side: BorderSide(color: AppTheme.textPrimaryOf(context), width: 2),
-          ),
+          shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
         ),
         child: buffering
-            ? Padding(
+            ? const Padding(
                 padding: EdgeInsets.all(15),
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppTheme.textPrimaryOf(context),
+                  color: Colors.white,
                 ),
               )
             : Icon(
                 isPlaying ? Icons.pause : Icons.play_arrow,
                 size: 36,
-                color: AppTheme.textPrimaryOf(context),
+                color: Colors.white,
               ),
       ),
     );

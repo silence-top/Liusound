@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页整体回退至 P2 前（用户 QA 后要求还原）
+- **full_screen_player.dart 整文件回退到 44ec5d3 版本**：撤销 P2 文本/组件令牌化与 P3 _VinylPalette 收拢在该页的全部改动，视觉效果恢复到用户熟悉的样子；唱针方向修复（e2cf3eb）与 P0 弹层 tint 修复保留
+- 设备 QA 结论：用户认为该页 P2 前的视觉即最终形态；其余五页（settings/detail/music_library/servers/server_detail）令牌化维持不变
+
 ## 2026-09-08 — P3 主题整改：评分金/音质色板入 AppTheme + 黑胶拟物色收拢
 - **评分金令牌**：新增 `AppTheme.ratingGold`（0xFFFFC53D），star_rating 默认色与空星灰（改 textFaintOf，随皮肤走）接入，消除硬编码
 - **音质徽标色板入 AppTheme**：quality_badge 三档 Hi-Res（金色琥珀）/无损（沿用 formatBorder/formatBg/formatText）/有损（中灰半透明）全部改引用 AppTheme 常量；P0 清理时误删的 format* 令牌补回（无损档仍在用）
