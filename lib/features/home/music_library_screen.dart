@@ -1011,7 +1011,11 @@ class ListSearchBar extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search, size: 20, color: Colors.white38),
+                  Icon(
+                    Icons.search,
+                    size: 20,
+                    color: AppTheme.textFaintOf(context),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     // expands 让输入框撑满固定高度，配合 textAlignVertical
@@ -1023,11 +1027,14 @@ class ListSearchBar extends StatelessWidget {
                       expands: true,
                       maxLines: null,
                       textAlignVertical: TextAlignVertical.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryOf(context),
+                        fontSize: 16,
+                      ),
                       decoration: InputDecoration(
                         hintText: hint,
-                        hintStyle: const TextStyle(
-                          color: Colors.white38,
+                        hintStyle: TextStyle(
+                          color: AppTheme.textFaintOf(context),
                           fontSize: 16,
                         ),
                         border: InputBorder.none,
@@ -1043,10 +1050,10 @@ class ListSearchBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          const Icon(
+          Icon(
             Icons.filter_alt_outlined,
             size: 22,
-            color: Colors.white38,
+            color: AppTheme.textFaintOf(context),
           ),
         ],
       ),

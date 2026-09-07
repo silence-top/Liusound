@@ -30,6 +30,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     required this.shadowColor,
     required this.textDim,
     required this.textFaint,
+    required this.textPrimary,
     required this.glow,
     required this.blurScale,
     required this.blurEnabled,
@@ -50,6 +51,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
   final Color shadowColor; // 投影
   final Color textDim; // 次要文本
   final Color textFaint; // 装饰图标 / 占位
+  final Color textPrimary; // 主文本（每套皮肤的白阶主色）
   final Color glow; // 科幻发光（透明 = 无发光）
   final double blurScale; // 模糊强度缩放
   final bool blurEnabled; // 极简/高对比强制关模糊
@@ -72,6 +74,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: Color(0x40000000),
     textDim: Color(0xFF888888),
     textFaint: Color(0xFF444444),
+    textPrimary: Color(0xFFFFFFFF),
     glow: Color(0x00000000),
     blurScale: 1.0,
     blurEnabled: true,
@@ -93,6 +96,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: Color(0x66000000),
     textDim: Color(0xFF9FB4CC),
     textFaint: Color(0xFF4A5A72),
+    textPrimary: Color(0xFFE8F4FF),
     glow: Color(0x3800E5FF),
     blurScale: 1.1,
     blurEnabled: false,
@@ -114,6 +118,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: Color(0x33000000),
     textDim: Color(0xFFAAAAAA),
     textFaint: Color(0xFF666666),
+    textPrimary: Color(0xFFF5F5F5),
     glow: Color(0x00000000),
     blurScale: 0,
     blurEnabled: false,
@@ -135,6 +140,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: Color(0x40000000),
     textDim: Color(0xFFCAC4D0),
     textFaint: Color(0xFF79747E),
+    textPrimary: Color(0xFFE6E1E5),
     glow: Color(0x00000000),
     blurScale: 1.0,
     blurEnabled: false,
@@ -156,6 +162,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: Color(0x00000000),
     textDim: Color(0xFFE0E0E0),
     textFaint: Color(0xFFB0B0B0),
+    textPrimary: Color(0xFFFFFFFF),
     glow: Color(0x00000000),
     blurScale: 0,
     blurEnabled: false,
@@ -186,6 +193,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     Color? shadowColor,
     Color? textDim,
     Color? textFaint,
+    Color? textPrimary,
     Color? glow,
     double? blurScale,
     bool? blurEnabled,
@@ -205,6 +213,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     shadowColor: shadowColor ?? this.shadowColor,
     textDim: textDim ?? this.textDim,
     textFaint: textFaint ?? this.textFaint,
+    textPrimary: textPrimary ?? this.textPrimary,
     glow: glow ?? this.glow,
     blurScale: blurScale ?? this.blurScale,
     blurEnabled: blurEnabled ?? this.blurEnabled,
@@ -230,6 +239,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
       shadowColor: cl(shadowColor, other.shadowColor),
       textDim: cl(textDim, other.textDim),
       textFaint: cl(textFaint, other.textFaint),
+      textPrimary: cl(textPrimary, other.textPrimary),
       glow: cl(glow, other.glow),
       blurScale: blurScale + (other.blurScale - blurScale) * t,
       blurEnabled: t < 0.5 ? blurEnabled : other.blurEnabled,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/models.dart';
+import '../../core/theme/app_theme.dart';
 import '../cover_art.dart';
 import 'motion.dart';
 
@@ -40,8 +41,8 @@ class AlbumCard extends StatelessWidget {
             album.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -51,7 +52,7 @@ class AlbumCard extends StatelessWidget {
             album.artist,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 12),
           ),
         ],
       ),

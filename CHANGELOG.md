@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — P1 主题整改：textPrimary 令牌 + 共享组件文本接入
+- **SkinTokens 新增 `textPrimary`**：每套皮肤独立白阶主文本色（liquidGlass 纯白 / deepSpace 冷白 0xFFE8F4FF / materialYou M3 0xFFE6E1E5 / minimal 0xFFF5F5F5 / highContrast 纯白），copyWith/lerp 同步支持，AppTheme 暴露 `textPrimaryOf(context)`
+- **共享组件文本令牌化**（跨页生效）：ListSearchBar（图标/占位→textFaint，输入文本→textPrimary）、SongRow 详情页歌曲行（标题→textPrimary、副标题硬编码 0xFFB0BAC6→textDim、菜单图标→textPrimary）、AlbumCard（专辑名→textPrimary、歌手→textDim）、异步态组件（加载/错误/空态/无匹配/加载更多文本→textDim，图标→textFaint），消除对 Colors.white 与写死灰色的依赖
+
 ## 2026-09-08 — 专辑歌曲数角标主题化
 - **首页最新/随机专辑卡加歌曲数角标**：与资料库专辑网格同款（右上角胶囊，>99 显示 99+）
 - **角标主题适配**：抽取共享 `SongCountBadge`，颜色由写死的设计图红改为 `colorScheme.primary/onPrimary`，五套皮肤自动跟随

@@ -11,8 +11,9 @@ import 'glass.dart';
 /// 所有列表页共用同一套视觉，避免每个页面手写三态块。
 
 const _kStatePadding = EdgeInsets.all(AppSpacing.xxxl);
-// 弱化态辅助文本（辅助字阶 14，仅降透明度）
-const _kStateStyle = TextStyle(color: Colors.white38, fontSize: 14);
+// 弱化态辅助文本（辅助字阶 14；颜色随皮肤 textDim，不再写死白阶）
+TextStyle _stateStyle(BuildContext c) =>
+    TextStyle(color: AppTheme.textDimOf(c), fontSize: 14);
 
 Widget _loading() => const Padding(
   padding: _kStatePadding,
@@ -22,9 +23,11 @@ Widget _loading() => const Padding(
 Widget _error(VoidCallback onRetry) => Padding(
   padding: _kStatePadding,
   child: Center(
-    child: TextButton(
-      onPressed: onRetry,
-      child: const Text('加载失败，点击重试', style: _kStateStyle),
+    child: Builder(
+      builder: (context) => TextButton(
+        onPressed: onRetry,
+        child: Text('加载失败，点击重试', style: _stateStyle(context)),
+      ),
     ),
   ),
 );
@@ -50,11 +53,20 @@ Widget glassEmptyState({
           child: SizedBox(
             width: 64,
             height: 64,
-            child: Icon(icon, size: 30, color: Colors.white38),
+            child: Builder(
+              builder: (context) =>
+                  Icon(icon, size: 30, color: AppTheme.textFaintOf(context)),
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.l),
-        Text(text, textAlign: TextAlign.center, style: _kStateStyle),
+        Builder(
+          builder: (context) => Text(
+            text,
+            textAlign: TextAlign.center,
+            style: _stateStyle(context),
+          ),
+        ),
         if (actions.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.l),
           Wrap(
@@ -131,7 +143,11 @@ Widget asyncStateBox<T>({
 /// 过滤框搜不到结果时的紧凑空态（区别于整页空态的 48 padding）。
 Widget noMatchBox() => Padding(
   padding: const EdgeInsets.all(AppSpacing.xl),
-  child: Center(child: Text('没有匹配的歌曲', style: _kStateStyle)),
+  child: Center(
+    child: Builder(
+      builder: (context) => Text('没有匹配的歌曲', style: _stateStyle(context)),
+    ),
+  ),
 );
 
 /// 列表「加载更多」行（P1）：idle 可点 / loading 转圈 / 失败重试。
@@ -164,7 +180,10 @@ class LoadMoreRow extends StatelessWidget {
               )
             : TextButton(
                 onPressed: onLoadMore,
-                child: Text(failed ? '加载失败，点击重试' : '加载更多', style: _kStateStyle),
+                child: Text(
+                  failed ? '加载失败，点击重试' : '加载更多',
+                  style: _stateStyle(context),
+                ),
               ),
       ),
     );

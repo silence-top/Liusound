@@ -60,6 +60,7 @@ abstract final class AppTheme {
   static Color surfaceOf(BuildContext c) => SkinTokens.of(c).surface;
   static Color textDimOf(BuildContext c) => SkinTokens.of(c).textDim;
   static Color textFaintOf(BuildContext c) => SkinTokens.of(c).textFaint;
+  static Color textPrimaryOf(BuildContext c) => SkinTokens.of(c).textPrimary;
 
   // 点缀色
   static const indexGreen = Color(0xFF3EC06C); // 歌曲序号绿

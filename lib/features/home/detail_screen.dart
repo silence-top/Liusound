@@ -988,8 +988,8 @@ class SongRow extends ConsumerWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
                       fontSize: 19,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -1008,8 +1008,8 @@ class SongRow extends ConsumerWidget {
                           '${song.artist} - ${song.album}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFB0BAC6),
+                          style: TextStyle(
+                            color: AppTheme.textDimOf(context),
                             fontSize: 12,
                           ),
                         ),
@@ -1023,10 +1023,10 @@ class SongRow extends ConsumerWidget {
               const SizedBox(width: 10),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(
+                icon: Icon(
                   Icons.more_vert,
                   size: 22,
-                  color: Colors.white,
+                  color: AppTheme.textPrimaryOf(context),
                 ),
                 onPressed: () => showSongActionSheet(context, song),
               ),
