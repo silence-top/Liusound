@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/marquee_text.dart';
@@ -242,10 +243,19 @@ class _AlbumCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CoverArt(
-                albumId: album.id,
-                size: _AlbumRow._cardWidth,
-                radius: 8,
+              Stack(
+                children: [
+                  CoverArt(
+                    albumId: album.id,
+                    size: _AlbumRow._cardWidth,
+                    radius: 8,
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: SongCountBadge(count: album.songCount),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.s),
               // 双行 12sp：避免「我的楼兰（2026新…」这类粗暴截断；

@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 专辑歌曲数角标主题化
+- **首页最新/随机专辑卡加歌曲数角标**：与资料库专辑网格同款（右上角胶囊，>99 显示 99+）
+- **角标主题适配**：抽取共享 `SongCountBadge`，颜色由写死的设计图红改为 `colorScheme.primary/onPrimary`，五套皮肤自动跟随
+
 ## 2026-09-08 — 专辑列表滚动加载分页 + 搜索栏居中加固
 - **专辑列表改为真 offset 分页（滚动加载）**：原 `LibrarySync.albums` 快照一次性取（曾写死 limit 100 导致只显示一部分）；新增 `LibraryAlbumsController`（每页 60，`fetchAlbums` 原生 start/limit 追加翻页）+ `libraryAlbumsPagedProvider`，AlbumListPage 数据源二选一（provider 全量 / paged 分页）；网格尾部复用 LoadMoreRow（加载中/失败重试/无更多）；快照保留供服务器详情页专辑总数使用，kind 升级 `albums_name_v2` 作废旧缓存
 - **列表搜索栏垂直居中加固**：isCollapsed 固有行高方案受 CJK 字体度量影响文字整体偏高，改为 `expands: true + textAlignVertical.center` 撑满固定高度精确居中；提示/输入字号 15→16 对齐设计图

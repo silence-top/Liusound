@@ -31,24 +31,7 @@ class AlbumCard extends StatelessWidget {
               Positioned(
                 top: 4,
                 right: 4,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 18),
-                  height: 18,
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFA2C19), // 设计图红色角标
-                    borderRadius: BorderRadius.all(Radius.circular(9)),
-                  ),
-                  child: Text(
-                    album.songCount > 99 ? '99+' : '${album.songCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                child: SongCountBadge(count: album.songCount),
               ),
             ],
           ),
@@ -71,6 +54,37 @@ class AlbumCard extends StatelessWidget {
             style: const TextStyle(color: Colors.white38, fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 封面右上角歌曲数角标（首页/资料库专辑卡共用）：
+/// 颜色取主题 primary / onPrimary，随五套皮肤自动适配。
+class SongCountBadge extends StatelessWidget {
+  const SongCountBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 18),
+      height: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: const BorderRadius.all(Radius.circular(9)),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: TextStyle(
+          color: scheme.onPrimary,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
