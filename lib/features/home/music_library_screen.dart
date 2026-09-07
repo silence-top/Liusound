@@ -240,7 +240,12 @@ class _EntryGrid extends ConsumerWidget {
         _Entry(
           Icons.theaters,
           '专辑艺术家',
-          () => _openArtists(context, '专辑艺术家', albumArtistsProvider),
+          () => _openArtists(
+            context,
+            '专辑艺术家',
+            albumArtistsProvider,
+            openAlbums: true,
+          ),
         ),
       if (artists.valueOrNull != null)
         _Entry(
@@ -310,11 +315,18 @@ class _EntryGrid extends ConsumerWidget {
   void _openArtists(
     BuildContext context,
     String title,
-    FutureProvider<List<Artist>?> provider,
-  ) {
-    Navigator.of(
-      context,
-    ).push(fadeRoute<void>(ArtistListPage(title: title, provider: provider)));
+    FutureProvider<List<Artist>?> provider, {
+    bool openAlbums = false,
+  }) {
+    Navigator.of(context).push(
+      fadeRoute<void>(
+        ArtistListPage(
+          title: title,
+          provider: provider,
+          openAlbums: openAlbums,
+        ),
+      ),
+    );
   }
 
   void _openAlbums(BuildContext context) {
@@ -810,7 +822,8 @@ class AlbumListPage extends ConsumerStatefulWidget {
   const AlbumListPage({super.key, required this.title, required this.provider});
 
   final String title;
-  final FutureProvider<List<Album>> provider;
+  /// 同时接受普通与 autoDispose（含 family 已取参）的 FutureProvider
+  final ProviderBase<AsyncValue<List<Album>>> provider;
 
   @override
   ConsumerState<AlbumListPage> createState() => _AlbumListPageState();

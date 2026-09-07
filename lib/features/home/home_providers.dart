@@ -229,7 +229,10 @@ class ArtistSongsController
 
   @override
   ArtistSongsState build(String arg) {
-    _fetch(_pageSize);
+    // 不能在 build() 返回前同步读写 state（Riverpod 会抛
+    // StateError 且请求被吞掉，页面将永远停在初始 loading 态），
+    // 因此用 microtask 把首取推迟到 build 完成之后。
+    Future.microtask(() => _fetch(_pageSize));
     return const ArtistSongsState();
   }
 

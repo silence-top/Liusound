@@ -122,7 +122,8 @@ class NavidromeAdapter implements ServerAdapter {
       if (descSorts.contains(query.sort)) params['_order'] = 'DESC';
     }
     if (query.albumId != null) params['album_id'] = query.albumId;
-    if (query.artistId != null) params['artist_id'] = query.artistId;
+    // /api/song 按参与者过滤（专辑艺人+艺人），artist_id 不是合法过滤器
+    if (query.artistId != null) params['artists_id'] = query.artistId;
     if (query.starredOnly) params['starred'] = true;
     return _client.getSongs(params);
   }
@@ -141,7 +142,9 @@ class NavidromeAdapter implements ServerAdapter {
   @override
   Future<List<Song>> fetchArtistSongs(String artistId, {int limit = 30}) =>
       _client.getSongs({
-        'artist_id': artistId,
+        // artists_id：参与者过滤（覆盖专辑艺人+艺人角色），Navidrome ≥0.55；
+        // artist_id 不是 /api/song 的合法过滤器，传了会被忽略导致返回全库歌曲
+        'artists_id': artistId,
         '_end': limit,
         '_order': 'DESC',
         '_sort': 'rating',

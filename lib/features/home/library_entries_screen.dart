@@ -11,20 +11,25 @@ import '../player/mini_player.dart';
 import 'artist_detail_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
+import 'music_library_screen.dart';
 
 // ---------- 歌手 / 专辑艺术家（A-Z 分组 + 右侧索引条） ----------
 
 /// 歌手列表二级页（资料库「歌手」/「专辑艺术家」共用）。
 /// provider 返回 null 表示后端不支持该能力（入口已被隐藏，兜底空态）。
+/// openAlbums 为 true 时（专辑艺术家）行点击进该歌手的专辑列表页，
+/// 否则进歌手歌曲列表（歌手）。
 class ArtistListPage extends ConsumerWidget {
   const ArtistListPage({
     super.key,
     required this.title,
     required this.provider,
+    this.openAlbums = false,
   });
 
   final String title;
   final FutureProvider<List<Artist>?> provider;
+  final bool openAlbums;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,16 +37,21 @@ class ArtistListPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: Text(title)),
-      body: _ArtistListBody(async: async, provider: provider),
+      body: _ArtistListBody(async: async, provider: provider, openAlbums: openAlbums),
     );
   }
 }
 
 class _ArtistListBody extends ConsumerWidget {
-  const _ArtistListBody({required this.async, required this.provider});
+  const _ArtistListBody({
+    required this.async,
+    required this.provider,
+    required this.openAlbums,
+  });
 
   final AsyncValue<List<Artist>?> async;
   final FutureProvider<List<Artist>?> provider;
+  final bool openAlbums;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +76,7 @@ class _ArtistListBody extends ConsumerWidget {
     if (artists.isEmpty) {
       return glassEmptyState(text: '暂无歌手', icon: Icons.person_outline);
     }
-    return _GroupedArtistList(artists: artists);
+    return _GroupedArtistList(artists: artists, openAlbums: openAlbums);
   }
 }
 
@@ -98,9 +108,10 @@ const _kHeaderHeight = 32.0;
 const _kRowHeight = 64.0;
 
 class _GroupedArtistList extends StatefulWidget {
-  const _GroupedArtistList({required this.artists});
+  const _GroupedArtistList({required this.artists, required this.openAlbums});
 
   final List<Artist> artists;
+  final bool openAlbums;
 
   @override
   State<_GroupedArtistList> createState() => _GroupedArtistListState();
@@ -162,10 +173,15 @@ class _GroupedArtistListState extends State<_GroupedArtistList> {
                     artists: group.artists,
                     onTap: () => Navigator.of(context).push(
                       fadeRoute<void>(
-                        ArtistDetailScreen(
-                          artistId: artist.id,
-                          artistName: artist.name,
-                        ),
+                        widget.openAlbums
+                            ? AlbumListPage(
+                                title: artist.name,
+                                provider: artistAlbumsProvider(artist.id),
+                              )
+                            : ArtistDetailScreen(
+                                artistId: artist.id,
+                                artistName: artist.name,
+                              ),
                       ),
                     ),
                   ),
