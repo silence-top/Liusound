@@ -2017,15 +2017,19 @@ Shimmer.fromColors(
 - playPrevious：游标 -1；轮首不动
 - 队列增删 → _syncShuffleOrder 增量维护（移除 ID 顺延游标，新 ID 随机插入当前游标后）
 - nextSongProvider 预测 = order[pos+1]，与实际播放严格一致
-- 遍历序不持久化：冷启动后从当前曲重建（已知限制：跨进程重启后上一轮遍历位置不保留）
+- 遍历序随 player_state 持久化（shuffleOrder + shufflePos）：冷启动恢复时剔除已不在队列中的 ID，游标对齐当前歌
 
 ### 15.3 AppError 错误模型（core/errors/app_error.dart）
 
-`sealed class AppError implements Exception`，子类：NetworkError / AuthError / UnsupportedFeatureError / NotFoundError / PermissionError / StorageError / PlaybackError / ServerError。adapter 层认证/服务器异常已抛 AppError；UI 错误分类必须基于类型 catch，禁止 Exception.toString() 字符串匹配（见 §14 反模式）。
+`sealed class AppError implements Exception`，子类：NetworkError / AuthError / UnsupportedFeatureError / NotFoundError / PermissionError / StorageError / PlaybackError / ServerError。adapter 层认证/服务器异常已抛 AppError。UI 展示统一走 `appUserMessage(error)`（同文件）：AppError 读 message、SocketException/TimeoutException 映射网络文案、其余给安全兜底，禁止把原始异常串暴露给用户（已接入：登录页、服务器连接检测）。
 
 ### 15.4 MotionTokens（core/theme/motion_tokens.dart）
 
-静态动效 token（对齐 AppSpacing/AppRadius 风格）：`durationFast=150ms / durationNormal=250ms / durationSlow=400ms`；`curveStandard=easeOutCubic / curveEmphasized=easeInOutCubicEmphasized / curveDecelerated=easeOutCirc`。新动效统一取值于此，禁止散落 Duration/Curve 字面量。
+静态动效 token（对齐 AppSpacing/AppRadius 风格）：`durationFast=150ms / durationNormal=250ms / durationSlow=400ms`；`curveStandard=easeOutCubic / curveEmphasized=easeInOutCubicEmphasized / curveDecelerated=easeOutCirc`。新动效统一取值于此，禁止散落 Duration/Curve 字面量。已落地：motion.dart 转场/入场曲线、app_shell.dart 翻页曲线、cover_art.dart fadeIn 时长（精确值替换，行为零变化）；存量与 token 不等值的时长字面量（120/220/300/320ms）待逐处迁移。
+
+### 15.4.1 SettingsRepository 裁量说明
+
+不引入独立 SettingsRepository 抽象层：所有设置已通过各 settings Notifier provider 中转读写，UI 不直连 SharedPreferences（不变量 1 已满足）；直连 prefs 的仅运行时状态（播放状态/断点/转码探测缓存），属持久化而非「设置」。再抽一层只有间接成本、无行为收益。
 
 ### 15.5 NetworkSettings 显式注入
 
