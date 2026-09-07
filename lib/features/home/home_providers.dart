@@ -173,12 +173,13 @@ final radioStationsProvider = FutureProvider<List<RadioStation>?>((ref) async {
   return adapter.fetchRadioStations();
 });
 
-/// 流派歌曲（流派二级页；null = 后端不支持）
+/// 流派歌曲（流派二级页复用 PlaylistDetailScreen；不支持流派歌曲的
+/// 后端返回空列表，由页面空态兜底）
 final genreSongsProvider = FutureProvider.autoDispose
-    .family<List<Song>?, String>((ref, genre) async {
+    .family<List<Song>, String>((ref, genre) async {
       final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return null;
-      return adapter.fetchGenreSongs(genre);
+      if (adapter == null) return const [];
+      return await adapter.fetchGenreSongs(genre) ?? const [];
     });
 
 /// 艺人专辑（艺人详情页，按发行年降序）

@@ -871,7 +871,7 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
               4;
           return Column(
             children: [
-              _AlbumSearchBar(
+              ListSearchBar(
                 controller: _controller,
                 onChanged: (v) => setState(() => _search = v),
               ),
@@ -922,12 +922,19 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
   }
 }
 
-/// 专辑列表搜索栏：圆角输入框 + 尾部漏斗图标（过滤当前列表，非全局搜索）
-class _AlbumSearchBar extends StatelessWidget {
-  const _AlbumSearchBar({required this.controller, required this.onChanged});
+/// 列表页搜索栏：圆角输入框 + 尾部漏斗图标（过滤当前列表，非全局搜索）。
+/// 专辑列表 / 歌手列表等二级页共用。
+class ListSearchBar extends StatelessWidget {
+  const ListSearchBar({
+    super.key,
+    required this.controller,
+    required this.onChanged,
+    this.hint = '搜索专辑/歌手',
+  });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
@@ -952,9 +959,9 @@ class _AlbumSearchBar extends StatelessWidget {
                       controller: controller,
                       onChanged: onChanged,
                       style: const TextStyle(color: Colors.white, fontSize: 15),
-                      decoration: const InputDecoration(
-                        hintText: '搜索专辑/歌手',
-                        hintStyle: TextStyle(
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: const TextStyle(
                           color: Colors.white38,
                           fontSize: 15,
                         ),

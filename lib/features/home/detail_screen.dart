@@ -317,7 +317,8 @@ class PlaylistDetailScreen extends ConsumerStatefulWidget {
   final String title;
   final List<Song>? songs; // 直接给定（每日推荐）
   final String? playlistId; // 异步加载（我的歌单）
-  final FutureProvider<List<Song>>? songsProvider; // 异步加载（资料库入口）
+  // 同时接受普通与 autoDispose（含 family 已取参）的 provider（资料库入口/流派）
+  final ProviderBase<AsyncValue<List<Song>>>? songsProvider;
   final String? coverAlbumId;
   final String? date;
   final String? subtitle;

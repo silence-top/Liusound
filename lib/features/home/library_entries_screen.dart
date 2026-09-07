@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lpinyin/lpinyin.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
-import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/motion.dart';
-import '../player/mini_player.dart';
 import 'artist_detail_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
@@ -86,14 +85,33 @@ class _LetterGroup {
   final List<Artist> artists;
 }
 
+/// 名称的拼音键（无音调小写；罕见字转换失败时回退原名），
+/// 用于分组与排序——中文名按拼音归入 A-Z，而非 Unicode 码点。
+String _pinyinKey(String name) {
+  if (name.isEmpty) return '';
+  try {
+    return PinyinHelper.getPinyin(name, separator: ' ').toLowerCase();
+  } catch (_) {
+    return name.toLowerCase();
+  }
+}
+
+String _letterOf(String pinyinKey) {
+  if (pinyinKey.isEmpty) return '#';
+  final f = pinyinKey[0].toUpperCase();
+  return RegExp(r'[A-Z]').hasMatch(f) ? f : '#';
+}
+
 List<_LetterGroup> _groupArtists(List<Artist> artists) {
-  final sorted = [...artists]
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  final sorted = [...artists]..sort((a, b) {
+    final pa = _pinyinKey(a.name);
+    final pb = _pinyinKey(b.name);
+    final cmp = pa.compareTo(pb);
+    return cmp != 0 ? cmp : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  });
   final map = <String, List<Artist>>{};
   for (final a in sorted) {
-    final f = a.name.isNotEmpty ? a.name[0].toUpperCase() : '#';
-    final letter = RegExp(r'[A-Z]').hasMatch(f) ? f : '#';
-    map.putIfAbsent(letter, () => []).add(a);
+    map.putIfAbsent(_letterOf(_pinyinKey(a.name)), () => []).add(a);
   }
   final letters = map.keys.toList()
     ..sort((a, b) {
@@ -107,32 +125,46 @@ List<_LetterGroup> _groupArtists(List<Artist> artists) {
 const _kHeaderHeight = 32.0;
 const _kRowHeight = 64.0;
 
-class _GroupedArtistList extends StatefulWidget {
+class _GroupedArtistList extends ConsumerStatefulWidget {
   const _GroupedArtistList({required this.artists, required this.openAlbums});
 
   final List<Artist> artists;
   final bool openAlbums;
 
   @override
-  State<_GroupedArtistList> createState() => _GroupedArtistListState();
+  ConsumerState<_GroupedArtistList> createState() => _GroupedArtistListState();
 }
 
-class _GroupedArtistListState extends State<_GroupedArtistList> {
-  final _controller = ScrollController();
+class _GroupedArtistListState extends ConsumerState<_GroupedArtistList> {
+  final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  String _search = '';
 
   @override
   void dispose() {
-    _controller.dispose();
+    _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _jumpTo(int groupIndex) {
-    final groups = _groupArtists(widget.artists);
+  List<Artist> get _filtered {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return widget.artists;
+    return widget.artists
+        .where(
+          (a) =>
+              a.name.toLowerCase().contains(q) ||
+              _pinyinKey(a.name).contains(q),
+        )
+        .toList();
+  }
+
+  void _jumpTo(int groupIndex, List<_LetterGroup> groups) {
     var offset = 12.0;
     for (var i = 0; i < groupIndex && i < groups.length; i++) {
       offset += _kHeaderHeight + groups[i].artists.length * _kRowHeight;
     }
-    _controller.animateTo(
+    _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
@@ -141,61 +173,81 @@ class _GroupedArtistListState extends State<_GroupedArtistList> {
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groupArtists(widget.artists);
+    final groups = _groupArtists(_filtered);
     final letters = groups.map((g) => g.letter).toList();
-    return Stack(
+    return Column(
       children: [
-        ListView.builder(
-          controller: _controller,
-          padding: const EdgeInsets.fromLTRB(0, 12, 24, 96),
-          itemCount: groups.length,
-          itemBuilder: (context, gi) {
-            final group = groups[gi];
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: _kHeaderHeight,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    group.letter,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                for (final artist in group.artists)
-                  _ArtistRow(
-                    artist: artist,
-                    artists: group.artists,
-                    onTap: () => Navigator.of(context).push(
-                      fadeRoute<void>(
-                        widget.openAlbums
-                            ? AlbumListPage(
-                                title: artist.name,
-                                provider: artistAlbumsProvider(artist.id),
-                              )
-                            : ArtistDetailScreen(
-                                artistId: artist.id,
-                                artistName: artist.name,
+        ListSearchBar(
+          controller: _searchController,
+          hint: '搜索歌手',
+          onChanged: (v) => setState(() => _search = v),
+        ),
+        Expanded(
+          child: groups.isEmpty
+              ? glassEmptyState(text: '没有匹配的歌手', icon: Icons.person_outline)
+              : Stack(
+                  children: [
+                    ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(0, 12, 24, 96),
+                      itemCount: groups.length,
+                      itemBuilder: (context, gi) {
+                        final group = groups[gi];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: _kHeaderHeight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.l,
                               ),
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                group.letter,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            for (final artist in group.artists)
+                              _ArtistRow(
+                                artist: artist,
+                                artists: group.artists,
+                                onTap: () => Navigator.of(context).push(
+                                  fadeRoute<void>(
+                                    widget.openAlbums
+                                        ? AlbumListPage(
+                                            title: artist.name,
+                                            provider: artistAlbumsProvider(
+                                              artist.id,
+                                            ),
+                                          )
+                                        : ArtistDetailScreen(
+                                            artistId: artist.id,
+                                            artistName: artist.name,
+                                          ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    Positioned(
+                      right: 2,
+                      top: 0,
+                      bottom: 96,
+                      child: Center(
+                        child: _LetterIndexBar(
+                          letters: letters,
+                          onTap: (i) => _jumpTo(i, groups),
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
-        ),
-        Positioned(
-          right: 2,
-          top: 0,
-          bottom: 96,
-          child: Center(
-            child: _LetterIndexBar(letters: letters, onTap: _jumpTo),
-          ),
+                  ],
+                ),
         ),
       ],
     );
@@ -349,8 +401,14 @@ class GenrePage extends ConsumerWidget {
           final color = HSLColor.fromAHSL(1, hue, 0.45, 0.42).toColor();
           return FadeSlideIn(
             child: InkWell(
-              onTap: () => Navigator.of(context)
-                  .push(fadeRoute<void>(GenreSongsPage(genre: genre.value))),
+              onTap: () => Navigator.of(context).push(
+                fadeRoute<void>(
+                  PlaylistDetailScreen(
+                    title: genre.value,
+                    songsProvider: genreSongsProvider(genre.value),
+                  ),
+                ),
+              ),
               borderRadius: BorderRadius.circular(AppRadius.m),
               child: Container(
                 decoration: BoxDecoration(
@@ -392,48 +450,6 @@ class GenrePage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: const Text('流派')),
-      body: body,
-    );
-  }
-}
-
-/// 流派歌曲列表（provider 返回 null = 后端不支持流派歌曲查询）
-class GenreSongsPage extends ConsumerWidget {
-  const GenreSongsPage({super.key, required this.genre});
-
-  final String genre;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(genreSongsProvider(genre));
-    final songs = async.value;
-    Widget body;
-    if (songs == null) {
-      if (async.isLoading) {
-        body = const Center(child: CircularProgressIndicator());
-      } else {
-        body = glassEmptyState(
-          text: async.hasError ? '加载失败，点击重试' : '当前服务器不支持流派歌曲',
-          icon: Icons.music_off_outlined,
-        );
-      }
-    } else if (songs.isEmpty) {
-      body = glassEmptyState(text: '该流派暂无歌曲', icon: Icons.music_off_outlined);
-    } else {
-      body = ListView.builder(
-        itemCount: songs.length + 1,
-        itemBuilder: (context, index) {
-          if (index == songs.length) return ListEndMark(songs: songs);
-          return FadeSlideIn(
-            child: SongRow(song: songs[index], index: index, songs: songs),
-          );
-        },
-      );
-    }
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(genre)),
-      bottomNavigationBar: const MiniPlayer(),
       body: body,
     );
   }
