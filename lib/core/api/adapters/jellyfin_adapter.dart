@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'package:dio/dio.dart';
 
 import '../../settings/streaming_prefs.dart';
@@ -59,7 +61,7 @@ class JellyfinAdapter extends MediaBrowserAdapter {
       final accessToken = data['AccessToken']?.toString() ?? '';
       final userId = data['User']?['Id']?.toString() ?? '';
       if (accessToken.isEmpty || userId.isEmpty) {
-        throw Exception('Jellyfin 登录响应缺少认证信息');
+        throw AuthError('Jellyfin 登录响应缺少认证信息');
       }
       return AdapterSession(
         secrets: {'token': accessToken, 'userId': userId},

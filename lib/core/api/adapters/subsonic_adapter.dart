@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
@@ -81,7 +83,7 @@ class SubsonicAdapter implements ServerAdapter {
       );
       final status =
           res.data?['subsonic-response']?['status']?.toString() ?? '';
-      if (status != 'ok') throw Exception('Subsonic 认证失败');
+      if (status != 'ok') throw AuthError('Subsonic 认证失败');
       return AdapterSession(
         secrets: {'subsonicToken': token, 'subsonicSalt': salt},
         displayName: request.username.isNotEmpty ? request.username : null,
@@ -554,10 +556,10 @@ class SubsonicAdapter implements ServerAdapter {
   }
 
   Map<String, dynamic> _unwrap(Map<String, dynamic>? raw) {
-    if (raw == null) throw Exception('空响应');
+    if (raw == null) throw ServerError('空响应');
     final resp = raw['subsonic-response'] as Map<String, dynamic>?;
     if (resp == null || resp['status'] != 'ok') {
-      throw Exception('Subsonic 请求失败');
+      throw ServerError('Subsonic 请求失败');
     }
     return resp;
   }

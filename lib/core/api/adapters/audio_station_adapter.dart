@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -78,10 +80,10 @@ class AudioStationAdapter implements ServerAdapter {
       );
       final data = res.data ?? const {};
       if (data['success'] != true) {
-        throw Exception('Audio Station 认证失败');
+        throw AuthError('Audio Station 认证失败');
       }
       final sid = data['data']?['sid']?.toString() ?? '';
-      if (sid.isEmpty) throw Exception('Audio Station 认证失败：无 SID');
+      if (sid.isEmpty) throw AuthError('Audio Station 认证失败：无 SID');
       return AdapterSession(
         secrets: {'sid': sid, 'password': request.password},
         displayName: request.username.isNotEmpty ? request.username : null,
@@ -448,11 +450,11 @@ class AudioStationAdapter implements ServerAdapter {
         );
         final retryData = retry.data ?? const {};
         if (retryData['success'] != true) {
-          throw Exception('Audio Station 请求失败');
+          throw ServerError('Audio Station 请求失败');
         }
         return retryData;
       }
-      throw Exception('Audio Station 请求失败');
+      throw ServerError('Audio Station 请求失败');
     }
     return data;
   }
@@ -463,7 +465,7 @@ class AudioStationAdapter implements ServerAdapter {
   }
 
   Future<void> _relogin() async {
-    if (_password.isEmpty) throw Exception('无密码，无法重新登录');
+    if (_password.isEmpty) throw AuthError('无密码，无法重新登录');
     final res = await _dio.get<Map<String, dynamic>>(
       '/webapi/auth.cgi',
       queryParameters: {
@@ -477,9 +479,9 @@ class AudioStationAdapter implements ServerAdapter {
       },
     );
     final data = res.data ?? const {};
-    if (data['success'] != true) throw Exception('Audio Station 重新登录失败');
+    if (data['success'] != true) throw AuthError('Audio Station 重新登录失败');
     _sid = data['data']?['sid']?.toString() ?? '';
-    if (_sid.isEmpty) throw Exception('Audio Station 重新登录失败：无 SID');
+    if (_sid.isEmpty) throw AuthError('Audio Station 重新登录失败：无 SID');
   }
 
   List<dynamic> _dataList(Map<String, dynamic> data) {

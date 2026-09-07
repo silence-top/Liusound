@@ -1,3 +1,5 @@
+import '../errors/app_error.dart';
+
 import 'package:dio/dio.dart';
 
 import '../models/models.dart';
@@ -71,7 +73,7 @@ class NavidromeClient {
   /// 内部工具：当前会话的 Subsonic 认证要素（未登录抛异常）
   SubsonicAuth get _subsonicAuth {
     final session = _session;
-    if (session == null) throw Exception('未登录');
+    if (session == null) throw AuthError('未登录');
     return SubsonicAuth(
       serverUrl: session.serverUrl,
       username: session.username,
@@ -98,7 +100,7 @@ class NavidromeClient {
       if (result.token.isEmpty ||
           result.subsonicToken.isEmpty ||
           result.subsonicSalt.isEmpty) {
-        throw Exception('登录响应缺少必要的认证信息');
+        throw AuthError('登录响应缺少必要的认证信息');
       }
       return result;
     } finally {

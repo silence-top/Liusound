@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -78,7 +80,7 @@ class PlexAdapter implements ServerAdapter {
       final data = res.data ?? const {};
       final user = data['user'] as Map<String, dynamic>?;
       final token = user?['authToken']?.toString() ?? '';
-      if (token.isEmpty) throw Exception('Plex 认证失败');
+      if (token.isEmpty) throw AuthError('Plex 认证失败');
 
       final plexDio = Dio(
         BaseOptions(

@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
@@ -65,7 +67,7 @@ class EmbyAdapter extends MediaBrowserAdapter {
       final accessToken = data['AccessToken']?.toString() ?? '';
       final userId = data['User']?['Id']?.toString() ?? '';
       if (accessToken.isEmpty || userId.isEmpty) {
-        throw Exception('Emby 登录响应缺少认证信息');
+        throw AuthError('Emby 登录响应缺少认证信息');
       }
       return AdapterSession(
         secrets: {'token': accessToken, 'userId': userId},

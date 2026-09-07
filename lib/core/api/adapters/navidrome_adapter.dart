@@ -1,3 +1,5 @@
+import '../../errors/app_error.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
