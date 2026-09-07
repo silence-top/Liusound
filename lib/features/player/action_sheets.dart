@@ -328,6 +328,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
       fadeRoute<void>(
         SongListScreen(
           rateTargetId: song.albumId,
+          songsProvider: albumSongsProvider(song.albumId),
           title: song.album,
           subtitle: song.artist,
         ),

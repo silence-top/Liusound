@@ -902,6 +902,7 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
                               fadeRoute<void>(
                                 SongListScreen(
                                   rateTargetId: album.id,
+                                  songsProvider: albumSongsProvider(album.id),
                                   title: album.name,
                                   subtitle:
                                       '${album.year ?? ''} ${album.artist}'

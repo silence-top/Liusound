@@ -230,6 +230,7 @@ class _AlbumCard extends StatelessWidget {
           fadeRoute<void>(
             SongListScreen(
               rateTargetId: album.id,
+              songsProvider: albumSongsProvider(album.id),
               title: album.name,
               subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
               rating: album.rating,

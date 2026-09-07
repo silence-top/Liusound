@@ -107,6 +107,7 @@ class SongInfoScreen extends StatelessWidget {
       fadeRoute<void>(
         SongListScreen(
           rateTargetId: song.albumId,
+          songsProvider: albumSongsProvider(song.albumId),
           title: song.album,
           subtitle: song.artist,
         ),
