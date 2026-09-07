@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
@@ -22,8 +23,11 @@ class ServerDetailScreen extends ConsumerWidget {
       backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: Text(config?.type.displayName ?? '服务器')),
       body: config == null
-          ? const Center(
-              child: Text('未连接服务器', style: TextStyle(color: Colors.white38)),
+          ? Center(
+              child: Text(
+                '未连接服务器',
+                style: TextStyle(color: AppTheme.textFaintOf(context)),
+              ),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -71,8 +75,8 @@ class _Header extends ConsumerWidget {
                 config.type.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -82,7 +86,10 @@ class _Header extends ConsumerWidget {
                 config.serverUrl,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -115,11 +122,11 @@ class _StatsCard extends ConsumerWidget {
       child: Column(
         children: [
           _statRow(context, '歌曲', '$total'),
-          _divider(),
+          _divider(context),
           _statRow(context, '专辑', albums == null ? '…' : '${albums.length}'),
-          _divider(),
+          _divider(context),
           _statRow(context, '歌手', artists == null ? '—' : '${artists.length}'),
-          _divider(),
+          _divider(context),
           _statRow(
             context,
             '歌单',
@@ -137,20 +144,23 @@ class _StatsCard extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(
+              color: AppTheme.textPrimaryOf(context),
+              fontSize: 16,
+            ),
           ),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 16),
           ),
         ],
       ),
     );
   }
 
-  Widget _divider() =>
-      Divider(height: 1, color: Colors.white.withValues(alpha: 0.08));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, color: SkinTokens.of(context).divider);
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -164,7 +174,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white38, fontSize: 13),
+        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 13),
       ),
     );
   }
@@ -182,14 +192,14 @@ class _UserSettingsCard extends ConsumerWidget {
       child: Column(
         children: [
           _row(context, '用户名', value: config.username),
-          _divider(),
+          _divider(context),
           _row(
             context,
             '管理服务器',
-            trailing: const Icon(
+            trailing: Icon(
               Icons.chevron_right,
               size: 20,
-              color: Colors.white38,
+              color: AppTheme.textFaintOf(context),
             ),
             onTap: () =>
                 Navigator.of(context)
@@ -200,8 +210,8 @@ class _UserSettingsCard extends ConsumerWidget {
     );
   }
 
-  Widget _divider() =>
-      Divider(height: 1, color: Colors.white.withValues(alpha: 0.08));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, color: SkinTokens.of(context).divider);
 }
 
 class _ManageCard extends ConsumerWidget {
@@ -216,9 +226,9 @@ class _ManageCard extends ConsumerWidget {
       child: Column(
         children: [
           _row(context, '别名', value: config.name),
-          _divider(),
+          _divider(context),
           _row(context, '连接线路', value: config.serverUrl, valueCompact: true),
-          _divider(),
+          _divider(context),
           _row(
             context,
             '重新同步资料库',
@@ -235,11 +245,11 @@ class _ManageCard extends ConsumerWidget {
               );
             },
           ),
-          _divider(),
+          _divider(context),
           _row(
             context,
             '删除资料库',
-            valueColor: Colors.redAccent,
+            valueColor: AppTheme.heartRed,
             onTap: () => _confirmDelete(context, ref),
           ),
         ],
@@ -253,8 +263,8 @@ class _ManageCard extends ConsumerWidget {
       title: '删除资料库',
       content: Text(
         '确定删除「${config.name}」？\n将清除该服务器的本地会话数据。',
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: AppTheme.textDimOf(context),
           fontSize: 14,
           height: 1.5,
         ),
@@ -266,7 +276,7 @@ class _ManageCard extends ConsumerWidget {
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.heartRed),
           child: const Text('删除'),
         ),
       ],
@@ -276,8 +286,8 @@ class _ManageCard extends ConsumerWidget {
     }
   }
 
-  Widget _divider() =>
-      Divider(height: 1, color: Colors.white.withValues(alpha: 0.08));
+  Widget _divider(BuildContext context) =>
+      Divider(height: 1, color: SkinTokens.of(context).divider);
 }
 
 /// 通用行：label 左、值/箭头右、整行可点
@@ -291,7 +301,7 @@ Widget _row(
   VoidCallback? onTap,
 }) {
   final valueStyle = TextStyle(
-    color: valueColor ?? Colors.white.withValues(alpha: 0.7),
+    color: valueColor ?? AppTheme.textDimOf(context),
     fontSize: 15,
   );
   return InkWell(
@@ -305,8 +315,8 @@ Widget _row(
             label,
             style: TextStyle(
               color: onTap == null
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.9),
+                  ? AppTheme.textPrimaryOf(context)
+                  : AppTheme.textDimOf(context),
               fontSize: 16,
             ),
           ),

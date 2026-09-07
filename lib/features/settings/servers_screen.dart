@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/server_type.dart';
 import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
@@ -41,27 +42,33 @@ class ServersScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
                     '添加服务器',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
                   size: 20,
-                  color: Colors.white38,
+                  color: AppTheme.textFaintOf(context),
                 ),
               ],
             ),
           ),
           if (auth.servers.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(
                 child: Text(
                   '暂无已保存的服务器',
-                  style: TextStyle(color: Colors.white38, fontSize: 16),
+                  style: TextStyle(
+                    color: AppTheme.textFaintOf(context),
+                    fontSize: 16,
+                  ),
                 ),
               ),
             )
@@ -94,14 +101,19 @@ class ServersScreen extends ConsumerWidget {
                 title: Text(
                   type.displayName,
                   style: TextStyle(
-                    color: type.implemented ? Colors.white : Colors.white38,
+                    color: type.implemented
+                        ? AppTheme.textPrimaryOf(context)
+                        : AppTheme.textFaintOf(context),
                   ),
                 ),
                 trailing: type.implemented
                     ? null
-                    : const Text(
+                    : Text(
                         '即将推出',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                        style: TextStyle(
+                          color: AppTheme.textFaintOf(context),
+                          fontSize: 12,
+                        ),
                       ),
                 onTap: type.implemented
                     ? () {
@@ -145,8 +157,8 @@ class _ServerCard extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             config.name,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppTheme.textPrimaryOf(context),
                               fontSize: 16,
                             ),
                           ),
@@ -176,8 +188,8 @@ class _ServerCard extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       config.serverUrl,
-                      style: const TextStyle(
-                        color: Colors.white38,
+                      style: TextStyle(
+                        color: AppTheme.textFaintOf(context),
                         fontSize: 14,
                       ),
                     ),
@@ -192,13 +204,13 @@ class _ServerCard extends ConsumerWidget {
               Icon(
                 Icons.person_outline,
                 size: 14,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: AppTheme.textFaintOf(context),
               ),
               const SizedBox(width: 4),
               Text(
                 config.username,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: AppTheme.textFaintOf(context),
                   fontSize: 12,
                 ),
               ),
@@ -217,10 +229,10 @@ class _ServerCard extends ConsumerWidget {
                 ),
               PopupMenuButton<_Action>(
                 onSelected: (action) => _onAction(action, context, ref),
-                icon: const Icon(
+                icon: Icon(
                   Icons.more_vert,
                   size: 20,
-                  color: Colors.white38,
+                  color: AppTheme.textFaintOf(context),
                 ),
                 itemBuilder: (_) => [
                   if (!isActive)
@@ -251,10 +263,10 @@ class _ServerCard extends ConsumerWidget {
                         Icon(
                           Icons.delete_outline,
                           size: 18,
-                          color: Colors.redAccent,
+                          color: AppTheme.heartRed,
                         ),
                         SizedBox(width: 8),
-                        Text('删除', style: TextStyle(color: Colors.redAccent)),
+                        Text('删除', style: TextStyle(color: AppTheme.heartRed)),
                       ],
                     ),
                   ),
@@ -314,8 +326,8 @@ class _ServerCard extends ConsumerWidget {
       title: '删除服务器',
       content: Text(
         '确定删除「${config.name}」？\n将清除该服务器的本地会话数据。',
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: AppTheme.textDimOf(context),
           fontSize: 14,
           height: 1.5,
         ),
@@ -327,7 +339,7 @@ class _ServerCard extends ConsumerWidget {
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.heartRed),
           child: const Text('删除'),
         ),
       ],
@@ -357,10 +369,14 @@ class _ServerIcon extends StatelessWidget {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: SkinTokens.of(context).surface,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(type.fallbackIcon, size: 20, color: Colors.white70),
+      child: Icon(
+        type.fallbackIcon,
+        size: 20,
+        color: AppTheme.textDimOf(context),
+      ),
     );
   }
 }

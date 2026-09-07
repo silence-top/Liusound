@@ -16,6 +16,7 @@ import '../../core/download/auto_download.dart';
 import '../../core/floating/floating_lyrics.dart';
 import '../../core/theme/accent.dart';
 import '../../core/theme/app_skin.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
@@ -362,8 +363,8 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.logout,
                 title: '退出登录',
                 subtitle: '清除本地会话与播放状态',
-                iconColor: Colors.redAccent,
-                titleColor: Colors.redAccent,
+                iconColor: AppTheme.heartRed,
+                titleColor: AppTheme.heartRed,
                 onTap: () => _confirmLogout(context, ref),
               ),
             ],
@@ -418,9 +419,13 @@ class SettingsScreen extends ConsumerWidget {
     final confirmed = await glassDialog<bool>(
       context,
       title: '退出登录',
-      content: const Text(
+      content: Text(
         '将清除本地会话与播放状态，确定退出？',
-        style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+        style: TextStyle(
+          color: AppTheme.textDimOf(context),
+          fontSize: 14,
+          height: 1.5,
+        ),
       ),
       actions: [
         TextButton(
@@ -457,12 +462,12 @@ Future<void> _showCacheLimitPicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '缓存限额',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -478,7 +483,10 @@ Future<void> _showCacheLimitPicker(BuildContext context, WidgetRef ref) {
                 : const SizedBox(width: 24),
             title: Text(
               l.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
             ),
             onTap: () {
               ref
@@ -487,11 +495,14 @@ Future<void> _showCacheLimitPicker(BuildContext context, WidgetRef ref) {
               Navigator.of(context).pop();
             },
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: Text(
             '超出限额时从最旧的缓存文件开始清理',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -504,9 +515,13 @@ Future<void> _clearAudioCache(BuildContext context, WidgetRef ref) async {
   final confirmed = await glassDialog<bool>(
     context,
     title: '清理播放缓存',
-    content: const Text(
+    content: Text(
       '将删除边听边存产生的音频缓存文件，离线下载不受影响。确定清理？',
-      style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+      style: TextStyle(
+        color: AppTheme.textDimOf(context),
+        fontSize: 14,
+        height: 1.5,
+      ),
     ),
     actions: [
       TextButton(
@@ -564,8 +579,8 @@ Future<void> _showQualityPicker(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 cellular ? '在线音质（移动网络）' : '在线音质（Wi-Fi）',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -583,7 +598,7 @@ Future<void> _showQualityPicker(
                   title: Text(
                     q.label,
                     style: TextStyle(
-                      color: Colors.white.withValues(
+                      color: AppTheme.textPrimaryOf(context).withValues(
                         alpha: probing && q != StreamQuality.lossless
                             ? 0.4
                             : 1.0,
@@ -620,7 +635,10 @@ Future<void> _showQualityPicker(
                     ? '无损播放原始文件；其余档位由服务端转码（需后端支持），'
                           '可显著降低流量与加载等待'
                     : '当前服务器不支持服务端转码（如未安装 ffmpeg），仅可无损播放原始文件',
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -638,12 +656,12 @@ Future<void> _showTranscodeFormatPicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '转码格式',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -659,7 +677,10 @@ Future<void> _showTranscodeFormatPicker(BuildContext context, WidgetRef ref) {
                 : const SizedBox(width: 24),
             title: Text(
               f.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
             ),
             onTap: () {
               ref
@@ -668,11 +689,14 @@ Future<void> _showTranscodeFormatPicker(BuildContext context, WidgetRef ref) {
               Navigator.of(context).pop();
             },
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: Text(
             '仅在选择非无损音质档位时生效；OPUS 需要服务端转码器支持',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -715,12 +739,12 @@ class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '网络设置',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -728,7 +752,7 @@ class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
         ),
         Text(
           '请求超时（$_timeout 秒）',
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 13),
         ),
         Slider(
           value: _timeout.toDouble(),
@@ -741,10 +765,16 @@ class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
         ),
         TextField(
           controller: _proxy,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: const InputDecoration(
+          style: TextStyle(
+            color: AppTheme.textPrimaryOf(context),
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
             labelText: '代理地址（如 127.0.0.1:7890）',
-            labelStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            labelStyle: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 13,
+            ),
             border: OutlineInputBorder(),
           ),
         ),
@@ -752,13 +782,19 @@ class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
-          title: const Text(
+          title: Text(
             'HTTPS 证书校验',
-            style: TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(
+              color: AppTheme.textPrimaryOf(context),
+              fontSize: 14,
+            ),
           ),
-          subtitle: const Text(
+          subtitle: Text(
             '自签名内网服务器可关闭',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
           value: _verify,
           activeThumbColor: Theme.of(context).colorScheme.primary,
@@ -766,19 +802,28 @@ class _NetworkSettingsFormState extends State<_NetworkSettingsForm> {
         ),
         TextField(
           controller: _hosts,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: const InputDecoration(
+          style: TextStyle(
+            color: AppTheme.textPrimaryOf(context),
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
             labelText: 'hosts 映射（域名=IP，分号分隔）',
-            labelStyle: TextStyle(color: Colors.white38, fontSize: 13),
+            labelStyle: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 13,
+            ),
             border: OutlineInputBorder(),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 8),
           child: Text(
             '仅 HTTP 直连完整生效；HTTPS 握手 SNI 使用映射 IP，'
             '需配合关闭证书校验',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
         ),
         Padding(
@@ -836,12 +881,12 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '液态玻璃效果',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -857,18 +902,24 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
                 : const SizedBox(width: 24),
             title: Text(
               level.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
             ),
             onTap: () {
               ref.read(glassQualityProvider.notifier).setLevel(level);
               Navigator.of(context).pop();
             },
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: Text(
             '关闭在低端设备上更流畅；增强提高模糊强度，高配设备体验更佳',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -884,12 +935,12 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '唱片形态',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -897,7 +948,7 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
         ),
         for (final style in CoverStyle.values)
           ListTile(
-            leading: Icon(style.icon, color: Colors.white70),
+            leading: Icon(style.icon, color: AppTheme.textDimOf(context)),
             trailing: style == current
                 ? Icon(
                     Icons.check,
@@ -906,19 +957,25 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
                 : null,
             title: Text(
               style.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
             ),
             onTap: () {
               ref.read(coverStyleProvider.notifier).setStyle(style);
               Navigator.of(context).pop();
             },
           ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: Text(
             '黑胶与 CD 随播放旋转，黑胶带唱针升降动画；'
             '方形卡片与全屏大图保持静态，模糊强度跟随液态玻璃档位',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textFaintOf(context),
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -1117,31 +1174,37 @@ Future<void> _showEffectsPanel(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 '音效',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             if (!Platform.isAndroid)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
                 child: Text(
                   '音效仅在 Android 设备上可用',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: TextStyle(
+                    color: AppTheme.textDimOf(context),
+                    fontSize: 13,
+                  ),
                 ),
               )
             else if (st.bands.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
                 child: Text(
                   '未获取到设备音效通道，播放一首歌曲后重试',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: TextStyle(
+                    color: AppTheme.textDimOf(context),
+                    fontSize: 13,
+                  ),
                 ),
               )
             else ...[
@@ -1149,7 +1212,10 @@ Future<void> _showEffectsPanel(BuildContext context) {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                 child: Row(
                   children: [
-                    const Text('均衡器', style: TextStyle(color: Colors.white)),
+                    Text(
+                      '均衡器',
+                      style: TextStyle(color: AppTheme.textPrimaryOf(context)),
+                    ),
                     const Spacer(),
                     Switch(value: st.enabled, onChanged: notifier.setEnabled),
                   ],
@@ -1171,12 +1237,14 @@ Future<void> _showEffectsPanel(BuildContext context) {
                           ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Colors.white24),
+                            border: Border.all(
+                              color: SkinTokens.of(context).borderHairline,
+                            ),
                           ),
                           child: Text(
                             name,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppTheme.textPrimaryOf(context),
                               fontSize: 12,
                             ),
                           ),
@@ -1195,8 +1263,8 @@ Future<void> _showEffectsPanel(BuildContext context) {
                         width: 68,
                         child: Text(
                           freqLabel(band.$2.centerHz),
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: AppTheme.textDimOf(context),
                             fontSize: 12,
                           ),
                         ),
@@ -1219,8 +1287,8 @@ Future<void> _showEffectsPanel(BuildContext context) {
                         child: Text(
                           '${((st.gains[band.$1] ?? 0) / 100).toStringAsFixed(1)} dB',
                           textAlign: TextAlign.end,
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: AppTheme.textDimOf(context),
                             fontSize: 12,
                           ),
                         ),
@@ -1232,11 +1300,14 @@ Future<void> _showEffectsPanel(BuildContext context) {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 68,
                       child: Text(
                         '低音增强',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        style: TextStyle(
+                          color: AppTheme.textDimOf(context),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -1255,11 +1326,14 @@ Future<void> _showEffectsPanel(BuildContext context) {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 68,
                       child: Text(
                         '空间音效',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        style: TextStyle(
+                          color: AppTheme.textDimOf(context),
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -1357,7 +1431,7 @@ Future<void> _showHeadsetSheet(BuildContext context) {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 13),
         ),
         const SizedBox(height: 6),
         Wrap(
@@ -1377,7 +1451,7 @@ Future<void> _showHeadsetSheet(BuildContext context) {
                     border: Border.all(
                       color: a == current
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.white24,
+                          : SkinTokens.of(context).borderHairline,
                     ),
                     color: a == current
                         ? Theme.of(context).colorScheme.primary
@@ -1386,7 +1460,10 @@ Future<void> _showHeadsetSheet(BuildContext context) {
                   ),
                   child: Text(
                     a.label,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -1406,12 +1483,12 @@ Future<void> _showHeadsetSheet(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 '耳机线控',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1420,12 +1497,15 @@ Future<void> _showHeadsetSheet(BuildContext context) {
             row('单击', cfg.single, (a) => notifier.set(single: a)),
             row('双击', cfg.doubleTap, (a) => notifier.set(doubleTap: a)),
             row('三击', cfg.triple, (a) => notifier.set(triple: a)),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 10, 20, 8),
               child: Text(
                 '默认：单击播放/暂停，双击下一首，三击上一首；'
                 '长按和音量键由系统控制',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -1443,12 +1523,12 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '主题色',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -1473,12 +1553,18 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
                       color: a.color,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: a == current ? Colors.white : Colors.transparent,
+                        color: a == current
+                            ? AppTheme.textPrimaryOf(context)
+                            : Colors.transparent,
                         width: 3,
                       ),
                     ),
                     child: a == current
-                        ? const Icon(Icons.check, color: Colors.white, size: 24)
+                        ? Icon(
+                            Icons.check,
+                            color: AppTheme.textPrimaryOf(context),
+                            size: 24,
+                          )
                         : null,
                   ),
                 ),
@@ -1492,7 +1578,10 @@ Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 a.label,
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 13,
+                ),
               ),
             ),
       ],
@@ -1510,12 +1599,12 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 '自定义背景',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1562,8 +1651,8 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                   children: [
                     Text(
                       '不透明度 ${(bg.opacity * 100).round()}%',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
                         fontSize: 13,
                       ),
                     ),
@@ -1574,7 +1663,7 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                         min: 0.05,
                         max: 1.0,
                         activeColor: Theme.of(context).colorScheme.primary,
-                        inactiveColor: Colors.white24,
+                        inactiveColor: AppTheme.textFaintOf(context),
                         onChanged: (v) =>
                             ref.read(backgroundProvider.notifier).setOpacity(v),
                       ),
@@ -1582,8 +1671,8 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                     const SizedBox(height: 8),
                     Text(
                       '模糊度 ${bg.blur.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
                         fontSize: 13,
                       ),
                     ),
@@ -1594,7 +1683,7 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                         min: 0,
                         max: 30,
                         activeColor: Theme.of(context).colorScheme.primary,
-                        inactiveColor: Colors.white24,
+                        inactiveColor: AppTheme.textFaintOf(context),
                         onChanged: (v) =>
                             ref.read(backgroundProvider.notifier).setBlur(v),
                       ),
@@ -1604,11 +1693,14 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
               ),
             ],
             const SizedBox(height: 12),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
                 '图片仅保存在本地，不会上传到任何服务器',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -1626,12 +1718,12 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
     Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             '控制栏样式',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -1643,7 +1735,7 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
               MiniBarStyle.glass => Icons.blur_on_outlined,
               MiniBarStyle.solid => Icons.rectangle_outlined,
               MiniBarStyle.gradient => Icons.gradient_outlined,
-            }, color: Colors.white70),
+            }, color: AppTheme.textDimOf(context)),
             trailing: style == current
                 ? Icon(
                     Icons.check,
@@ -1652,7 +1744,10 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
                 : null,
             title: Text(
               style.label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
             ),
             onTap: () {
               ref.read(miniBarStyleProvider.notifier).setStyle(style);
@@ -1675,12 +1770,12 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 '控制栏高度偏移',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1692,7 +1787,10 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
                 children: [
                   Text(
                     '${offset.toStringAsFixed(0)}px',
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 20,
+                    ),
                   ),
                   SliderTheme(
                     data: const SliderThemeData(trackHeight: 2),
@@ -1702,7 +1800,7 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
                       max: 40,
                       divisions: 30,
                       activeColor: Theme.of(context).colorScheme.primary,
-                      inactiveColor: Colors.white24,
+                      inactiveColor: AppTheme.textFaintOf(context),
                       onChanged: (v) =>
                           ref.read(miniBarOffsetProvider.notifier).setOffset(v),
                     ),
@@ -1710,11 +1808,14 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
                 ],
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
                 '正值上移、负值下移，用于适配不同底部导航栏高度',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -1813,8 +1914,8 @@ class _GroupCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Text(
                 title!,
-                style: const TextStyle(
-                  color: Colors.white38,
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1850,15 +1951,15 @@ class _SwitchTile extends ConsumerWidget {
     final showIcons = ref.watch(settingsIconsProvider);
     return SwitchListTile(
       secondary: showIcons
-          ? Icon(icon, color: Colors.white70)
+          ? Icon(icon, color: AppTheme.textDimOf(context))
           : const SizedBox(width: 24),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white38, fontSize: 12),
+        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
       ),
       value: value,
       activeThumbColor: Theme.of(context).colorScheme.primary,
@@ -1889,19 +1990,22 @@ class _ActionTile extends ConsumerWidget {
     final showIcons = ref.watch(settingsIconsProvider);
     return ListTile(
       leading: showIcons
-          ? Icon(icon, color: iconColor ?? Colors.white70)
+          ? Icon(icon, color: iconColor ?? AppTheme.textDimOf(context))
           : const SizedBox(width: 24),
       title: Text(
         title,
-        style: TextStyle(color: titleColor ?? Colors.white, fontSize: 16),
+        style: TextStyle(
+          color: titleColor ?? AppTheme.textPrimaryOf(context),
+          fontSize: 16,
+        ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white38, fontSize: 12),
+        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right,
-        color: Colors.white24,
+        color: AppTheme.textFaintOf(context),
         size: 22,
       ),
       onTap: onTap,
@@ -1923,16 +2027,16 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white70),
+      leading: Icon(icon, color: AppTheme.textDimOf(context)),
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
       ),
       subtitle: Text(
         subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white38, fontSize: 12),
+        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
       ),
     );
   }
@@ -1951,10 +2055,13 @@ class _VolumeTile extends ConsumerWidget {
       builder: (context, snapshot) {
         final volume = snapshot.data ?? 1.0;
         return ListTile(
-          leading: const Icon(Icons.volume_up, color: Colors.white70),
-          title: const Text(
+          leading: Icon(Icons.volume_up, color: AppTheme.textDimOf(context)),
+          title: Text(
             '音量',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(
+              color: AppTheme.textPrimaryOf(context),
+              fontSize: 16,
+            ),
           ),
           subtitle: SliderTheme(
             data: const SliderThemeData(
@@ -1964,7 +2071,7 @@ class _VolumeTile extends ConsumerWidget {
             child: Slider(
               value: volume,
               activeColor: Theme.of(context).colorScheme.primary,
-              inactiveColor: Colors.white24,
+              inactiveColor: AppTheme.textFaintOf(context),
               onChanged: (v) => player.setVolume(v),
             ),
           ),
@@ -1973,7 +2080,10 @@ class _VolumeTile extends ConsumerWidget {
             child: Text(
               '${(volume * 100).round()}%',
               textAlign: TextAlign.end,
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textFaintOf(context),
+                fontSize: 14,
+              ),
             ),
           ),
         );

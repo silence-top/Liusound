@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
@@ -54,22 +55,25 @@ class _SearchBar extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: AppTheme.surfaceOf(context),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
-            const Icon(Icons.search, size: 22, color: Colors.white54),
+            Icon(Icons.search, size: 22, color: AppTheme.textFaintOf(context)),
             const SizedBox(width: 10),
-            const Text(
+            Text(
               '搜索',
-              style: TextStyle(color: Colors.white38, fontSize: 15),
+              style: TextStyle(
+                color: AppTheme.textFaintOf(context),
+                fontSize: 15,
+              ),
             ),
             const Spacer(),
             Icon(
               Icons.qr_code_scanner,
               size: 22,
-              color: Colors.white.withValues(alpha: 0.45),
+              color: AppTheme.textFaintOf(context),
             ),
           ],
         ),
@@ -143,8 +147,8 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                           type?.displayName ?? '未连接服务器',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryOf(context),
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -155,7 +159,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                             Icon(
                               Icons.alt_route,
                               size: 13,
-                              color: Colors.white38,
+                              color: AppTheme.textFaintOf(context),
                             ),
                             const SizedBox(width: 4),
                             Flexible(
@@ -163,8 +167,8 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                                 config?.name ?? '点击设置添加服务器',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white38,
+                                style: TextStyle(
+                                  color: AppTheme.textFaintOf(context),
                                   fontSize: 12,
                                 ),
                               ),
@@ -173,13 +177,13 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                             Icon(
                               Icons.music_note,
                               size: 13,
-                              color: Colors.white38,
+                              color: AppTheme.textFaintOf(context),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '${widget.total}',
-                              style: const TextStyle(
-                                color: Colors.white38,
+                              style: TextStyle(
+                                color: AppTheme.textFaintOf(context),
                                 fontSize: 12,
                               ),
                             ),
@@ -192,7 +196,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
               ),
             ),
           ),
-          Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+          Divider(height: 1, color: SkinTokens.of(context).divider),
           // 入口网格可折叠：收起时高度压缩为 0，箭头随状态翻转
           ClipRect(
             child: AnimatedAlign(
@@ -213,7 +217,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                     ? Icons.keyboard_double_arrow_up
                     : Icons.keyboard_double_arrow_down,
                 size: 20,
-                color: Colors.white38,
+                color: AppTheme.textFaintOf(context),
               ),
             ),
           ),
@@ -359,7 +363,10 @@ class _Entry extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: TextStyle(
+                color: AppTheme.textDimOf(context),
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -395,9 +402,9 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
         child: Center(
           child: TextButton(
             onPressed: () => ref.invalidate(playlistsProvider),
-            child: const Text(
+            child: Text(
               '加载失败，点击重试',
-              style: TextStyle(color: Colors.white38),
+              style: TextStyle(color: AppTheme.textFaintOf(context)),
             ),
           ),
         ),
@@ -435,8 +442,8 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
             children: [
               Text(
                 _all ? '全部歌单' : '我的歌单',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 19,
                   fontWeight: FontWeight.bold,
                 ),
@@ -449,13 +456,16 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
                     child: Icon(
                       _all ? Icons.arrow_right : Icons.arrow_left,
                       size: 22,
-                      color: Colors.white54,
+                      color: AppTheme.textFaintOf(context),
                     ),
                   ),
                 ),
               const Spacer(),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_horiz, color: Colors.white54),
+                icon: Icon(
+                  Icons.more_horiz,
+                  color: AppTheme.textFaintOf(context),
+                ),
                 onSelected: (action) {
                   if (action == 'create') {
                     glassDialog<void>(
@@ -725,7 +735,11 @@ class _PlaylistCover extends ConsumerWidget {
         color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Icon(Icons.queue_music, color: Colors.white24, size: 26),
+      child: Icon(
+        Icons.queue_music,
+        color: AppTheme.textFaintOf(context),
+        size: 26,
+      ),
     );
   }
 }
@@ -762,8 +776,8 @@ class _PlaylistRow extends StatelessWidget {
                     playlist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -771,13 +785,16 @@ class _PlaylistRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${playlist.songCount} 首歌曲',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textFaintOf(context),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white54),
+              icon: Icon(Icons.more_vert, color: AppTheme.textFaintOf(context)),
               onSelected: (action) => _onMenuAction(context, action),
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'play', child: Text('播放')),
@@ -1005,7 +1022,7 @@ class ListSearchBar extends StatelessWidget {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.07),
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(

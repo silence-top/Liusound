@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
@@ -482,8 +483,8 @@ class _Header extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryOf(context),
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
@@ -494,8 +495,8 @@ class _Header extends StatelessWidget {
                     subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFBBBBBB),
+                    style: TextStyle(
+                      color: AppTheme.textDimOf(context),
                       fontSize: 14,
                     ),
                   ),
@@ -522,10 +523,10 @@ class _CoverPlaceholder extends StatelessWidget {
       width: 90,
       height: 90,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2C3A),
+        color: SkinTokens.of(context).surface,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Icon(Icons.album, color: Colors.white24, size: 36),
+      child: Icon(Icons.album, color: AppTheme.textFaintOf(context), size: 36),
     );
   }
 }
@@ -588,7 +589,7 @@ class _ListTop extends StatelessWidget {
             child: expanded
                 ? Column(
                     children: [
-                      const Divider(height: 1, color: Color(0x0DFFFFFF)),
+                      Divider(height: 1, color: SkinTokens.of(context).divider),
                       _FilterBar(controller: controller, onChanged: onChanged),
                     ],
                   )
@@ -617,6 +618,7 @@ List<Song> _filterSongs(List<Song> songs, String query) {
 /// AppBar 过滤入口：点击展开/收起列表内过滤框，展开态染主色
 /// （专辑详情页与歌单详情页共用）
 Widget _filterAction({
+  required BuildContext context,
   required bool expanded,
   required VoidCallback onPressed,
   required Color primaryColor,
@@ -624,7 +626,10 @@ Widget _filterAction({
   return IconButton(
     onPressed: onPressed,
     tooltip: expanded ? '收起筛选' : '筛选歌曲',
-    icon: Icon(Icons.search, color: expanded ? primaryColor : Colors.white70),
+    icon: Icon(
+      Icons.search,
+      color: expanded ? primaryColor : AppTheme.textDimOf(context),
+    ),
   );
 }
 
@@ -674,13 +679,13 @@ SliverAppBar _detailAppBar({
               tooltip: allSelected ? '取消全选' : '全选',
               icon: Icon(
                 allSelected ? Icons.deselect : Icons.select_all,
-                color: Colors.white70,
+                color: AppTheme.textDimOf(context),
               ),
             ),
             IconButton(
               onPressed: onToggleSelectMode,
               tooltip: '退出批量选择',
-              icon: const Icon(Icons.close, color: Colors.white70),
+              icon: Icon(Icons.close, color: AppTheme.textDimOf(context)),
             ),
           ]
         : [
@@ -689,10 +694,13 @@ SliverAppBar _detailAppBar({
               tooltip: '批量选择',
               icon: Icon(
                 Icons.checklist,
-                color: canSelect ? Colors.white70 : Colors.white24,
+                color: canSelect
+                    ? AppTheme.textDimOf(context)
+                    : AppTheme.textFaintOf(context),
               ),
             ),
             _filterAction(
+              context: context,
               expanded: filterExpanded,
               onPressed: onToggleFilter,
               primaryColor: primaryColor,
@@ -731,15 +739,21 @@ class _BatchBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _action(Icons.low_priority, '下一首播放', onPlayNext),
-          _action(Icons.playlist_add, '添加到歌单', onAddToPlaylist),
-          if (canDownload) _action(Icons.download_outlined, '下载', onDownload),
+          _action(context, Icons.low_priority, '下一首播放', onPlayNext),
+          _action(context, Icons.playlist_add, '添加到歌单', onAddToPlaylist),
+          if (canDownload)
+            _action(context, Icons.download_outlined, '下载', onDownload),
         ],
       ),
     );
   }
 
-  Widget _action(IconData icon, String label, VoidCallback onTap) {
+  Widget _action(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
     final enabled = count > 0;
     return Expanded(
       child: InkWell(
@@ -752,13 +766,17 @@ class _BatchBar extends StatelessWidget {
               Icon(
                 icon,
                 size: 22,
-                color: enabled ? AppTheme.actionBlue : Colors.white24,
+                color: enabled
+                    ? AppTheme.actionBlue
+                    : AppTheme.textFaintOf(context),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: enabled ? Colors.white : Colors.white24,
+                  color: enabled
+                      ? AppTheme.textPrimaryOf(context)
+                      : AppTheme.textFaintOf(context),
                   fontSize: 12,
                 ),
               ),
@@ -784,7 +802,7 @@ class _FilterBar extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 18),
-          const Icon(Icons.search, size: 20, color: Color(0xFF888888)),
+          Icon(Icons.search, size: 20, color: AppTheme.textFaintOf(context)),
           const SizedBox(width: 4),
           Expanded(
             child: TextField(
@@ -792,17 +810,27 @@ class _FilterBar extends StatelessWidget {
               onChanged: onChanged,
               // 由 AppBar 搜索图标展开时立即获得焦点，省去二次点击
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              decoration: const InputDecoration(
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 16,
+              ),
+              decoration: InputDecoration(
                 hintText: '搜索歌曲/专辑/歌手',
-                hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 16),
+                hintStyle: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 16,
+                ),
                 border: InputBorder.none,
                 filled: false,
                 isDense: true,
               ),
             ),
           ),
-          const Icon(Icons.filter_list, size: 22, color: Color(0xFF888888)),
+          Icon(
+            Icons.filter_list,
+            size: 22,
+            color: AppTheme.textFaintOf(context),
+          ),
           const SizedBox(width: 18),
         ],
       ),
@@ -836,14 +864,15 @@ class _PlayAllBar extends StatelessWidget {
             child: Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
-                color: Color(0x2E78B4FF), // rgba(120,180,255,0.18)
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary
+                    .withValues(alpha: 0.18),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_circle_fill,
                 size: 28,
-                color: Colors.white,
+                color: AppTheme.textPrimaryOf(context),
               ),
             ),
           ),
@@ -853,10 +882,10 @@ class _PlayAllBar extends StatelessWidget {
             onTap: onPlayAll,
             child: Row(
               children: [
-                const Text(
+                Text(
                   '全部播放',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textPrimaryOf(context),
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
@@ -864,8 +893,8 @@ class _PlayAllBar extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   '（共$count首）',
-                  style: const TextStyle(
-                    color: Color(0xFFBBBBBB),
+                  style: TextStyle(
+                    color: AppTheme.textDimOf(context),
                     fontSize: 14,
                   ),
                 ),
@@ -967,7 +996,7 @@ class SongRow extends ConsumerWidget {
                       size: 22,
                       color: checked
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.white24,
+                          : AppTheme.textFaintOf(context),
                     )
                   : Text(
                       '${index + 1}',

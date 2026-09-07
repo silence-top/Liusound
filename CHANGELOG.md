@@ -2,6 +2,14 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — P2 主题整改：六页硬编码颜色令牌化清扫
+- **settings_screen（约 80 处）**：分组卡/开关行/弹窗与底部弹层文本模板全部接入 textPrimary/textDim/textFaint，危险操作红统一 `AppTheme.heartRed`（原 Colors.redAccent），滑块 inactive、筛选胶囊边框接 borderHairline/textFaint
+- **full_screen_player**：顶栏/歌曲区/歌手简介/歌词页/底部控制区文本与图标令牌化；Tab 胶囊高亮改 `Color.lerp(textDim, textPrimary, t)`；歌词渐变遮罩由写死 #0a1428ee 改为 `_lyricFadeColor(context)`（SkinTokens.background × 0.93，随皮肤走）；歌词当前行/译文白阶、音量胶囊填充（改 colorScheme.primary）、进度条三色、收藏红（0xFFE57373 与 heartRed 去重）全部令牌化；黑胶/CD 拟物色与阴影 scrim 按约定保留
+- **detail_screen**：搜索栏图标/占位 0xFF888888/0xFFAAAAAA → textFaint，副标题 0xFFBBBBBB → textDim，封面占位容器 0xFF1A2C3A → surface，分隔线 → divider，播放全部圆钮底色 → colorScheme.primary×0.18，禁用态 white24 → textFaint；`_filterAction/_action` 补 BuildContext 传参
+- **music_library_screen**：首页搜索栏/资料库搜索框容器白 0.07 → surface，分隔线 → divider，队列占位图标 → textFaint
+- **servers_screen / server_detail_screen**：文本与图标令牌化，redAccent 全部统一 heartRed，服务器类型兜底图标容器 → surface，详情页 `_divider` 改传 context 接 divider 令牌
+- 残留白色均为有意的半透明叠加效果（Tab 胶囊填充、唱片高光、封面边框、头部渐变），六页 Colors.white 硬编码清零（拟物/叠加除外）
+
 ## 2026-09-08 — P1 主题整改：textPrimary 令牌 + 共享组件文本接入
 - **SkinTokens 新增 `textPrimary`**：每套皮肤独立白阶主文本色（liquidGlass 纯白 / deepSpace 冷白 0xFFE8F4FF / materialYou M3 0xFFE6E1E5 / minimal 0xFFF5F5F5 / highContrast 纯白），copyWith/lerp 同步支持，AppTheme 暴露 `textPrimaryOf(context)`
 - **共享组件文本令牌化**（跨页生效）：ListSearchBar（图标/占位→textFaint，输入文本→textPrimary）、SongRow 详情页歌曲行（标题→textPrimary、副标题硬编码 0xFFB0BAC6→textDim、菜单图标→textPrimary）、AlbumCard（专辑名→textPrimary、歌手→textDim）、异步态组件（加载/错误/空态/无匹配/加载更多文本→textDim，图标→textFaint），消除对 Colors.white 与写死灰色的依赖
