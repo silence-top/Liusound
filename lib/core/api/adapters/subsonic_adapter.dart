@@ -12,6 +12,7 @@ import '../../models/models.dart';
 import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
 import '../../subsonic/subsonic.dart';
+import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -239,7 +240,8 @@ class SubsonicAdapter implements ServerAdapter {
           const {};
       final bio = info['biography']?.toString().trim() ?? '';
       return bio.isEmpty ? null : bio;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -318,7 +320,8 @@ class SubsonicAdapter implements ServerAdapter {
     try {
       final data = await _api('getMusicFolders', {});
       return Subsonic.musicFoldersVersion(data);
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -331,7 +334,8 @@ class SubsonicAdapter implements ServerAdapter {
       final list = data['lyricsList']?['structuredLyrics'] as List<dynamic>?;
       if (list == null || list.isEmpty) return null;
       return jsonEncode(list);
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -362,7 +366,8 @@ class SubsonicAdapter implements ServerAdapter {
       final data = await _api('getIndexes', {});
       final indexes = data['indexes']?['index'] as List<dynamic>? ?? const [];
       return [for (final index in indexes) ..._artistsOfIndex(index)];
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -373,7 +378,8 @@ class SubsonicAdapter implements ServerAdapter {
       final data = await _api('getArtists', {});
       final indexes = data['artists']?['index'] as List<dynamic>? ?? const [];
       return [for (final index in indexes) ..._artistsOfIndex(index)];
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -408,7 +414,8 @@ class SubsonicAdapter implements ServerAdapter {
               albumCount: _int(g, 'albumCount'),
             ),
       ].where((g) => g.value.isNotEmpty).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -430,7 +437,8 @@ class SubsonicAdapter implements ServerAdapter {
               homePageUrl: _firstStr(s, const ['homePageUrl']),
             ),
       ];
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -447,7 +455,8 @@ class SubsonicAdapter implements ServerAdapter {
         for (final s in songs)
           if (s is Map<String, dynamic>) _toSong(s),
       ];
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -500,7 +509,8 @@ class SubsonicAdapter implements ServerAdapter {
       await sub.cancel();
       final type = resp.headers.value('content-type') ?? '';
       return resp.statusCode == 200 && type.startsWith('audio/');
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return true;
     }
   }
@@ -525,7 +535,8 @@ class SubsonicAdapter implements ServerAdapter {
         options: Options(responseType: ResponseType.bytes),
       );
       return resp.data;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }
@@ -537,7 +548,8 @@ class SubsonicAdapter implements ServerAdapter {
     try {
       await _api('ping', {});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return false;
     }
   }
@@ -564,7 +576,8 @@ class SubsonicAdapter implements ServerAdapter {
     try {
       final data = await _api(endpoint, extra);
       return data['status']?.toString() == 'ok';
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return false;
     }
   }
@@ -582,7 +595,8 @@ class SubsonicAdapter implements ServerAdapter {
     try {
       final data = await _api('getArtist', {'id': artistId});
       return _str(data['artist'] as Map<String, dynamic>? ?? const {}, 'name');
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
       return null;
     }
   }

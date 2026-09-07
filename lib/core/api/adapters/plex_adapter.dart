@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import '../../models/models.dart';
 import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
+import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -260,7 +261,8 @@ class PlexAdapter implements ServerAdapter {
           songCount: _i(e, 'leafCount'),
         );
       }).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return null;
     }
   }
@@ -282,7 +284,8 @@ class PlexAdapter implements ServerAdapter {
           albumCount: _i(e, 'childCount'),
         );
       }).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return null;
     }
   }
@@ -302,7 +305,8 @@ class PlexAdapter implements ServerAdapter {
       final first = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
       final bio = first?['summary']?.toString().trim() ?? '';
       return bio.isEmpty ? null : bio;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return null;
     }
   }
@@ -368,7 +372,8 @@ class PlexAdapter implements ServerAdapter {
         });
       }
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }
@@ -383,7 +388,8 @@ class PlexAdapter implements ServerAdapter {
         'identifier': 'com.plexapp.plugins.library',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }
@@ -396,7 +402,8 @@ class PlexAdapter implements ServerAdapter {
             'server://$_machineId/com.plexapp.plugins.library/library/metadata/$songId',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }
@@ -412,7 +419,8 @@ class PlexAdapter implements ServerAdapter {
         'smart': '0',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }
@@ -426,7 +434,8 @@ class PlexAdapter implements ServerAdapter {
         'identifier': 'com.plexapp.plugins.library',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }
@@ -451,7 +460,8 @@ class PlexAdapter implements ServerAdapter {
         if (v > latest) latest = v;
       }
       return latest > 0 ? '$latest' : null;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return null;
     }
   }
@@ -513,7 +523,8 @@ class PlexAdapter implements ServerAdapter {
         options: Options(responseType: ResponseType.bytes),
       );
       return resp.data;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return null;
     }
   }
@@ -525,7 +536,8 @@ class PlexAdapter implements ServerAdapter {
     try {
       await _api('/identity', {});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
       return false;
     }
   }

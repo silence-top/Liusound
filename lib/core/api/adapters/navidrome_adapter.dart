@@ -10,6 +10,7 @@ import '../../settings/streaming_prefs.dart';
 import '../../storage/auth_store.dart';
 import '../../subsonic/subsonic.dart';
 import '../navidrome_client.dart';
+import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -210,7 +211,8 @@ class NavidromeAdapter implements ServerAdapter {
       final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
       if (resp == null || resp['status']?.toString() != 'ok') return null;
       return Subsonic.musicFoldersVersion(resp);
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return null;
     }
   }
@@ -223,7 +225,8 @@ class NavidromeAdapter implements ServerAdapter {
       );
       final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
       return resp?['status']?.toString() == 'ok';
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return false;
     }
   }
@@ -241,7 +244,8 @@ class NavidromeAdapter implements ServerAdapter {
       final resp = res.data?['subsonic-response'] as Map<String, dynamic>?;
       if (resp == null || resp['status']?.toString() != 'ok') return null;
       return resp;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return null;
     }
   }
@@ -399,7 +403,8 @@ class NavidromeAdapter implements ServerAdapter {
       await sub.cancel();
       final type = resp.headers.value('content-type') ?? '';
       return resp.statusCode == 200 && type.startsWith('audio/');
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return true;
     }
   }
@@ -428,7 +433,8 @@ class NavidromeAdapter implements ServerAdapter {
         options: Options(responseType: ResponseType.bytes),
       );
       return resp.data;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return null;
     }
   }
@@ -438,7 +444,8 @@ class NavidromeAdapter implements ServerAdapter {
     try {
       await _client.getSongTotal();
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return false;
     }
   }

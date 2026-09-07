@@ -1327,6 +1327,32 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     return;
                   }
                   final keys = _lyricsLookupKeys();
+                  final existing = await AppDb.loadLyrics(keys);
+                  if (existing != null && existing.isNotEmpty && mounted) {
+                    final overwrite = await glassDialog<bool>(
+                      context,
+                      title: '覆盖歌词',
+                      content: Text(
+                        '这首歌已有导入的歌词，保存将覆盖现有内容。确定覆盖？',
+                        style: TextStyle(
+                          color: AppTheme.textDimOf(context),
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('取消'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('覆盖'),
+                        ),
+                      ],
+                    );
+                    if (overwrite != true || !mounted) return;
+                  }
                   await AppDb.saveLyrics(
                     lookupKey: keys.first,
                     fallbackKey: AppDb.lyricsFallbackKey(

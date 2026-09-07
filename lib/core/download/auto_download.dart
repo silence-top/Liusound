@@ -34,6 +34,11 @@ class AutoDownload {
       }
       final serverId = read(authControllerProvider).activeServerId ?? '';
       for (final song in liked) {
+        // 循环中重读当前服务器：切换服务器后旧流程必须中止，
+        // 否则会把旧服务器的歌曲下到新服务器的归属里
+        if ((read(authControllerProvider).activeServerId ?? '') != serverId) {
+          return;
+        }
         if (!read(cacheSettingsProvider).autoDownload) return;
         if (await findDownloadedSong(song) != null) continue;
         try {

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../../models/models.dart';
 import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
+import '../adapter_log.dart';
 import '../server_adapter.dart';
 
 /// Jellyfin / Emby 共享基类（~80% API 相同）。
@@ -82,7 +83,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       return jsonEncode([
         {'lang': 'und', 'line': parsed},
       ]);
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -248,7 +250,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       );
       final bio = res.data?['Overview']?.toString().trim() ?? '';
       return bio.isEmpty ? null : bio;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -306,7 +309,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         await _delete('/Users/$_userId/FavoriteItems/$id');
       }
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }
@@ -320,7 +324,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     try {
       await _post('/Users/$_userId/PlayedItems/$songId', {});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }
@@ -331,7 +336,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     try {
       await _post('/Sessions/Playing', {'ItemId': songId});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }
@@ -356,7 +362,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
                 '';
       if (total.isEmpty) return null;
       return '$total|$latest';
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -366,7 +373,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     try {
       await _post('/Playlists/$playlistId/Items', {'Ids': songId});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }
@@ -391,7 +399,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
           songCount: _i(e, 'SongCount'),
         );
       }).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -412,7 +421,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
           songCount: _i(e, 'ChildCount'),
         );
       }).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -432,7 +442,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
           albumCount: _i(e, 'AlbumCount'),
         );
       }).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -452,7 +463,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
       });
       final items = data['Items'] as List<dynamic>? ?? const [];
       return items.whereType<Map<String, dynamic>>().map(_toSong).toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -469,7 +481,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         'MediaType': 'Audio',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }
@@ -524,7 +537,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         ),
       );
       return resp.data;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return null;
     }
   }
@@ -538,7 +552,8 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
         'Recursive': 'true',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
       return false;
     }
   }

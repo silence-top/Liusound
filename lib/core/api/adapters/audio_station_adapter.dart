@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../../models/models.dart';
 import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
+import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 
@@ -311,7 +312,8 @@ class AudioStationAdapter implements ServerAdapter {
         'id': id,
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return false;
     }
   }
@@ -324,7 +326,8 @@ class AudioStationAdapter implements ServerAdapter {
         'rating': '$rating',
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return false;
     }
   }
@@ -337,7 +340,8 @@ class AudioStationAdapter implements ServerAdapter {
         'song_id': songId,
       });
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return false;
     }
   }
@@ -347,7 +351,8 @@ class AudioStationAdapter implements ServerAdapter {
     try {
       await _api('SYNO.AudioStation.Playlist', 'create', {'name': name});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return false;
     }
   }
@@ -399,7 +404,8 @@ class AudioStationAdapter implements ServerAdapter {
         options: Options(responseType: ResponseType.bytes),
       );
       return resp.data;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return null;
     }
   }
@@ -411,7 +417,8 @@ class AudioStationAdapter implements ServerAdapter {
     try {
       await _api('SYNO.AudioStation.Info', 'getinfo', {});
       return true;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
       return false;
     }
   }

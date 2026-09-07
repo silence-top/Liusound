@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 外部评审落地（首批小修）
+- **auto_download 换服中止**：下载循环每轮重读 activeServerId，切换服务器后旧流程立即中止，杜绝把旧服务器歌曲下到新服务器归属
+- **LRC 导入覆盖确认**：导入前查 AppDb 已有歌词，存在时 glassDialog 确认「覆盖/取消」，不再静默覆盖
+- **prefs 注入错误信息**：UnimplementedError → StateError，明确指出「未在 main() override」与修法
+- **适配器静默异常 debug 日志**：新增 core/api/adapter_log.dart `adapterSwallowLog`（kDebugMode 零开销），5 个适配器共 50 处 `catch (_)` 补日志，不再无声吞掉网络/解析异常；评审中的 Isolate.run→compute 建议经核实不成立（compute 内部即 Isolate.run，无长驻池），维持现状
+
 ## 2026-09-08 — 播放时按需拉取歌词（快照/队列恢复丢歌词兜底）
 - **根因**：`Song.toJson()` 沿袭 stripSong 剔除内嵌歌词，曲库快照（LibrarySync SQLite）与队列持久化（SharedPreferences）的 JSON 往返都会丢 `lyrics`——资料库歌曲列表点播后播放页无歌词
 - **修法（用户钦定：每次播放重新拉）**：`ServerAdapter` 新增 `fetchLyrics(songId)` 默认 null（不支持即静默降级）；Navidrome/Subsonic 走 OpenSubsonic `getLyricsBySongId`，Jellyfin/Emby 走 `/Audio/{id}/lyrics`（ticks→ms 转 Navidrome 结构化格式，Emby 老版本无此接口回 null），Plex/Audio Station 暂不实现
