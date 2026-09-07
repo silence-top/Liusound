@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/theme/motion_tokens.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/music_library_screen.dart';
 import '../features/player/mini_player.dart';
@@ -35,7 +36,7 @@ class _AppShellState extends State<AppShell> {
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
+      curve: MotionTokens.curveStandard,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 
 /// 统一页面转场：淡入 + 轻微上移（300ms easeOutCubic）。
@@ -14,7 +15,7 @@ PageRoute<T> fadeRoute<T>(Widget page) {
     transitionsBuilder: (_, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
-        curve: Curves.easeOutCubic,
+        curve: MotionTokens.curveStandard,
       );
       return FadeTransition(
         opacity: curved,
@@ -42,7 +43,7 @@ class FadeSlideIn extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
+      curve: MotionTokens.curveStandard,
       builder: (_, t, child) => Opacity(
         opacity: t,
         child: Transform.translate(
