@@ -55,7 +55,7 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     artistBio: true,
     transcoding: true,
     scrobbling: true,
-    incrementalSync: true,
+    versionedSnapshot: true,
   );
 
   @override

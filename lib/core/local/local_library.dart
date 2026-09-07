@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -13,15 +14,24 @@ import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../models/models.dart';
 import '../storage/app_db.dart';
 
-/// 本地歌曲 id 前缀：与服务器歌曲 id 天然不冲突，路径直接编码在 id 里
+/// 本地歌曲 id 前缀：与服务器歌曲 id 天然不冲突。
+/// id 格式为 local:{fingerprint}——fingerprint 由文件大小 + mtime + 头部 16KB +
+/// 元数据派生，移动/重命名文件不改变歌曲身份（路径变化仍记录在 Song.path）
 const localSongIdPrefix = 'local:';
 
-/// 从本地歌曲 id 解出文件路径（非本地歌曲返回 null）
-String? localSongPath(Song song) => song.id.startsWith(localSongIdPrefix)
+/// 从本地歌曲 id 解出 fingerprint（非本地歌曲返回 null）
+String? localSongFingerprint(Song song) => song.id.startsWith(localSongIdPrefix)
     ? song.id.substring(localSongIdPrefix.length)
     : null;
 
+/// 本地歌曲的磁盘路径（非本地歌曲返回 null）
+String? localSongPath(Song song) =>
+    song.id.startsWith(localSongIdPrefix) ? song.path : null;
+
 const _audioExts = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav'};
+
+/// 指纹参与的头部分块大小（固定小块，禁止整文件 hash——大 FLAC/APE 曲库不可接受）
+const _fingerprintHeadBytes = 16 * 1024;
 
 /// 音频文件访问权限（Android 13+ READ_MEDIA_AUDIO，低版本回退存储权限）
 Future<bool> ensureAudioPermission() async {
@@ -52,9 +62,15 @@ Future<List<Song>> scanLocalLibrary() async {
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库
-  for (final (title, artist, content) in result.lyrics) {
+  for (final (song, content) in result.lyrics) {
     try {
-      await AppDb.saveLocalLyrics(title, artist, content);
+      await AppDb.saveLyrics(
+        lookupKey: AppDb.lyricsLocalKey(localSongFingerprint(song)!),
+        fallbackKey: AppDb.lyricsFallbackKey(song.title, song.artist),
+        title: song.title,
+        artist: song.artist,
+        content: content,
+      );
     } catch (_) {
       // 歌词落库失败不影响歌曲本身
     }
@@ -63,11 +79,8 @@ Future<List<Song>> scanLocalLibrary() async {
   return result.songs;
 }
 
-/// 扫描 isolate 产物：歌曲 + 待落库的内嵌歌词
-typedef _ScanResult = ({
-  List<Song> songs,
-  List<(String, String, String)> lyrics,
-});
+/// 扫描 isolate 产物：歌曲 + 待落库的内嵌歌词（携带 song 供派生歌词键）
+typedef _ScanResult = ({List<Song> songs, List<(Song, String)> lyrics});
 
 /// 目录遍历 + 标签解析（纯 Dart IO，可在后台 isolate 运行）
 _ScanResult _scanIsolate(List<String> dirPaths, String coverDirPath) {
@@ -90,7 +103,7 @@ _ScanResult _scanIsolate(List<String> dirPaths, String coverDirPath) {
   files.sort((a, b) => a.path.compareTo(b.path));
 
   final songs = <Song>[];
-  final lyrics = <(String, String, String)>[];
+  final lyrics = <(Song, String)>[];
   for (final file in files) {
     try {
       final r = _buildLocalSong(file, coverDir);
@@ -111,7 +124,7 @@ Future<Directory> _coverDir() async {
   return dir;
 }
 
-({Song song, (String, String, String)? lyrics}) _buildLocalSong(
+({Song song, (Song, String)? lyrics}) _buildLocalSong(
   File file,
   Directory coverDir,
 ) {
@@ -150,14 +163,22 @@ Future<Directory> _coverDir() async {
     }
   }
 
+  final durationMs = meta.duration?.inMilliseconds ?? 0;
+  final fingerprint = _fileFingerprint(
+    file,
+    title: title,
+    artist: artist,
+    durationMs: durationMs,
+  );
+
   final song = Song(
-    id: '$localSongIdPrefix${file.path}',
+    id: '$localSongIdPrefix$fingerprint',
     title: title,
     artist: artist,
     album: album,
     albumId: '',
     artistId: '',
-    duration: meta.duration?.inMilliseconds.toDouble() ?? 0,
+    duration: durationMs.toDouble(),
     playCount: 0,
     starred: false,
     size: file.lengthSync(),
@@ -170,10 +191,37 @@ Future<Directory> _coverDir() async {
     path: file.path,
     localCoverPath: coverPath,
   );
-  return (
-    song: song,
-    lyrics: lyricsText == null ? null : (title, artist, lyricsText),
-  );
+  return (song: song, lyrics: lyricsText == null ? null : (song, lyricsText));
+}
+
+/// 轻量身份指纹（非完整性校验）：
+/// md5(文件大小 + mtime + 头部固定 16KB + 归一化标题/歌手 + 时长)。
+/// 只读头部固定小块，不随文件大小线性增长 IO；在扫描 isolate 内执行
+String _fileFingerprint(
+  File file, {
+  required String title,
+  required String artist,
+  required int durationMs,
+}) {
+  var head = const <int>[];
+  try {
+    final raf = file.openSync();
+    try {
+      head = raf.readSync(_fingerprintHeadBytes);
+    } finally {
+      raf.closeSync();
+    }
+  } catch (_) {
+    // 头部不可读时退化为 size+mtime+metadata 指纹
+  }
+  return md5.convert(<int>[
+    ...utf8.encode('${file.lengthSync()}'),
+    ...utf8.encode('${file.lastModifiedSync().millisecondsSinceEpoch}'),
+    ...head,
+    ...utf8.encode(title.trim().toLowerCase()),
+    ...utf8.encode(artist.trim().toLowerCase()),
+    ...utf8.encode('$durationMs'),
+  ]).toString();
 }
 
 // ---------- 快照缓存：进页面先读 SQLite 秒开，后台限流重扫 ----------
@@ -241,29 +289,52 @@ Future<List<Song>?> loadLocalSongsCache() async {
     final db = await AppDb.instance();
     final rows = await db.query(
       'library_snapshot',
-      where: "server_key = 'local' AND kind = 'local_songs'",
+      where: "server_key = 'local' AND kind = 'local_songs_v2'",
       limit: 1,
     );
     if (rows.isEmpty) return null;
     final raw = rows.first['payload'] as String;
-    return [
-      for (final j in jsonDecode(raw) as List)
-        Song.fromJson(j as Map<String, dynamic>),
-    ];
+    return await _decodeSongsPayload(raw);
   } catch (_) {
     return null;
   }
 }
 
+/// 大 JSON 快照编解码阈值（超过则强制后台 isolate，避免主 isolate 卡顿）
+const _snapshotIsolateThreshold = 256 * 1024;
+
+/// payload 解码：大于阈值时在 Isolate.run 中执行
+Future<List<Song>> _decodeSongsPayload(String raw) async {
+  if (raw.length > _snapshotIsolateThreshold) {
+    return Isolate.run(() => _decodeSongs(raw));
+  }
+  return _decodeSongs(raw);
+}
+
+List<Song> _decodeSongs(String raw) => [
+  for (final j in jsonDecode(raw) as List)
+    Song.fromJson(j as Map<String, dynamic>),
+];
+
 Future<void> _saveLocalCache(List<Song> songs) async {
   try {
     final db = await AppDb.instance();
+    final payload = songs.length > 1000
+        ? await Isolate.run(
+            () => jsonEncode(songs.map((s) => s.toJson()).toList()),
+          )
+        : jsonEncode(songs.map((s) => s.toJson()).toList());
     await db.insert('library_snapshot', {
       'server_key': 'local',
-      'kind': 'local_songs',
+      'kind': 'local_songs_v2',
       'version': DateTime.now().toIso8601String(),
-      'payload': jsonEncode(songs.map((s) => s.toJson()).toList()),
+      'payload': payload,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    // 旧格式（路径 id）缓存行清理——纯可再生缓存，无用户数据
+    await db.delete(
+      'library_snapshot',
+      where: "server_key = 'local' AND kind = 'local_songs'",
+    );
   } catch (_) {
     // 缓存失败只影响下次秒开，不影响本次结果
   }

@@ -48,7 +48,7 @@ class PlexAdapter implements ServerAdapter {
     artistBio: true,
     transcoding: true,
     scrobbling: true,
-    incrementalSync: true,
+    versionedSnapshot: true,
   );
 
   static Future<AdapterSession> signIn(AuthRequest request) async {

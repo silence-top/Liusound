@@ -126,7 +126,7 @@ class AdapterCapabilities {
     this.artistBio = false,
     this.transcoding = false,
     this.scrobbling = false,
-    this.incrementalSync = false,
+    this.versionedSnapshot = false,
   });
   final bool ratings;
   final bool similarSongs;
@@ -143,8 +143,9 @@ class AdapterCapabilities {
   /// 服务端是否支持 Scrobble 上报（Audio Station 无接口）
   final bool scrobbling;
 
-  /// 服务端是否提供曲库变更标记（增量同步的前提）
-  final bool incrementalSync;
+  /// 服务端是否提供曲库变更标记（版本快照同步的前提；
+  /// 语义为 versionedSnapshot：标记未变读快照，变化全量重拉——非 delta 增量）
+  final bool versionedSnapshot;
 }
 
 enum AlbumSort { recentlyAdded, recentlyPlayed, mostPlayed, random, name, year }

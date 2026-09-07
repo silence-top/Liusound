@@ -143,48 +143,34 @@ final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
   return LibrarySync.albums(ref.read);
 });
 
-/// 歌手列表（资料库入口；null = 后端不支持该能力，入口隐藏）
+/// 语义约定（P0-04）：null = 后端不支持该能力（入口隐藏）；
+/// 请求失败直接 rethrow（AsyncError，UI 显示失败态，与「不支持」严格区分）。
+/// 歌手列表（资料库入口）
 final artistsProvider = FutureProvider<List<Artist>?>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return null;
-  try {
-    return await adapter.fetchArtists();
-  } catch (_) {
-    return null;
-  }
+  return adapter.fetchArtists();
 });
 
 /// 专辑艺术家列表（资料库入口；null = 后端不支持该能力）
 final albumArtistsProvider = FutureProvider<List<Artist>?>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return null;
-  try {
-    return await adapter.fetchAlbumArtists();
-  } catch (_) {
-    return null;
-  }
+  return adapter.fetchAlbumArtists();
 });
 
 /// 流派列表（资料库入口；null = 后端不支持该能力）
 final genresProvider = FutureProvider<List<Genre>?>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return null;
-  try {
-    return await adapter.fetchGenres();
-  } catch (_) {
-    return null;
-  }
+  return adapter.fetchGenres();
 });
 
 /// 电台列表（资料库入口；null = 后端不支持该能力）
 final radioStationsProvider = FutureProvider<List<RadioStation>?>((ref) async {
   final adapter = ref.watch(serverAdapterProvider);
   if (adapter == null) return null;
-  try {
-    return await adapter.fetchRadioStations();
-  } catch (_) {
-    return null;
-  }
+  return adapter.fetchRadioStations();
 });
 
 /// 流派歌曲（流派二级页；null = 后端不支持）
@@ -192,11 +178,7 @@ final genreSongsProvider = FutureProvider.autoDispose
     .family<List<Song>?, String>((ref, genre) async {
       final adapter = ref.watch(serverAdapterProvider);
       if (adapter == null) return null;
-      try {
-        return await adapter.fetchGenreSongs(genre);
-      } catch (_) {
-        return null;
-      }
+      return adapter.fetchGenreSongs(genre);
     });
 
 /// 艺人专辑（艺人详情页，按发行年降序）

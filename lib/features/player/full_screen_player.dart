@@ -16,6 +16,7 @@ import '../../core/download/auto_download.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/prefs.dart';
+import '../../core/local/local_library.dart' show localSongFingerprint;
 import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
@@ -1244,14 +1245,27 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     });
   }
 
-  /// 本地导入歌词（SQLite lyrics_local，按「标题|歌手」键）：
-  /// 命中后优先于服务端 JSON 歌词
+  /// 歌词查找键优先级（P0-09）：服务器歌曲 serverId+songId →
+  /// 本地歌曲 fingerprint → 「标题|歌手」兜底（兼容历史行）
+  List<String> _lyricsLookupKeys() {
+    final song = widget.song;
+    final keys = <String>[];
+    if (song.id.startsWith('local:')) {
+      keys.add(AppDb.lyricsLocalKey(localSongFingerprint(song)!));
+    } else {
+      final serverId = ref.read(authControllerProvider).activeServerId;
+      if (serverId != null) {
+        keys.add(AppDb.lyricsSongKey(serverId, song.id));
+      }
+    }
+    keys.add(AppDb.lyricsFallbackKey(song.title, song.artist));
+    return keys;
+  }
+
+  /// 本地导入歌词（SQLite lyrics_local）：命中后优先于服务端 JSON 歌词
   Future<void> _loadLocalLyrics() async {
     final songId = widget.song.id;
-    final content = await AppDb.loadLocalLyrics(
-      widget.song.title,
-      widget.song.artist,
-    );
+    final content = await AppDb.loadLyrics(_lyricsLookupKeys());
     if (content == null || songId != widget.song.id || !mounted) return;
     final lines = parseLrcText(content);
     if (lines.isEmpty) return;
@@ -1328,10 +1342,16 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     );
                     return;
                   }
-                  await AppDb.saveLocalLyrics(
-                    widget.song.title,
-                    widget.song.artist,
-                    controller.text,
+                  final keys = _lyricsLookupKeys();
+                  await AppDb.saveLyrics(
+                    lookupKey: keys.first,
+                    fallbackKey: AppDb.lyricsFallbackKey(
+                      widget.song.title,
+                      widget.song.artist,
+                    ),
+                    title: widget.song.title,
+                    artist: widget.song.artist,
+                    content: controller.text,
                   );
                   if (mounted) Navigator.of(context).pop();
                   if (!mounted) return;

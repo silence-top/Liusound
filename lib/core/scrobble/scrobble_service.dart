@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart' show Database;
 
 import '../storage/app_db.dart';
 import '../../features/auth/auth_controller.dart';
@@ -38,6 +39,8 @@ class ScrobbleService {
   }
 
   Future<void> _onPosition(Duration pos) async {
+    // 冷启动恢复（RESTORING）期间的 position 事件不是真实播放，必须忽略
+    if (!_read(playerReadyProvider)) return;
     final song = _read(currentSongProvider);
     if (song == null) return;
     if (song.id != _songId) {
@@ -69,17 +72,23 @@ class ScrobbleService {
   Future<void> _enqueue(String serverId, String songId) async {
     try {
       final db = await AppDb.instance();
+      final now = DateTime.now().millisecondsSinceEpoch;
       await db.insert('scrobble_queue', {
         'server_id': serverId,
         'song_id': songId,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
+        'played_at': now,
+        'created_at': now,
       });
     } catch (_) {
       // 存储异常静默（上报失败不应影响播放）
     }
   }
 
-  /// 按时间戳顺序补发；成功即删行，失败保留待下轮（避免重复上报丢失）
+  /// 单条记录最大重试次数；超过后从 pending 队列移除，避免永久阻塞后续记录
+  static const _maxRetries = 5;
+
+  /// 指数退避补发：只处理 next_retry_at 到期的记录，成功即删行；
+  /// 失败按 1/2/4/8/16 分钟退避，单条不可恢复记录不得阻塞整条队列
   Future<void> _flush() async {
     final adapter = _read(serverAdapterProvider);
     final serverId = _read(authControllerProvider).activeServerId;
@@ -90,26 +99,58 @@ class ScrobbleService {
     }
     try {
       final db = await AppDb.instance();
+      final now = DateTime.now().millisecondsSinceEpoch;
       final rows = await db.query(
         'scrobble_queue',
-        where: 'server_id = ?',
-        whereArgs: [serverId],
+        where:
+            'server_id = ? AND (next_retry_at IS NULL OR next_retry_at <= ?)',
+        whereArgs: [serverId, now],
         orderBy: 'created_at ASC',
         limit: 50,
       );
       for (final row in rows) {
+        final id = row['id'] as int;
+        final retryCount = (row['retry_count'] as int?) ?? 0;
         try {
           final ok = await adapter.scrobble(row['song_id'] as String);
-          if (!ok) return;
-          await db.delete(
-            'scrobble_queue',
-            where: 'id = ?',
-            whereArgs: [row['id']],
-          );
-        } catch (_) {
-          return; // 网络/服务端异常：本轮停止，队列原样保留
+          if (!ok) {
+            await _markFailed(db, id, retryCount, 'server rejected');
+            return; // 服务端拒绝：本轮停止，队列原样保留（到期记录除外）
+          }
+          await db.delete('scrobble_queue', where: 'id = ?', whereArgs: [id]);
+        } catch (e) {
+          await _markFailed(db, id, retryCount, e.toString());
+          return; // 网络/服务端异常：本轮停止
         }
       }
+    } catch (_) {}
+  }
+
+  Future<void> _markFailed(
+    Database db,
+    int id,
+    int retryCount,
+    String error,
+  ) async {
+    if (retryCount + 1 >= _maxRetries) {
+      // 超过最大重试次数：归档（移出 pending 队列），不再无限重试
+      await db.delete('scrobble_queue', where: 'id = ?', whereArgs: [id]);
+      return;
+    }
+    final backoffMinutes = 1 << retryCount; // 1/2/4/8/16 分钟指数退避
+    try {
+      await db.update(
+        'scrobble_queue',
+        {
+          'retry_count': retryCount + 1,
+          'last_error': error.length > 200 ? error.substring(0, 200) : error,
+          'next_retry_at': DateTime.now()
+              .add(Duration(minutes: backoffMinutes))
+              .millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     } catch (_) {}
   }
 }

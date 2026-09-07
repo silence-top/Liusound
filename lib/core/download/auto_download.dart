@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/auth/auth_controller.dart' show serverAdapterProvider;
-import '../cache/cache_manager.dart';
+import '../../features/auth/auth_controller.dart'
+    show serverAdapterProvider, authControllerProvider;
+import '../cache/cache_manager.dart' show cacheSettingsProvider;
 import '../models/models.dart';
 import '../settings/streaming_prefs.dart';
 import 'download_service.dart';
@@ -31,17 +32,23 @@ class AutoDownload {
       } catch (_) {
         return;
       }
+      final serverId = read(authControllerProvider).activeServerId ?? '';
       for (final song in liked) {
         if (!read(cacheSettingsProvider).autoDownload) return;
         if (await findDownloadedSong(song) != null) continue;
         try {
           final source = await adapter.resolveDownload(song);
-          await downloadSongFile(source: source, song: song);
+          await downloadSongFile(
+            source: source,
+            song: song,
+            serverId: serverId,
+          );
         } catch (_) {
           continue; // 单曲失败继续下一首
         }
       }
-      unawaited(AudioCache.enforceLimit(read(cacheSettingsProvider).limit));
+      // 下载库（Music/）不参与播放缓存 LRU：Cache 与 Download 完全分离，
+      // 容量治理由设置页下载管理负责，这里不再触发 AudioCache.enforceLimit
     } finally {
       _running = false;
     }

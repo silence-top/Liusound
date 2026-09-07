@@ -147,6 +147,11 @@ final autoOpenPlayerProvider = NotifierProvider<AutoOpenPlayerNotifier, bool>(
   AutoOpenPlayerNotifier.new,
 );
 
+/// 播放器恢复完成信号（冷启动恢复流程 READY 后置 true）。
+/// Scrobble 等位置监听方必须忽略 READY 之前的 position 事件，
+/// 避免恢复期间的加载进度被误当成真实播放
+final playerReadyProvider = StateProvider<bool>((ref) => false);
+
 /// 续播提示（长音频断点命中时由常驻 UI 层消费弹出 SnackBar）
 final resumeNoticeProvider = StateProvider<String?>((ref) => null);
 
@@ -244,30 +249,29 @@ const bilingualLyricsKey = 'lyrics_bilingual_enabled';
 /// 播放控制动作集合（切歌 / 模式 / 队列 / 持久化 / 恢复）
 class PlayerActions {
   PlayerActions(this._ref) {
-    final player = _ref.read(audioPlayerProvider);
-    // 播放结束自动切下一首（repeatOne 由 LoopMode.one 在内核层循环，不会触发 completed）
-    player.processingStateStream
-        .where((s) => s == ProcessingState.completed)
-        .listen((_) => playNext());
+    // Provider 状态监听必须同步挂载（Riverpod 限制）；
+    // 播放器事件流与恢复流程按严格顺序在 _initialize 中执行：
+    // RESTORING（队列/当前歌/进度）→ 绑定事件 → READY → 自动播放/自动下载
     _ref.listen<PlayMode>(playModeProvider, (_, mode) {
-      player.setLoopMode(
-        mode == PlayMode.repeatOne ? LoopMode.one : LoopMode.off,
-      );
+      _ref.read(audioPlayerProvider).setLoopMode(
+            mode == PlayMode.repeatOne ? LoopMode.one : LoopMode.off,
+          );
       _schedulePersist();
     });
     _ref.listen<double>(playbackSpeedProvider, (_, speed) {
-      player.setSpeed(speed);
+      _ref.read(audioPlayerProvider).setSpeed(speed);
     });
     _ref.listen<Song?>(currentSongProvider, (_, _) => _schedulePersist());
     _ref.listen<List<Song>>(queueProvider, (_, _) => _schedulePersist());
-    player.positionStream.listen(_tickCrossfade);
-    _restore();
-    maybeAutoDownload(_ref.read);
+    unawaited(_initialize());
   }
 
   final Ref _ref;
   Timer? _persistDebounce;
   bool _restored = false;
+  bool _restoring = false; // 恢复防重入
+  bool _eventsBound = false;
+  final List<StreamSubscription<dynamic>> _subs = [];
   bool _fading = false; // 交叉淡化进行中（防重入）
   int _resumePositionMs = 0; // 冷启动待恢复进度（首播时一次性消费）
   int _playGeneration = 0; // 播放代数：连点切歌时旧加载流程作废，避免竞争
@@ -278,6 +282,57 @@ class PlayerActions {
 
   AudioPlayer get _player => _ref.read(audioPlayerProvider);
   ServerAdapter? get _adapter => _ref.read(serverAdapterProvider);
+
+  /// 严格初始化顺序（P0-PLAYER-01）：
+  /// RESTORING（恢复队列→当前歌→进度）→ 绑定播放器事件 → READY。
+  /// READY 之前禁止自动播放 / crossfade / 自动切歌 / 自动下载；
+  /// 恢复失败安全降级到空队列，不允许无限 restore loop
+  Future<void> _initialize() async {
+    if (_restoring || _restored) return;
+    _restoring = true;
+    try {
+      await _restore();
+    } catch (_) {
+      // 损坏的持久化数据按无状态处理
+    } finally {
+      _restored = true;
+      _restoring = false;
+    }
+    _bindPlayerEvents();
+    _ref.read(playerReadyProvider.notifier).state = true;
+    // READY 之后才允许恢复后自动播放（用户显式开启的 auto_play 行为保持不变）
+    if (_ref.read(autoPlayProvider.notifier).state) {
+      final song = _ref.read(currentSongProvider);
+      final resumeMs = _resumePositionMs;
+      _resumePositionMs = 0;
+      if (song != null && _adapter != null) {
+        await play(song);
+        if (resumeMs > 0) {
+          try {
+            await _player.seek(Duration(milliseconds: resumeMs));
+          } catch (_) {}
+        }
+      }
+    }
+    maybeAutoDownload(_ref.read);
+  }
+
+  /// 绑定播放器事件流（仅在恢复完成后执行一次）
+  void _bindPlayerEvents() {
+    if (_eventsBound) return;
+    _eventsBound = true;
+    final player = _player;
+    // 播放结束自动切下一首（repeatOne 由 LoopMode.one 在内核层循环，不会触发 completed）
+    _subs.add(
+      player.processingStateStream
+          .where((s) => s == ProcessingState.completed)
+          .listen((_) {
+            if (!_restored) return; // READY 之前不自动切歌
+            unawaited(playNext());
+          }),
+    );
+    _subs.add(player.positionStream.listen(_tickCrossfade));
+  }
 
   // ---------- 播放控制 ----------
 
@@ -699,28 +754,9 @@ class PlayerActions {
         }
         _resumePositionMs =
             (((saved['currentTime'] as num?)?.toDouble() ?? 0) * 1000).round();
-
-        // 启动后自动播放：直接播放恢复的歌曲并跳到上次进度
-        if (_ref.read(autoPlayProvider.notifier).state) {
-          final song = _ref.read(currentSongProvider);
-          if (song != null && _adapter != null) {
-            final resumeMs = _resumePositionMs;
-            _resumePositionMs = 0;
-            await play(song);
-            if (resumeMs > 0) {
-              try {
-                await _player.seek(Duration(milliseconds: resumeMs));
-              } catch (_) {
-                // seek 失败静默
-              }
-            }
-          }
-        }
       }
     } catch (_) {
-      // 损坏的持久化数据按无状态处理
-    } finally {
-      _restored = true;
+      // 损坏的持久化数据按无状态处理（空队列降级），由 _initialize 完成 READY
     }
   }
 

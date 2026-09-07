@@ -397,7 +397,7 @@ class GenreSongsPage extends ConsumerWidget {
         body = const Center(child: CircularProgressIndicator());
       } else {
         body = glassEmptyState(
-          text: '当前服务器不支持流派歌曲',
+          text: async.hasError ? '加载失败，点击重试' : '当前服务器不支持流派歌曲',
           icon: Icons.music_off_outlined,
         );
       }
@@ -439,7 +439,10 @@ class RadioPage extends ConsumerWidget {
       if (async.isLoading) {
         body = const Center(child: CircularProgressIndicator());
       } else {
-        body = glassEmptyState(text: '当前服务器不支持电台', icon: Icons.radio_outlined);
+        body = glassEmptyState(
+          text: async.hasError ? '加载失败，点击重试' : '当前服务器不支持电台',
+          icon: Icons.radio_outlined,
+        );
       }
     } else if (stations.isEmpty) {
       body = glassEmptyState(text: '暂无电台', icon: Icons.radio_outlined);
