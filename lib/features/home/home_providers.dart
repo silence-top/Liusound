@@ -143,6 +143,81 @@ final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
   return LibrarySync.albums(ref.read);
 });
 
+/// 资料库专辑分页状态（滚动加载）
+class AlbumPagedState {
+  const AlbumPagedState({
+    this.albums = const [],
+    this.loading = true,
+    this.error = false,
+    this.noMore = false,
+  });
+
+  final List<Album> albums;
+  final bool loading;
+  final bool error;
+  final bool noMore;
+
+  AlbumPagedState copyWith({
+    List<Album>? albums,
+    bool? loading,
+    bool? error,
+    bool? noMore,
+  }) => AlbumPagedState(
+    albums: albums ?? this.albums,
+    loading: loading ?? this.loading,
+    error: error ?? this.error,
+    noMore: noMore ?? this.noMore,
+  );
+}
+
+/// 专辑列表分页控制器：fetchAlbums 原生支持 start/limit，
+/// 用真 offset 追加翻页（区别于艺人歌曲的累计 limit 重取策略）。
+class LibraryAlbumsController extends AutoDisposeNotifier<AlbumPagedState> {
+  static const _pageSize = 60;
+
+  @override
+  AlbumPagedState build() {
+    // 首取推迟到 build 完成后（build 期同步改 state 会被 Riverpod 拒绝）
+    Future.microtask(() => _fetch());
+    return const AlbumPagedState();
+  }
+
+  Future<void> _fetch() async {
+    final adapter = ref.read(serverAdapterProvider);
+    state = state.copyWith(loading: true, error: false);
+    try {
+      final fetched = adapter == null
+          ? const <Album>[]
+          : await adapter.fetchAlbums(
+              AlbumQuery(
+                sort: AlbumSort.name,
+                start: state.albums.length,
+                limit: _pageSize,
+              ),
+            );
+      state = state.copyWith(
+        albums: [...state.albums, ...fetched],
+        loading: false,
+        noMore: fetched.length < _pageSize,
+      );
+    } catch (_) {
+      state = state.copyWith(loading: false, error: true);
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.loading || state.error || state.noMore) return;
+    await _fetch();
+  }
+
+  Future<void> retry() => _fetch();
+}
+
+final libraryAlbumsPagedProvider = NotifierProvider.autoDispose<
+  LibraryAlbumsController,
+  AlbumPagedState
+>(LibraryAlbumsController.new);
+
 /// 语义约定（P0-04）：null = 后端不支持该能力（入口隐藏）；
 /// 请求失败直接 rethrow（AsyncError，UI 显示失败态，与「不支持」严格区分）。
 /// 歌手列表（资料库入口）

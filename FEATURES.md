@@ -826,8 +826,9 @@ static Future<List<Song>> songs(RefReader read) async {
 
 ```dart
 static Future<List<Album>> albums(RefReader read) async {
-  // kind: 'albums_name'
-  // query: AlbumQuery(sort=name, limit: 100)
+  // kind: 'albums_name_v2'
+  // query: AlbumQuery(sort=name, limit: 10000)
+  // 仅服务器详情页使用；专辑列表页已改为真 offset 分页（LibraryAlbumsController）
 }
 ```
 
@@ -1338,7 +1339,7 @@ lyricsKey(title, artist) = '${title.trim().toLowerCase()}|${artist.trim().toLowe
 | 歌曲 | _openSongs('歌曲', librarySongsProvider) | songsProvider | SongListScreen |
 | 我喜欢的 | _openSongs('我喜欢的', likedSongsProvider) | songsProvider | SongListScreen |
 | 本地音乐 | _openLocalSongs(localSongsProvider) | songsProvider | SongListScreen |
-| 专辑 | push fadeRoute(AlbumListPage(title, libraryAlbumsProvider)) | StatefulWidget | 独立页面 |
+| 专辑 | push fadeRoute(AlbumListPage(title, paged: libraryAlbumsPagedProvider)) | StatefulWidget | 独立页面（滚动加载分页） |
 
 #### 5.3.4 AlbumListPage（专辑列表页）
 
