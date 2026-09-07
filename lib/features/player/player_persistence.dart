@@ -21,6 +21,8 @@ mixin PlayerPersistence on PlayerActionsBase {
         'playMode': _ref.read(playModeProvider).name,
         'speed': _ref.read(playbackSpeedProvider),
         'loopPlayback': _ref.read(loopPlaybackProvider),
+        'shuffleOrder': _ref.read(shuffleOrderProvider).order,
+        'shufflePos': _ref.read(shuffleOrderProvider).pos,
         'currentTime': _player.position.inMilliseconds / 1000.0,
       };
       final prefs = await SharedPreferences.getInstance();

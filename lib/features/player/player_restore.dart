@@ -37,6 +37,28 @@ mixin PlayerRestore on PlayerActionsBase {
           }
           _ref.read(loopPlaybackProvider.notifier).state =
               saved['loopPlayback'] as bool? ?? true;
+          // 恢复 shuffle 遍历序（P1-ShuffleOrder）：剔除已不在队列中的 ID，
+          // 游标对齐当前歌；当前歌不在序中时退回保存的游标
+          final savedOrder =
+              (saved['shuffleOrder'] as List<dynamic>? ?? const [])
+                  .whereType<String>()
+                  .toList();
+          if (savedOrder.isNotEmpty) {
+            final ids = {for (final s in queue) s.id};
+            final order = savedOrder.where(ids.contains).toList();
+            var pos = (saved['shufflePos'] as int?) ?? -1;
+            final currentId = _ref.read(currentSongProvider)?.id;
+            final idx = currentId == null ? -1 : order.indexOf(currentId);
+            if (idx >= 0) {
+              pos = idx;
+            } else if (pos >= order.length) {
+              pos = -1;
+            }
+            _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
+              order: order,
+              pos: pos,
+            );
+          }
         }
         _resumePositionMs =
             (((saved['currentTime'] as num?)?.toDouble() ?? 0) * 1000).round();
