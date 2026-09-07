@@ -2180,12 +2180,23 @@ class _BottomArea extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
+    // 底部控制栏 tint 跟随封面主色（内容驱动取色）：与歌词区背景同一色系，
+    // 半透明叠在模糊背景上，整页上下连成一体而不是固定深色两截
+    final tint = song == null
+        ? null
+        : ref
+              .watch(albumDominantColorProvider(song.albumId))
+              .valueOrNull;
+    final barTint = tint == null
+        ? null
+        : Color.lerp(tint, Colors.black, 0.42)!.withValues(alpha: 0.55);
 
     return GlassSurface(
       radius: 0,
       blur: GlassTokens.blurHeavy,
       gradientBorder: false,
       shadow: false,
+      tint: barTint,
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,

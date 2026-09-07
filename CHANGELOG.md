@@ -2,6 +2,9 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页底部控制栏随封面主色
+- **底部控制区 tint 跟随歌曲封面**：_BottomArea 的 GlassSurface 由固定皮肤 glassTint 改为封面主色（与页面背景渐变同一取色 albumDominantColorProvider，lerp 黑 0.42 × alpha 0.55 半透明叠在模糊背景上）——歌词区背景随歌曲变色，底部栏原先固定近黑两截断开，现在整页上下同色系连贯；封面取色中/失败回退默认玻璃 tint。属审计「内容驱动取色」合理保留类的用户钦定例外
+
 ## 2026-09-08 — 播放页整体回退至 P2 前（用户 QA 后要求还原）
 - **full_screen_player.dart 整文件回退到 44ec5d3 版本**：撤销 P2 文本/组件令牌化与 P3 _VinylPalette 收拢在该页的全部改动，视觉效果恢复到用户熟悉的样子；唱针方向修复（e2cf3eb）与 P0 弹层 tint 修复保留
 - 设备 QA 结论：用户认为该页 P2 前的视觉即最终形态；其余五页（settings/detail/music_library/servers/server_detail）令牌化维持不变
