@@ -6,6 +6,10 @@
 - **首页最新/随机专辑卡加歌曲数角标**：与资料库专辑网格同款（右上角胶囊，>99 显示 99+）
 - **角标主题适配**：抽取共享 `SongCountBadge`，颜色由写死的设计图红改为 `colorScheme.primary/onPrimary`，五套皮肤自动跟随
 
+## 2026-09-08 — P0 主题整改：弹层 tint 违规清零 + 死代码清理
+- **弹层禁自定义 tint（glass-style 契约）**：action_sheets 歌曲操作弹窗/添加到歌单弹窗、full_screen_player 底部控制区、detail_screen 批量选择栏共 4 处删除 `tint: Colors.black.withValues(...)`，回退 GlassSurface 默认 `GlassTokens.tint(context)`（随皮肤走）
+- **死代码清理**：AppTheme 删除零引用的 `primary/bar/searchbar/miniPlayer/queuePanel/queueActive` 令牌与 `dark` getter（primary 已全量迁移 colorScheme.primary）
+
 ## 2026-09-08 — 分页列表改为触底自动加载
 - 新增共享 `ScrollBottomLoader`（NotificationListener，距底 600px 内触发）；专辑列表网格与 SongListScreen 艺人歌曲分页列表统一接入，`LoadMoreRow` 退化为状态展示（转圈/失败点击重试），不再是手动入口；触发回调沿用控制器 loading/noMore 防重入
 

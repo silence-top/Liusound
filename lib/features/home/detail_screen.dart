@@ -723,7 +723,6 @@ class _BatchBar extends StatelessWidget {
     return GlassSurface(
       radius: 0,
       blur: GlassTokens.blurMedium,
-      tint: Colors.black.withValues(alpha: 0.45),
       gradientBorder: false,
       shadow: false,
       padding: EdgeInsets.only(

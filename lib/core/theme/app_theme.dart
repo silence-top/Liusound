@@ -53,13 +53,6 @@ abstract final class AppText {
 /// 皮肤相关色（背景/面/文本灰阶）随 AppSkin 走 SkinTokens，经 context 读取；
 /// 点缀/装饰色与皮肤无关，保持 const。所有页面禁止再手写这些色值。
 abstract final class AppTheme {
-  static const primary = Color(0xFF2196F3); // 主蓝（按钮/激活态默认值）
-  static const bar = Color(0xFF222B3A); // 详情页全播栏
-  static const searchbar = Color(0xFF13304a); // 首页装饰搜索栏 / Tab 激活背景
-  static const miniPlayer = Color(0xFF8B8A5F); // 迷你播放条胶囊（军绿，对齐设计图）
-  static const queuePanel = Color(0xFF23272E); // 播放队列弹窗 / 底部操作面板
-  static const queueActive = Color(0xFF1EB4FF); // 队列当前播放项（蓝，对齐设计图）
-
   // ---- 皮肤相关色（context 访问器） ----
   static Color backgroundOf(BuildContext c) => SkinTokens.of(c).background;
   static Color shellOf(BuildContext c) => SkinTokens.of(c).shell;
@@ -76,8 +69,6 @@ abstract final class AppTheme {
   static const formatBorder = Color(0xFF7ECFFF); // 无损格式标签
   static const formatBg = Color(0x593C5078); // rgba(60,80,120,0.35)
   static const formatText = Color(0xFFE0F6FF);
-
-  static ThemeData get dark => build(AppSkin.liquidGlass, primary);
 
   /// 按皮肤 + 主题色构建深色 ThemeData（§8.1 / P1 主题系统化）：
   /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制

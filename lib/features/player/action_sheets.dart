@@ -100,7 +100,6 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     return GlassSurface(
       radius: GlassTokens.radiusSheet,
       blur: GlassTokens.blurHeavy,
-      tint: Colors.black.withValues(alpha: 0.35),
       gradientBorder: true,
       shadow: false,
       padding: EdgeInsets.only(
@@ -714,7 +713,6 @@ class _PlaylistPickerSheet extends ConsumerWidget {
     return GlassSurface(
       radius: GlassTokens.radiusSheet,
       blur: GlassTokens.blurHeavy,
-      tint: Colors.black.withValues(alpha: 0.35),
       gradientBorder: true,
       shadow: false,
       padding: EdgeInsets.only(

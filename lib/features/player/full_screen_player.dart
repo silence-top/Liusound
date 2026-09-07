@@ -2184,7 +2184,6 @@ class _BottomArea extends ConsumerWidget {
     return GlassSurface(
       radius: 0,
       blur: GlassTokens.blurHeavy,
-      tint: Colors.black.withValues(alpha: 0.25),
       gradientBorder: false,
       shadow: false,
       padding: const EdgeInsets.only(bottom: 12),
