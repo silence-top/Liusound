@@ -306,9 +306,7 @@ class _EntryGrid extends ConsumerWidget {
   ) {
     // 复用专辑式歌曲列表（头部 + 顶部操作条 + 批量选择）
     Navigator.of(context).push(
-      fadeRoute<void>(
-        SongListScreen(title: title, songsProvider: provider),
-      ),
+      fadeRoute<void>(SongListScreen(title: title, songsProvider: provider)),
     );
   }
 
@@ -832,8 +830,10 @@ class AlbumListPage extends ConsumerStatefulWidget {
        );
 
   final String title;
+
   /// 同时接受普通与 autoDispose（含 family 已取参）的 FutureProvider
   final ProviderBase<AsyncValue<List<Album>>>? provider;
+
   /// 滚动加载分页数据源
   final AutoDisposeNotifierProvider<LibraryAlbumsController, AlbumPagedState>?
   paged;
@@ -893,13 +893,16 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
         content = glassEmptyState(text: '暂无专辑');
       }
     } else {
-      content = _grid(
-        _filter(state.albums),
-        footer: LoadMoreRow(
-          onLoadMore: notifier.loadMore,
-          loading: state.loading,
-          failed: state.error,
-          noMore: state.noMore,
+      content = ScrollBottomLoader(
+        onBottom: notifier.loadMore,
+        child: _grid(
+          _filter(state.albums),
+          footer: LoadMoreRow(
+            onLoadMore: notifier.loadMore,
+            loading: state.loading,
+            failed: state.error,
+            noMore: state.noMore,
+          ),
         ),
       );
     }
@@ -928,7 +931,11 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
               controller: _controller,
               onChanged: (v) => setState(() => _search = v),
             ),
-            Expanded(child: list.isEmpty ? glassEmptyState(text: '没有匹配的专辑') : _grid(list)),
+            Expanded(
+              child: list.isEmpty
+                  ? glassEmptyState(text: '没有匹配的专辑')
+                  : _grid(list),
+            ),
           ],
         );
       },

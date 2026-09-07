@@ -165,8 +165,12 @@ class SongListScreen extends ConsumerStatefulWidget {
 
   final String title;
   final List<Song>? songs;
-  final AutoDisposeFamilyNotifierProvider<ArtistSongsController,
-  ArtistSongsState, String>? pagedSongsProvider;
+  final AutoDisposeFamilyNotifierProvider<
+    ArtistSongsController,
+    ArtistSongsState,
+    String
+  >?
+  pagedSongsProvider;
   // 同时接受普通与 autoDispose（含 family 已取参）的 provider（资料库入口/流派）
   final ProviderBase<AsyncValue<List<Song>>>? songsProvider;
   final String? playlistId;
@@ -210,9 +214,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
     final before = _rating;
     setState(() => _rating = rating);
     final ok =
-        await ref
-            .read(serverAdapterProvider)
-            ?.setRating(target, rating) ??
+        await ref.read(serverAdapterProvider)?.setRating(target, rating) ??
         false;
     if (!ok && mounted) {
       setState(() => _rating = before);
@@ -271,43 +273,54 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
               onDownload: () => batchDownload(songs),
             )
           : const MiniPlayer(),
-      body: CustomScrollView(
-        slivers: [
-          _detailAppBar(
-            context: context,
-            title: widget.title,
-            selectMode: selectMode,
-            selectedCount: selectedCount,
-            totalCount: songs.length,
-            onToggleSelectMode: toggleSelectMode,
-            onSelectAll: () => toggleSelectAll(songs),
-            filterExpanded: _filterExpanded,
-            onToggleFilter: _toggleFilter,
-            primaryColor: Theme.of(context).colorScheme.primary,
-          ),
-          SliverToBoxAdapter(
-            child: _Header(
+      body: _pagedLoader(
+        child: CustomScrollView(
+          slivers: [
+            _detailAppBar(
+              context: context,
               title: widget.title,
-              subtitle: widget.date ?? subtitle,
-              coverAlbumId: coverAlbumId,
-              rating: canRate ? _rating : null,
-              onRating: canRate ? _rate : null,
+              selectMode: selectMode,
+              selectedCount: selectedCount,
+              totalCount: songs.length,
+              onToggleSelectMode: toggleSelectMode,
+              onSelectAll: () => toggleSelectAll(songs),
+              filterExpanded: _filterExpanded,
+              onToggleFilter: _toggleFilter,
+              primaryColor: Theme.of(context).colorScheme.primary,
             ),
-          ),
-          SliverToBoxAdapter(
-            child: _ListTop(
-              count: songs.length,
-              onPlayAll: () => _playAll(songs),
-              onShuffle: () => _playShuffle(songs),
-              onQueue: () => _enqueue(songs),
-              onChanged: (v) => setState(() => _search = v),
-              controller: _filterController,
-              expanded: _filterExpanded,
+            SliverToBoxAdapter(
+              child: _Header(
+                title: widget.title,
+                subtitle: widget.date ?? subtitle,
+                coverAlbumId: coverAlbumId,
+                rating: canRate ? _rating : null,
+                onRating: canRate ? _rate : null,
+              ),
             ),
-          ),
-          ..._listSlivers(paged: paged, async: async, songs: songs),
-        ],
+            SliverToBoxAdapter(
+              child: _ListTop(
+                count: songs.length,
+                onPlayAll: () => _playAll(songs),
+                onShuffle: () => _playShuffle(songs),
+                onQueue: () => _enqueue(songs),
+                onChanged: (v) => setState(() => _search = v),
+                controller: _filterController,
+                expanded: _filterExpanded,
+              ),
+            ),
+            ..._listSlivers(paged: paged, async: async, songs: songs),
+          ],
+        ),
       ),
+    );
+  }
+
+  /// 分页数据源时包一层滚动触底自动加载（LoadMoreRow 只负责状态展示）
+  Widget _pagedLoader({required Widget child}) {
+    if (widget.pagedSongsProvider == null) return child;
+    return ScrollBottomLoader(
+      onBottom: () => ref.read(widget.pagedSongsProvider!.notifier).loadMore(),
+      child: child,
     );
   }
 
@@ -370,9 +383,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
     }
     return sliverAsyncGuard<Song>(
       async: async ?? AsyncValue.data(const []),
-      emptyText: widget.playlistId != null
-          ? '歌单暂无歌曲'
-          : '${widget.title}暂无歌曲',
+      emptyText: widget.playlistId != null ? '歌单暂无歌曲' : '${widget.title}暂无歌曲',
       onRetry: () {
         final p = widget.songsProvider;
         if (p != null) {

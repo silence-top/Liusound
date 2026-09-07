@@ -170,3 +170,32 @@ class LoadMoreRow extends StatelessWidget {
     );
   }
 }
+
+/// 滚动接近底部时自动触发加载更多（包住任意可滚动组件）。
+/// 与 LoadMoreRow 搭配：行只负责展示状态（转圈/重试），
+/// 触发靠这里；[onBottom] 自身须有 loading/noMore 防重入。
+class ScrollBottomLoader extends StatelessWidget {
+  const ScrollBottomLoader({
+    super.key,
+    required this.child,
+    required this.onBottom,
+    this.threshold = 600,
+  });
+
+  final Widget child;
+  final VoidCallback onBottom;
+  final double threshold;
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.pixels >= n.metrics.maxScrollExtent - threshold) {
+          onBottom();
+        }
+        return false;
+      },
+      child: child,
+    );
+  }
+}
