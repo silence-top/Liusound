@@ -2,6 +2,9 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页黑胶唱针方向修正
+- **唱针起落画反**：_TonearmPainter 摆向为正 x 分量，「落针」（播放）时唱针被甩出画布外（视觉上停在右上角），「抬针」（暂停）时反而压在盘面上；镜像为负 x 分量并重调角度（-10° 抬起甩到盘缘外 / 26° 落针落在纹路上），唱头随臂杆角度同步摆正
+
 ## 2026-09-08 — 歌曲列表页三页合一（SongListScreen）
 - **修复回归**：专辑入口合并时漏传数据源触发构造断言（专辑详情打不开），5 处调用点补上 `songsProvider: albumSongsProvider(album.id)`
 - **AlbumDetailScreen + PlaylistDetailScreen 合并为 `SongListScreen`**：消除两份逐字重复的 `_playAll/_playShuffle/_enqueue` 与过滤状态；评分改为可选参数（rateTargetId + capabilities.ratings 门控），数据源四选一（songs / pagedSongsProvider / songsProvider / playlistId）

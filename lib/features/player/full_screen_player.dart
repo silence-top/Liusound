@@ -1067,18 +1067,19 @@ class _Tonearm extends StatelessWidget {
 class _TonearmPainter extends CustomPainter {
   const _TonearmPainter(this.progress);
 
-  /// 0 抬起 → 1 落下
+  /// 0 抬起（暂停，甩到盘缘外）→ 1 落下（播放，落在唱片纹路上）
   final double progress;
 
-  static const _raisedDeg = 6.0;
-  static const _loweredDeg = 28.0;
+  static const _raisedDeg = -10.0;
+  static const _loweredDeg = 26.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     final pivot = Offset(size.width - 18, 18);
     final angle =
         (_raisedDeg + (_loweredDeg - _raisedDeg) * progress) * math.pi / 180;
-    final dir = Offset(math.sin(angle), math.cos(angle));
+    // 负 x 分量：唱针从右上支点向左下摆入盘面（progress 越大越靠里）
+    final dir = Offset(-math.sin(angle), math.cos(angle));
     final tip = pivot + dir * (size.height - 26);
 
     // 臂杆：银色渐变，从支点连到唱头
@@ -1097,7 +1098,7 @@ class _TonearmPainter extends CustomPainter {
     canvas
       ..save()
       ..translate(tip.dx, tip.dy)
-      ..rotate(-angle)
+      ..rotate(angle)
       ..drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromCenter(center: const Offset(0, 8), width: 12, height: 22),
