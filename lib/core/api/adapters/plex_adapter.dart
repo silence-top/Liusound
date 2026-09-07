@@ -16,12 +16,13 @@ class PlexAdapter implements ServerAdapter {
   PlexAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
+    NetworkSettings networkSettings = const NetworkSettings(),
   }) : _config = config,
        _token = secrets['plexToken'] ?? '',
        _machineId = secrets['machineId'] ?? '',
        _musicSectionKey = secrets['musicSectionKey'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
-    NetworkRuntime.configureDio(_dio);
+    NetworkRuntime.configureDio(_dio, networkSettings);
   }
 
   final ServerConfig _config;

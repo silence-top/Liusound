@@ -5,24 +5,21 @@ import 'package:dio/io.dart';
 
 import '../settings/streaming_prefs.dart';
 
-/// 网络层运行时快照：由 serverAdapterProvider 在构建 adapter 前同步，
-/// 各 adapter 构造函数调用 [configureDio] 应用到自己的 Dio。
+/// 网络层配置应用器（P1-NetworkRuntime：无全局可变状态）。
+/// 网络设置由 serverAdapterProvider 显式注入 adapter 构造函数，
+/// adapter 构造时调用 [configureDio] 应用到自己的 Dio；
 /// 网络设置变更 → provider 重建 adapter → 重新应用，无需热更新已建连接。
 abstract final class NetworkRuntime {
-  static NetworkSettings settings = const NetworkSettings();
-
-  static void configureDio(Dio dio) {
-    final s = settings;
+  static void configureDio(Dio dio, NetworkSettings s) {
     dio.options.connectTimeout = Duration(seconds: s.timeoutSeconds);
     dio.options.receiveTimeout = Duration(seconds: s.timeoutSeconds * 2);
     final adapter = dio.httpClientAdapter;
     if (adapter is IOHttpClientAdapter) {
-      adapter.createHttpClient = _createHttpClient;
+      adapter.createHttpClient = () => _createHttpClient(s);
     }
   }
 
-  static HttpClient _createHttpClient() {
-    final s = settings;
+  static HttpClient _createHttpClient(NetworkSettings s) {
     final client = HttpClient();
     client.connectionTimeout = Duration(seconds: s.timeoutSeconds);
     final proxy = s.proxy.trim();

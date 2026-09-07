@@ -15,11 +15,12 @@ class AudioStationAdapter implements ServerAdapter {
   AudioStationAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
+    NetworkSettings networkSettings = const NetworkSettings(),
   }) : _config = config,
        _sid = secrets['sid'] ?? '',
        _password = secrets['password'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
-    NetworkRuntime.configureDio(_dio);
+    NetworkRuntime.configureDio(_dio, networkSettings);
   }
 
   final ServerConfig _config;

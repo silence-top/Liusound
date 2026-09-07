@@ -16,10 +16,11 @@ class NavidromeAdapter implements ServerAdapter {
   NavidromeAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
+    NetworkSettings networkSettings = const NetworkSettings(),
   }) : _config = config,
        _secrets = secrets {
     _client = NavidromeClient();
-    NetworkRuntime.configureDio(_client.dio);
+    NetworkRuntime.configureDio(_client.dio, networkSettings);
     _client.setSession(
       StoredSession(
         serverUrl: config.serverUrl,

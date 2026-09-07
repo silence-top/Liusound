@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../settings/streaming_prefs.dart';
 import 'server_adapter.dart';
 import 'adapters/navidrome_adapter.dart';
 import 'adapters/subsonic_adapter.dart';
@@ -60,20 +61,39 @@ enum ServerType {
 
   ServerAdapter createAdapter(
     ServerConfig config,
-    Map<String, String> secrets,
-  ) {
+    Map<String, String> secrets, [
+    NetworkSettings networkSettings = const NetworkSettings(),
+  ]) {
     return switch (this) {
       ServerType.navidrome => NavidromeAdapter(
         config: config,
         secrets: secrets,
+        networkSettings: networkSettings,
       ),
-      ServerType.subsonic => SubsonicAdapter(config: config, secrets: secrets),
-      ServerType.jellyfin => JellyfinAdapter(config: config, secrets: secrets),
-      ServerType.emby => EmbyAdapter(config: config, secrets: secrets),
-      ServerType.plex => PlexAdapter(config: config, secrets: secrets),
+      ServerType.subsonic => SubsonicAdapter(
+        config: config,
+        secrets: secrets,
+        networkSettings: networkSettings,
+      ),
+      ServerType.jellyfin => JellyfinAdapter(
+        config: config,
+        secrets: secrets,
+        networkSettings: networkSettings,
+      ),
+      ServerType.emby => EmbyAdapter(
+        config: config,
+        secrets: secrets,
+        networkSettings: networkSettings,
+      ),
+      ServerType.plex => PlexAdapter(
+        config: config,
+        secrets: secrets,
+        networkSettings: networkSettings,
+      ),
       ServerType.audioStation => AudioStationAdapter(
         config: config,
         secrets: secrets,
+        networkSettings: networkSettings,
       ),
     };
   }

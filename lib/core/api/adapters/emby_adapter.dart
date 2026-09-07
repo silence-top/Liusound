@@ -1,6 +1,7 @@
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
+import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 import 'mediabrowser_adapter.dart';
@@ -11,7 +12,12 @@ class EmbyAdapter extends MediaBrowserAdapter {
   EmbyAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
-  }) : super(serverUrl: config.serverUrl, secrets: secrets);
+    NetworkSettings networkSettings = const NetworkSettings(),
+  }) : super(
+         serverUrl: config.serverUrl,
+         secrets: secrets,
+         networkSettings: networkSettings,
+       );
 
   @override
   ServerType get type => ServerType.emby;

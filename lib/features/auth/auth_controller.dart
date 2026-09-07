@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/api/server_type.dart';
-import '../../core/network/http_factory.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/storage/server_repository.dart';
 
@@ -126,7 +125,11 @@ class AuthController extends Notifier<AuthState> {
     );
     if (config == null) return false;
     final secrets = await _repo.loadSecrets(id);
-    final adapter = config.type.createAdapter(config, secrets);
+    final adapter = config.type.createAdapter(
+      config,
+      secrets,
+      ref.read(networkSettingsProvider),
+    );
     try {
       return await adapter.validateSession();
     } finally {
@@ -164,12 +167,12 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
 
 final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   final auth = ref.watch(authControllerProvider);
+  // 网络设置显式注入 adapter（P1-NetworkRuntime：无全局可变状态）；
   // 网络设置变更时重建 adapter，让超时/代理/证书/hosts 重新生效
   final net = ref.watch(networkSettingsProvider);
-  NetworkRuntime.settings = net;
   final config = auth.activeConfig;
   if (config == null) return null;
-  final adapter = config.type.createAdapter(config, auth.activeSecrets);
+  final adapter = config.type.createAdapter(config, auth.activeSecrets, net);
   ref.onDispose(adapter.dispose);
   return adapter;
 });

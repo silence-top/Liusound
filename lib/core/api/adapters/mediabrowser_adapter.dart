@@ -13,11 +13,12 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
   MediaBrowserAdapter({
     required String serverUrl,
     required Map<String, String> secrets,
+    NetworkSettings networkSettings = const NetworkSettings(),
   }) : _serverUrl = serverUrl,
        _userId = secrets['userId'] ?? '',
        _token = secrets['token'] ?? '' {
     _dio.options.baseUrl = serverUrl;
-    NetworkRuntime.configureDio(_dio);
+    NetworkRuntime.configureDio(_dio, networkSettings);
   }
 
   final String _serverUrl;
