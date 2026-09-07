@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
-import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../player/mini_player.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
 
-/// 艺人详情页：圆形头像 + 歌手名/统计 → 专辑横向卡片区（跳专辑页）
-/// → 热门歌曲列表（复用 SongRow，整表播放）。
-/// 数据：GET /api/album?artist_id=（按年降序）、GET /api/song?artist_id=（热门优先）。
+/// 艺人详情页：圆形头像 + 歌手名/歌曲统计 → 热门歌曲列表（复用 SongRow）。
+/// 数据：GET /api/song?artist_id=（热门优先）。
 class ArtistDetailScreen extends ConsumerWidget {
   const ArtistDetailScreen({
     super.key,
@@ -26,10 +23,7 @@ class ArtistDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final albumsAsync = ref.watch(artistAlbumsProvider(artistId));
     final songsState = ref.watch(artistSongsProvider(artistId));
-    final albums = albumsAsync.value ?? const <Album>[];
-    final songs = songsState.songs;
 
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
@@ -63,17 +57,8 @@ class ArtistDetailScreen extends ConsumerWidget {
             child: _Header(
               name: artistName,
               artistId: artistId,
-              albumCount: albums.length,
-              songCount: songs.length,
+              songCount: songsState.songs.length,
             ),
-          ),
-          ...sliverAsyncGuard<Album>(
-            async: albumsAsync,
-            emptyText: '暂无专辑',
-            onRetry: () => ref.invalidate(artistAlbumsProvider(artistId)),
-            onData: (albums) => [
-              SliverToBoxAdapter(child: _AlbumSection(albums: albums)),
-            ],
           ),
           ..._songSlivers(context, ref, songsState),
         ],
@@ -141,18 +126,16 @@ class ArtistDetailScreen extends ConsumerWidget {
   }
 }
 
-/// 头部：大圆头像 + 歌手名 + 「N 张专辑 · N 首歌曲」（对齐搜索页艺人行格式）
+/// 头部：大圆头像 + 歌手名 + 「N 首歌曲」（对齐搜索页艺人行格式）
 class _Header extends StatelessWidget {
   const _Header({
     required this.name,
     required this.artistId,
-    required this.albumCount,
     required this.songCount,
   });
 
   final String name;
   final String artistId;
-  final int albumCount;
   final int songCount;
 
   @override
@@ -179,50 +162,13 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$albumCount 张专辑 · $songCount 首歌曲',
+                  '$songCount 首歌曲',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 专辑横向卡片区（跳转专辑详情页，对齐首页专辑卡样式）
-class _AlbumSection extends StatelessWidget {
-  const _AlbumSection({required this.albums});
-
-  final List<Album> albums;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 188,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        itemCount: albums.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final album = albums[i];
-          return AlbumCard(
-            album: album,
-            size: 120,
-            onTap: () => Navigator.of(context).push(
-              fadeRoute<void>(
-                AlbumDetailScreen(
-                  albumId: album.id,
-                  title: album.name,
-                  subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-                  rating: album.rating,
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }

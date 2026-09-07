@@ -10,8 +10,7 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../home/artist_detail_screen.dart';
-import '../player/full_screen_player.dart';
-import '../player/player_controller.dart';
+import '../home/detail_screen.dart';
 
 /// 搜索关键词（300ms 防抖后由 UI 层更新，对标 1.x SEARCH_DEBOUNCE_MS）。
 /// 页面级 autoDispose：离开搜索页即销毁，重进时输入框与结果一致。
@@ -324,7 +323,13 @@ class _ResultList extends ConsumerWidget {
           const SliverToBoxAdapter(child: _SectionTitle('歌曲')),
           SliverList.builder(
             itemCount: results.songs.length,
-            itemBuilder: (context, i) => _SongRow(song: results.songs[i]),
+            itemBuilder: (context, i) => FadeSlideIn(
+              child: SongRow(
+                song: results.songs[i],
+                index: i,
+                songs: results.songs,
+              ),
+            ),
           ),
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 96)),
@@ -442,61 +447,6 @@ class _AlbumRowCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 歌曲行：48 封面 + 标题/副标题 + 播放按钮（点击即播放）
-class _SongRow extends ConsumerWidget {
-  const _SongRow({required this.song});
-
-  final Song song;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return InkWell(
-      onTap: () {
-        ref.read(playerActionsProvider).play(song);
-        if (ref.read(autoOpenPlayerProvider)) openFullScreenPlayer(context);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            CoverArt(albumId: song.albumId, size: 48, radius: 6),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${song.artist} - ${song.album}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppTheme.textDimOf(context),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.play_circle_outline,
-              size: 28,
-              color: Colors.white,
-            ),
-          ],
-        ),
       ),
     );
   }
