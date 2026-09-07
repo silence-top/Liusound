@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/cache/cache_manager.dart';
-import '../../core/download/auto_download.dart';
 import '../../core/download/download_service.dart';
 import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
@@ -342,7 +341,6 @@ class PlayerActions {
         }
       }
     }
-    maybeAutoDownload(_ref.read);
   }
 
   /// 绑定播放器事件流（仅在恢复完成后执行一次）

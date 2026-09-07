@@ -10,6 +10,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
 import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
@@ -101,6 +102,12 @@ class MusicApp extends ConsumerWidget {
       if (prev?.activeServerId != next.activeServerId) {
         ref.read(playerActionsProvider).stop();
       }
+    });
+    // 自动下载补跑（P1-AutoDownload：触发归 auth/业务层，播放器不负责）：
+    // adapter 就绪（冷启动已登录/新登录成功）时补跑一轮；
+    // Wi-Fi 回来与收藏成功处的补跑分别在 main 启动段与收藏动作里触发
+    ref.listen<ServerAdapter?>(serverAdapterProvider, (prev, next) {
+      if (prev == null && next != null) maybeAutoDownload(ref.read);
     });
     // 省电模式 → 低刷新率（Android）
     _applyDisplayMode(ref.watch(powerSaveProvider));
