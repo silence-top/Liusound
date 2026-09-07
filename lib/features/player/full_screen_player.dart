@@ -1136,9 +1136,10 @@ class _BlurredBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final image = FittedBox(
       fit: BoxFit.cover,
+      // 模糊背景不需要高清源：小尺寸取源（命中 300 档），模糊后无差异
       child: CoverArt(
         albumId: albumId,
-        size: 400,
+        size: 100,
         radius: 0,
         localCover: localCover,
       ),

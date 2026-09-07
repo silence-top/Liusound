@@ -17,9 +17,9 @@ abstract final class Subsonic {
     ...extra,
   };
 
-  /// 专辑/歌曲封面直链（服务端裁剪到 300px，配合客户端限制解码尺寸）
-  static String coverArtUrl(SubsonicAuth auth, String id) =>
-      '${auth.serverUrl}/rest/getCoverArt?${_query(params(auth, {'id': id, 'size': '300', 'square': 'true'}))}';
+  /// 专辑/歌曲封面直链（服务端按 size 裁剪成方图，配合客户端限制解码尺寸）
+  static String coverArtUrl(SubsonicAuth auth, String id, {int size = 300}) =>
+      '${auth.serverUrl}/rest/getCoverArt?${_query(params(auth, {'id': id, 'size': '$size', 'square': 'true'}))}';
 
   /// 歌曲流媒体直链；maxBitRate/format 非空时由服务端转码（附录·四 音质分档）
   static String streamUrl(

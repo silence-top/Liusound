@@ -498,7 +498,7 @@ class SubsonicAdapter implements ServerAdapter {
   @override
   ImageSource? coverImage(String albumId, {int size = 300}) {
     if (!_auth.isValid || albumId.isEmpty) return null;
-    return ImageSource(url: Subsonic.coverArtUrl(_auth, albumId));
+    return ImageSource(url: Subsonic.coverArtUrl(_auth, albumId, size: size));
   }
 
   @override

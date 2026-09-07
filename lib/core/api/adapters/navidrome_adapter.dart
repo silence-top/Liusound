@@ -402,7 +402,7 @@ class NavidromeAdapter implements ServerAdapter {
   ImageSource? coverImage(String albumId, {int size = 300}) {
     final auth = _subsonicAuth;
     if (!auth.isValid || albumId.isEmpty) return null;
-    return ImageSource(url: Subsonic.coverArtUrl(auth, albumId));
+    return ImageSource(url: Subsonic.coverArtUrl(auth, albumId, size: size));
   }
 
   @override
