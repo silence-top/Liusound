@@ -1,6 +1,7 @@
 import '../../errors/app_error.dart';
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -317,6 +318,19 @@ class SubsonicAdapter implements ServerAdapter {
     try {
       final data = await _api('getMusicFolders', {});
       return Subsonic.musicFoldersVersion(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// OpenSubsonic getLyricsBySongId（Navidrome 等支持；老服务器返回非 ok 即 null）
+  @override
+  Future<String?> fetchLyrics(String songId) async {
+    try {
+      final data = await _api('getLyricsBySongId', {'id': songId});
+      final list = data['lyricsList']?['structuredLyrics'] as List<dynamic>?;
+      if (list == null || list.isEmpty) return null;
+      return jsonEncode(list);
     } catch (_) {
       return null;
     }

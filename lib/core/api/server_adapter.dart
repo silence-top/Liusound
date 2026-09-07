@@ -38,6 +38,11 @@ abstract class ServerAdapter {
   /// 返回 null 表示后端不提供（如 Audio Station），调用方需全量刷新
   Future<String?> libraryVersion() async => null;
 
+  /// 按需拉取歌词（播放时兜底：曲库快照/队列恢复的 JSON 往返会丢内嵌歌词）。
+  /// 返回 Navidrome 结构化歌词 JSON（[{"lang":..,"line":[{"start":ms,"value":..}]}]），
+  /// 后端不支持或无歌词返回 null
+  Future<String?> fetchLyrics(String songId) async => null;
+
   // ---------- 资料库扩展（歌手/流派/电台） ----------
   // 返回 null 表示后端不支持该能力（UI 隐藏入口）；空列表表示支持但无数据
 

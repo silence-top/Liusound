@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放时按需拉取歌词（快照/队列恢复丢歌词兜底）
+- **根因**：`Song.toJson()` 沿袭 stripSong 剔除内嵌歌词，曲库快照（LibrarySync SQLite）与队列持久化（SharedPreferences）的 JSON 往返都会丢 `lyrics`——资料库歌曲列表点播后播放页无歌词
+- **修法（用户钦定：每次播放重新拉）**：`ServerAdapter` 新增 `fetchLyrics(songId)` 默认 null（不支持即静默降级）；Navidrome/Subsonic 走 OpenSubsonic `getLyricsBySongId`，Jellyfin/Emby 走 `/Audio/{id}/lyrics`（ticks→ms 转 Navidrome 结构化格式，Emby 老版本无此接口回 null），Plex/Audio Station 暂不实现
+- **回填时机**：`play()` 设置当前歌后异步补拉（复用播放代数守卫防连点竞态），已有歌词（含本地导入）不重复请求；拉到后 `copyWith(lyrics:)` 更新当前歌状态
+- **歌词页联动**：_LyricsTab didUpdateWidget 同曲歌词变化时原地重新解析；本地导入歌词（SQLite）优先级更高，生效时不被服务端回填覆盖
+- 已知边界：冷启动恢复的历史队列恢复后首播即触发补拉，逐曲渐进恢复；快照本身仍不含歌词（体积考量，不变更）
+
 ## 2026-09-08 — 播放页相关弹层全部随封面主色
 - **取色下沉共享**：`albumDominantColorProvider` 从 full_screen_player 迁出到新文件 `album_tint.dart`，新增 `albumAdaptiveTint()` 统一公式（主色 lerp 黑 0.42 × alpha 0.55，与页面背景渐变顶端一致）
 - **接入弹层**：歌曲操作弹窗（随目标歌曲封面）、添加到歌单（批量取第一首）、播放队列面板（随当前歌曲）、歌词页 4 个浮层（LRC 菜单/音轨选择/歌词偏移/音量条，随当前歌曲）——与底部控制栏同一色系；取色中/失败回退 GlassTokens.tint

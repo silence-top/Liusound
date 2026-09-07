@@ -12,6 +12,7 @@ import '../../core/api/server_adapter.dart';
 import '../../core/cache/cache_manager.dart';
 import '../../core/download/download_service.dart';
 import '../../core/local/local_library.dart';
+import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../auth/auth_controller.dart';

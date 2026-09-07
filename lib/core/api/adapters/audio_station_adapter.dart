@@ -57,6 +57,9 @@ class AudioStationAdapter implements ServerAdapter {
   @override
   Future<String?> libraryVersion() async => null;
 
+  @override
+  Future<String?> fetchLyrics(String songId) async => null;
+
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final dio = Dio(
       BaseOptions(

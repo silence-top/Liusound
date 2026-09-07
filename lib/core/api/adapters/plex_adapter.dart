@@ -435,6 +435,10 @@ class PlexAdapter implements ServerAdapter {
   @override
   Future<bool> nowPlaying(String songId) async => false;
 
+  // Plex 歌词需读取媒体流元数据（Lyrics 流），列表接口不返回，暂不实现
+  @override
+  Future<String?> fetchLyrics(String songId) async => null;
+
   @override
   Future<String?> libraryVersion() async {
     try {

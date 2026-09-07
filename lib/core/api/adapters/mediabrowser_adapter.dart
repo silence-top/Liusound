@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -58,6 +59,33 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     scrobbling: true,
     versionedSnapshot: true,
   );
+
+  /// Jellyfin 10.9+ 提供 /Audio/{id}/lyrics；Emby 多数版本无此接口，静默回 null。
+  /// 响应行（Start 为 100ns ticks）转为 Navidrome 结构化歌词 JSON，供统一解析管线消费
+  @override
+  Future<String?> fetchLyrics(String songId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/Audio/$songId/lyrics',
+        options: Options(headers: _headers),
+      );
+      final lines = res.data?['Lyrics'] as List<dynamic>? ?? const <dynamic>[];
+      final parsed = <Map<String, dynamic>>[];
+      for (final line in lines) {
+        if (line is! Map<String, dynamic>) continue;
+        final text = line['Line']?.toString() ?? '';
+        if (text.trim().isEmpty) continue;
+        final ticks = (line['Start'] as num?)?.toInt() ?? 0;
+        parsed.add({'start': ticks ~/ 10000, 'value': text});
+      }
+      if (parsed.isEmpty) return null;
+      return jsonEncode([
+        {'lang': 'und', 'line': parsed},
+      ]);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Future<List<Album>> fetchAlbums(AlbumQuery query) async {

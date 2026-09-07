@@ -1169,6 +1169,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   final ValueNotifier<int> _currentIndex = ValueNotifier(-2);
   // 点击行预览（§4.3）：被选中待跳播的行，右侧浮出「时间戳 + Play」，-1 表示无
   int _previewIndex = -1;
+  // 本地导入歌词已生效（优先级高于服务端 JSON，补拉回填不得覆盖）
+  bool _usingLocalLyrics = false;
   Timer? _previewTimer;
   Timer? _manualScrollTimer;
   final ScrollController _controller = ScrollController();
@@ -1190,6 +1192,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   void didUpdateWidget(_LyricsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.song.id != oldWidget.song.id) {
+      _usingLocalLyrics = false;
       _parseLyrics();
       _loadLocalLyrics();
       _offset = 0;
@@ -1197,6 +1200,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       _previewIndex = -1;
       _previewTimer?.cancel();
       _loadOffset();
+    } else if (widget.song.lyrics != oldWidget.song.lyrics) {
+      // 同一首歌歌词补拉到位（播放时按需回填）后原地刷新；
+      // 本地导入歌词优先级更高，生效时不覆盖
+      if (!_usingLocalLyrics) _parseLyrics();
     }
   }
 
@@ -1246,6 +1253,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     final lines = parseLrcText(content);
     if (lines.isEmpty) return;
     setState(() {
+      _usingLocalLyrics = true;
       _lyrics = LyricsData(lines: lines);
       _tracks = const [];
       _currentTrackIndex = 0;

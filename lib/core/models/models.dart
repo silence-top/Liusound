@@ -174,7 +174,7 @@ class Song {
         : null,
   );
 
-  Song copyWith({bool? starred, int? rating}) => Song(
+  Song copyWith({bool? starred, int? rating, String? lyrics}) => Song(
     id: id,
     title: title,
     artist: artist,
@@ -186,7 +186,7 @@ class Song {
     starred: starred ?? this.starred,
     size: size,
     rating: rating ?? this.rating,
-    lyrics: lyrics,
+    lyrics: lyrics ?? this.lyrics,
     suffix: suffix,
     codec: codec,
     bitRate: bitRate,

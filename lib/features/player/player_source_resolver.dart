@@ -14,6 +14,7 @@ mixin PlayerSourceResolver
   Future<void> play(Song song) async {
     final gen = ++_playGeneration;
     _ref.read(currentSongProvider.notifier).state = song;
+    unawaited(_backfillLyrics(song, gen));
     final localPath = localSongPath(song) ?? await findDownloadedSong(song);
     if (gen != _playGeneration) return;
     if (localPath != null && File(localPath).existsSync()) {
@@ -75,6 +76,23 @@ mixin PlayerSourceResolver
         if (gen == _playGeneration) _notify('播放失败，请检查服务器连接');
       }
     }
+  }
+
+  /// 播放时按需补拉歌词：曲库快照与队列持久化的 JSON 往返会剥离内嵌歌词，
+  /// 命中这类来源的歌曲在播放时向服务端重新请求一次并回填当前歌状态。
+  /// 已有歌词（含本地导入）不重复请求；拉取期间切歌/换代则作废
+  Future<void> _backfillLyrics(Song song, int gen) async {
+    if (song.id.startsWith('local:')) return;
+    if (parseLyricsData(song.lyrics).lines.isNotEmpty) return;
+    final adapter = _adapter;
+    if (adapter == null) return;
+    final lyrics = await adapter.fetchLyrics(song.id);
+    if (lyrics == null || parseLyricsData(lyrics).lines.isEmpty) return;
+    if (gen != _playGeneration) return;
+    if (_ref.read(currentSongProvider)?.id != song.id) return;
+    _ref.read(currentSongProvider.notifier).state = song.copyWith(
+      lyrics: lyrics,
+    );
   }
 
   /// 按边听边存开关选择磁盘缓存源或直连源

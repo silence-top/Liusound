@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -321,6 +322,14 @@ class NavidromeAdapter implements ServerAdapter {
     final songs = data?['songsByGenre']?['song'] as List<dynamic>?;
     if (songs == null) return null;
     return songs.whereType<Map<String, dynamic>>().map(Song.fromJson).toList();
+  }
+
+  @override
+  Future<String?> fetchLyrics(String songId) async {
+    final data = await _subsonicGet('getLyricsBySongId', {'id': songId});
+    final list = data?['lyricsList']?['structuredLyrics'] as List<dynamic>?;
+    if (list == null || list.isEmpty) return null;
+    return jsonEncode(list);
   }
 
   @override
