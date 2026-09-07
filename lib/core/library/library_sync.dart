@@ -38,15 +38,16 @@ abstract final class LibrarySync {
     );
   }
 
-  /// 专辑列表（name 排序前 100）
+  /// 专辑列表（全量 name 排序；上限 10000 对齐歌曲入口，
+  /// 大曲库分页待专辑列表页支持加载更多后再拆）
   static Future<List<Album>> albums(RefReader read) async {
     final adapter = read(serverAdapterProvider);
     if (adapter == null) return const [];
     return _load<Album>(
       read,
-      kind: 'albums_name',
+      kind: 'albums_name_v2', // v2：上限 100→10000，旧快照只有 100 条需作废
       fetch: () => adapter.fetchAlbums(
-        const AlbumQuery(sort: AlbumSort.name, limit: 100),
+        const AlbumQuery(sort: AlbumSort.name, limit: 10000),
       ),
       encode: (list) => jsonEncode(list.map((a) => a.toJson()).toList()),
       decode: (raw) => [

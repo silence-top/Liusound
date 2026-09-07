@@ -957,21 +957,27 @@ class ListSearchBar extends StatelessWidget {
                   const Icon(Icons.search, size: 20, color: Colors.white38),
                   const SizedBox(width: 8),
                   Expanded(
+                    // expands 让输入框撑满固定高度，配合 textAlignVertical
+                    // 才能真正垂直居中——isCollapsed 固有行高方案受 CJK
+                    // 字体度量影响，文字会整体偏高
                     child: TextField(
                       controller: controller,
                       onChanged: onChanged,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
-                      // isCollapsed 去掉内建垂直内边距，文字随 Row 在固定
-                      // 高度容器里真正居中（isDense 仍会留 min-height 偏移）
+                      expands: true,
+                      maxLines: null,
                       textAlignVertical: TextAlignVertical.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: InputDecoration(
                         hintText: hint,
                         hintStyle: const TextStyle(
                           color: Colors.white38,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                         border: InputBorder.none,
                         isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 0,
+                        ),
                       ),
                     ),
                   ),
