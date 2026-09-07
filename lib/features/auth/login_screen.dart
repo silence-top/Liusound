@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
+import '../../core/errors/app_error.dart';
 import '../../shared/widgets/glass.dart';
 import 'auth_controller.dart';
 
@@ -61,8 +62,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('登录失败：$error')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登录失败：${appUserMessage(error)}')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

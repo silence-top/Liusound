@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
+import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
@@ -300,7 +301,7 @@ class _ServerCard extends ConsumerWidget {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('连接失败：$e'),
+          content: Text('连接失败：${appUserMessage(e)}'),
           duration: const Duration(seconds: 3),
         ),
       );

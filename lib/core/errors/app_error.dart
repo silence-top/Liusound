@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 /// 应用错误模型（P1-AppError）：Adapter 层抛类型化错误，Provider 透传为
 /// AsyncError，UI 只读 message / 按类型分支，禁止用 Exception.toString() 判断
 sealed class AppError implements Exception {
@@ -47,4 +50,14 @@ final class PlaybackError extends AppError {
 /// 服务器返回异常响应（非 2xx、响应体缺失）
 final class ServerError extends AppError {
   const ServerError([super.message = '服务器请求失败']);
+}
+
+/// UI 错误展示统一出口：AppError 直接读 message；其余异常按类型映射
+/// 安全文案，不把原始异常串（可能含 URL/堆栈细节）暴露给用户
+String appUserMessage(Object error) {
+  if (error is AppError) return error.message;
+  if (error is SocketException || error is TimeoutException) {
+    return const NetworkError().message;
+  }
+  return '操作失败，请稍后重试';
 }
