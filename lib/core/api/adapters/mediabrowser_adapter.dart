@@ -1,5 +1,3 @@
-import '../../errors/app_error.dart';
-
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
