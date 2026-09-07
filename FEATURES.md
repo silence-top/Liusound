@@ -3,7 +3,7 @@
 ## 项目概览
 
 **项目名称**: 流声 Liu Sound  
-**Document Version**: 2.2.0（本文件自身版本，见文末版本历史）  
+**Document Version**: 2.3.0（本文件自身版本，见文末版本历史）  
 **Product Version**: 2.1.x（以 `pubspec.yaml` 的 `version` 为唯一事实来源）  
 **Dependency Source of Truth**: `pubspec.yaml`（本文不再复制维护依赖版本号）  
 **技术栈**: Flutter + Riverpod + Just Audio + Audio Service  
@@ -407,11 +407,12 @@ class AuthState {
 ```dart
 final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   final auth = ref.watch(authControllerProvider);
+  // 网络设置显式注入 adapter（P1-NetworkRuntime：无全局可变状态）；
+  // 网络设置变更时重建 adapter，让超时/代理/证书/hosts 重新生效
   final net = ref.watch(networkSettingsProvider);
-  NetworkRuntime.settings = net;  // 网络设置变更重建 adapter
   final config = auth.activeConfig;
   if (config == null) return null;
-  final adapter = config.type.createAdapter(config, auth.activeSecrets);
+  final adapter = config.type.createAdapter(config, auth.activeSecrets, net);
   ref.onDispose(adapter.dispose);
   return adapter;
 });
@@ -474,24 +475,30 @@ class QueueNotifier extends Notifier<List<Song>> {
 #### 4.2.4 nextSongProvider 判断逻辑
 
 ```dart
-// 依赖: queueProvider + currentSongProvider + playModeProvider
+// 依赖: queueProvider + currentSongProvider + playModeProvider + shuffleOrderProvider
+// P1-ShuffleOrder：shuffle 走整队列随机遍历序（ShuffleOrderState.order + 游标 pos），
+// 预判 = order[pos+1]，与 playNext 实际取歌严格一致；一轮播完由 playNext 重新洗牌
 nextSong = switch (playMode) {
   PlayMode.repeatOne => null,                              // 单曲循环不预测下一首
-  PlayMode.shuffle => 排除当前的随机一首,                   // others.isEmpty ? null : random
+  PlayMode.shuffle => pos+1 在遍历序内 ? order[pos+1] 对应歌 : null,
   PlayMode.order => index < length-1 ? queue[index+1] : loop ? queue.first : null,
 };
 ```
 
 #### 4.2.5 PlayerActions 类详解
 
-**构造 (740 行)**:
-1. 注册 `processingState==completed` 监听 → 自动切下一首
-2. listen `playModeProvider` → 同步 setLoopMode + 持久化
-3. listen `playbackSpeedProvider` → 同步 setSpeed
-4. listen `currentSongProvider` + `queueProvider` → debounce 持久化
-5. positionStream.listen(_tickCrossfade) → 驱动交叉淡入淡出
-6. 调用 _restore() → 恢复上次播放状态
-7. 调用 maybeAutoDownload() → 触发自动下载
+**文件组织（P1 渐进式拆分）**: `player_controller.dart` 保留全部 Provider 状态源与
+`playerActionsProvider` 构造入口；类体在 `player_actions.dart`，职责块按 part 拆出
+`player_source_resolver / player_crossfade / player_breakpoint / player_persistence /
+player_restore / player_error_handler`（共享私有状态放 `PlayerActionsBase` 基类）。
+
+**构造与初始化**:
+1. listen `playModeProvider` → 同步 setLoopMode + 持久化
+2. listen `playbackSpeedProvider` → 同步 setSpeed
+3. listen `currentSongProvider` + `queueProvider` → 维护 Shuffle 遍历序 + debounce 持久化
+4. _initialize(): RESTORING（_restore 恢复队列/当前歌/进度）→ _bindPlayerEvents
+   （completed 自动切歌 + positionStream 驱动交叉淡化）→ READY（playerReadyProvider）
+   → READY 后才允许恢复后自动播放（P0-PLAYER-01 严格顺序）
 
 **核心方法**:
 
@@ -512,12 +519,13 @@ Future<void> toggle()  // 播放/暂停
 
 Future<void> playNext()  // 下一首
   - repeatOne → _restartCurrent() (seekTo(0) + play)
-  - shuffle → 随机其余一首
+  - shuffle → 沿遍历序游标前进；一轮完整遍历后重新洗牌开启新一轮
+    （新轮次避免与当前曲重复起头）
   - order → queue[index+1] 或 loop ? queue.first : seek(0)+pause
 
 Future<void> playPrevious()  // 上一首
   - repeatOne → restart
-  - shuffle → 随机
+  - shuffle → 沿遍历序游标回退（本轮开头无历史则不动）
   - order → queue[index-1]
 
 Future<void> seek(Duration position)  // 跳转进度
@@ -527,7 +535,9 @@ Future<void> seek(Duration position)  // 跳转进度
 **交叉淡入淡出 (Crossfade)**:
 - 参数范围: 0-10 秒，默认 0（关闭），持久化
 - 触发条件: `duration - pos > seconds && duration > seconds*2 && playing && 有真实下一首`
-- 实现方式: 24 步音量自动化（just_audio 无原生 crossfade）
+  （下一首预判复用 nextSongProvider，保证淡入的歌就是触底文案预告的歌）
+- 实现方式: 音量自动化近似（just_audio 无原生 crossfade），100ms 固定步进，
+  步数 = seconds*1000/100 由时长派生（P1-Crossfade 语义统一，无固定步数业务语义）
 - 防重入: `_fading` 标志
 
 **长音频断点续播**:
@@ -756,7 +766,10 @@ void maybeAutoDownload(RefReader read) {
   unawaited(AutoDownload.run(read));
 }
 ```
-供 PlayerActions 构造时调用，冷启动补跑一轮。
+供三处业务触发（P1-AutoDownload：播放器不负责自动下载）：
+1. serverAdapterProvider 从 null → 非 null（冷启动已登录/新登录成功，main.dart MusicApp listen）
+2. onConnectivityChanged 回到 Wi-Fi/以太网（main.dart 启动段）
+3. 收藏成功回调（audio_handler / full_screen_player / action_sheets）
 
 ### 4.9 ScrobbleService
 
@@ -1149,24 +1162,27 @@ prefs keys: `'bg_image_path'`, `'bg_opacity'`, `'bg_blur'`
 
 ### 4.15 网络运行时配置（http_factory.dart）
 
+P1-NetworkRuntime 已去除全局可变状态：`NetworkSettings` 由
+serverAdapterProvider 经 `createAdapter(config, secrets, networkSettings)`
+显式注入各 adapter 构造函数，Server A 的设置不影响 Server B。
+
 ```dart
 abstract final class NetworkRuntime {
-  static NetworkSettings settings = const NetworkSettings();
-
-  static void configureDio(Dio dio) {
-    // connectTimeout = timeoutSeconds
-    // receiveTimeout = timeoutSeconds * 2
-    // if IOHttpClientAdapter → adapter.createHttpClient = _createHttpClient
+  // 无静态可变 settings；设置随 adapter 构造显式传入
+  static void configureDio(Dio dio, NetworkSettings s) {
+    // connectTimeout = s.timeoutSeconds
+    // receiveTimeout = s.timeoutSeconds * 2
+    // if IOHttpClientAdapter → adapter.createHttpClient = () => _createHttpClient(s)
   }
 
-  static HttpClient _createHttpClient() {
-    // client.connectionTimeout = timeoutSeconds
+  static HttpClient _createHttpClient(NetworkSettings s) {
+    // client.connectionTimeout = s.timeoutSeconds
     // proxy → client.findProxy = 'PROXY $proxy'
     // !verify → client.badCertificateCallback = (_,__,__) = true
     // hostMap → client.connectionFactory = _connectWithHosts
   }
 
-  static Future<ConnectionTask<Socket>> _connectWithHosts(Uri uri, s) {
+  static Future<ConnectionTask<Socket>> _connectWithHosts(Uri uri, NetworkSettings s) {
     // mapped = hostMap[uri.host] ?? uri.host
     // HTTPS: SecureSocket.startConnect(target, port, onBadCertificate: ...)
     // HTTP: Socket.startConnect(target, port)
@@ -1817,7 +1833,7 @@ Shimmer.fromColors(
 
 | # | 问题 | 影响范围 | 临时对策 |
 |---|------|----------|----------|
-| 1 | 单 AudioPlayer 无原生 crossfade，只能做音量渐变（Soft Transition：当前曲淡出→切源→下一曲淡入），不是双流重叠 True Crossfade | 所有平台 | crossfade_seconds = 实际淡化时长（0=关闭，1-10=秒）；24 steps 仅为实现 tick 粒度，非业务语义；禁止为 crossfade 引入第二个 AudioPlayer |
+| 1 | 单 AudioPlayer 无原生 crossfade，只能做音量渐变（Soft Transition：当前曲淡出→切源→下一曲淡入），不是双流重叠 True Crossfade | 所有平台 | crossfade_seconds = 实际淡化时长（0=关闭，1-10=秒）；实现为固定 100ms tick，步数随时长派生（seconds*1000~/100），无固定步数业务语义；禁止为 crossfade 引入第二个 AudioPlayer |
 | 2 | 超长歌曲 >10min 的断点续播依赖 SharedPreferences | Android 前台 | breakpoint_<songId>，切歌/seek 时落盘，播放开始命中即跳转 |
 | 3 | iOS 后台播放依赖 audio_service 的 MediaSession | iOS  Only | 锁屏控制已验证 OK |
 | 4 | Subsonic API 的 getPlaylists 在某些实现（如 Ampache）不返回 owner 字段 | 歌单列表 | owner 兜底为空字符串 |
@@ -1851,6 +1867,7 @@ Shimmer.fromColors(
 | v2.1.1 | 2026-09-05 | 资料库复用修复：歌曲入口→全部歌曲倒序 / 歌单切换 / 专辑 4 列网格 |
 | v2.1.2 | 2026-09-06 | 设置页 tab 内层 AppBar 移除 / 本地扫描 isolate + SQLite 缓存 / 迷你条双语下一句 |
 | v2.2.0 | 2026-09-07 | 架构一致性 P0 整改：DB v4 迁移（scrobble 重试防护 + download_index）/ 下载原子写入 / 本地歌曲指纹 ID / 歌词缓存键分级 / Player Restore 严格顺序 / incrementalSync→versionedSnapshot 正名 / Unsupported-Failure 语义分离 / Invariants & Anti-Patterns 章节 |
+| v2.3.0 | 2026-09-07 | 架构一致性 P1 整改：PlayerActions 七 part 拆分（行为零变化）/ Shuffle 全队列遍历序 + 游标 / Crossfade 100ms tick 语义统一 / NetworkSettings 显式注入（去 global mutable）/ AppError sealed 错误模型 / MotionTokens / AutoDownload 触发归属业务层 / 平台能力矩阵（§15） |
 
 ---
 
@@ -1953,7 +1970,7 @@ Shimmer.fromColors(
 15. 大 JSON 快照（>256KB / >1000 条）的 encode/decode 必须在 Isolate.run 中执行
 16. Player Restore 严格顺序：RESTORING → 绑定事件 → READY；READY 前禁止自动播放/切歌/自动下载/上报
 17. 业务 UI 不允许硬编码 Color(...)；纯装饰与 Canvas painter 内部除外
-18. 不新增 global mutable singleton（NetworkRuntime.settings 这类全局可变状态待 P1 消除，不得新增同类）
+18. 不新增 global mutable singleton（P1 已消除 NetworkRuntime.settings 全局可变状态：NetworkSettings 经 createAdapter 构造参数显式注入各 adapter；同类全局可变状态禁止再出现）
 19. Feature 内不得直接创建 Dio / SQLite 实例
 
 ## 十四、Anti-Patterns（禁止模式，P0-19）
@@ -1963,8 +1980,8 @@ Shimmer.fromColors(
 - 多处创建 AudioPlayer，或创建第二套 queue state
 - 使用文件路径作为 Local Song ID
 - Cache / Download 混用目录或容量限制
-- 随机 next 代替完整 shuffle 实现（P1 引入 shuffleOrder 前的已知妥协，见 §9.1）
-- Exception.toString() 驱动 UI 错误分类
+- shuffle 模式只换随机起始曲而不完整遍历队列（P1 起 shuffleOrderProvider 为全队列随机遍历序 + 游标，一轮内不重复；修改遍历逻辑必须同时保证 nextSongProvider 预测 == 实际播放）
+- UI 错误分类基于 Exception.toString() 字符串匹配（必须 catch core/errors/app_error.dart 的 AppError 具体子类）
 - catch (_) 后把请求失败折叠成 null（=不支持）
 - Capability=false 后仍假定能力存在
 - 新增 global mutable singleton
@@ -1974,8 +1991,67 @@ Shimmer.fromColors(
 
 ---
 
+## 十五、P1 架构整改补充（v2.3.0）
+
+### 15.1 PlayerActions 拆分（P1 渐进式）
+
+`player_controller.dart` 保留全部 Provider 状态源与 `playerActionsProvider` 门面（外部导入路径不变），类体按职责拆为 part 文件：
+
+| 文件 | 职责 |
+|------|------|
+| player_actions.dart | PlayerActionsBase（共享私有状态）+ 事件绑定 / 初始化 / 播放上一首下一首 / shuffle 遍历序 / 队列管理 / stop |
+| player_source_resolver.dart | play()（源解析、音质档、转码探测、无损回退、断点续播） |
+| player_error_handler.dart | _notify / _debugLog |
+| player_breakpoint.dart | >10min 超长曲断点落盘与续播 |
+| player_persistence.dart | 播放状态持久化（500ms debounce，仅 _restored 后） |
+| player_restore.dart | 冷启动恢复（RESTORING → bind → READY 严格顺序） |
+| player_crossfade.dart | 100ms tick 音量渐变 Soft Transition |
+
+约束：mixins 声明为 `on PlayerActionsBase`（链式依赖需列出前置 mixin）；mixins 私有成员可见性依赖 part 同库，禁止跨文件以 `PlayerActions.` 形式调用私有成员（静态成员需 `PlayerActionsBase._x` 限定）。
+
+### 15.2 Shuffle 遍历序（shuffleOrderProvider）
+
+`ShuffleOrderState(order, pos)`：order 为全队列歌曲 ID 的随机遍历序，pos 为当前歌在 order 中的游标。
+
+- playNext：游标 +1；到轮末重新洗牌一轮（排除当前曲作轮首）
+- playPrevious：游标 -1；轮首不动
+- 队列增删 → _syncShuffleOrder 增量维护（移除 ID 顺延游标，新 ID 随机插入当前游标后）
+- nextSongProvider 预测 = order[pos+1]，与实际播放严格一致
+- 遍历序不持久化：冷启动后从当前曲重建（已知限制：跨进程重启后上一轮遍历位置不保留）
+
+### 15.3 AppError 错误模型（core/errors/app_error.dart）
+
+`sealed class AppError implements Exception`，子类：NetworkError / AuthError / UnsupportedFeatureError / NotFoundError / PermissionError / StorageError / PlaybackError / ServerError。adapter 层认证/服务器异常已抛 AppError；UI 错误分类必须基于类型 catch，禁止 Exception.toString() 字符串匹配（见 §14 反模式）。
+
+### 15.4 MotionTokens（core/theme/motion_tokens.dart）
+
+静态动效 token（对齐 AppSpacing/AppRadius 风格）：`durationFast=150ms / durationNormal=250ms / durationSlow=400ms`；`curveStandard=easeOutCubic / curveEmphasized=easeInOutCubicEmphasized / curveDecelerated=easeOutCirc`。新动效统一取值于此，禁止散落 Duration/Curve 字面量。
+
+### 15.5 NetworkSettings 显式注入
+
+见 §4.15 与 §13 不变量 18：`createAdapter(config, secrets, [networkSettings])`，serverAdapterProvider watch 网络设置变更即重建 adapter。
+
+### 15.6 AutoDownload 触发归属
+
+触发点收敛于业务层（main.dart / 收藏成功），播放器不负责：① serverAdapterProvider null→非 null；② 网络切至 Wi-Fi；③ 收藏成功回调。见 §4.8.4。
+
+### 15.7 平台能力矩阵（Platform Capability Matrix）
+
+| 能力 | Common | Android | iOS | iPad |
+|------|--------|---------|-----|------|
+| 后台音频 | — | audio_service 前台服务 | MediaSession 后台模式 | 同 iOS |
+| 锁屏/通知控制 | — | MediaStyle 通知 | 锁屏 Now Playing | 同 iOS |
+| 浮动歌词 | — | 悬浮窗权限（SYSTEM_ALERT_WINDOW） | 不支持（入口隐藏） | 不支持 |
+| Material You 动态取色 | — | DynamicColorBuilder（仅 MaterialYou 皮肤且未显式选色） | 不适用 | 不适用 |
+| 省电低刷新率 | — | FlutterDisplayMode.setLowRefreshRate | 无公开 API，忽略 | 同 iOS |
+| 桌面小部件 | — | 未实现（待办） | 未实现（待办） | 未实现 |
+| Android Auto / CarPlay | — | 未实现 | 未实现 | — |
+| 分屏/多窗口 | — | resizeableActivity=true | — | Split View 支持（响应式布局） |
+
+---
+
 **覆盖级别**: 全量代码逐个字段/方法/枚举/参数/边界情况级细节
 
-**文档版本**: v2.2.0
+**文档版本**: v2.3.0
 **生成日期**: 2026-09-07
-**最后校对**: 基于 lib/ + features/ 全源码逐文件提取（v2.2.0 对应 LIU_SOUND_AI_FIX_PLAN_V2.md P0 整改后实际代码）
+**最后校对**: 基于 lib/ + features/ 全源码逐文件提取（v2.3.0 对应 LIU_SOUND_AI_FIX_PLAN_V2.md P0+P1 整改后实际代码）
