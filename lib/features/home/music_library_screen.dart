@@ -945,13 +945,14 @@ class ListSearchBar extends StatelessWidget {
         children: [
           Expanded(
             child: Container(
-              height: 38,
+              height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(19),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(Icons.search, size: 20, color: Colors.white38),
                   const SizedBox(width: 8),
@@ -960,6 +961,9 @@ class ListSearchBar extends StatelessWidget {
                       controller: controller,
                       onChanged: onChanged,
                       style: const TextStyle(color: Colors.white, fontSize: 15),
+                      // isCollapsed 去掉内建垂直内边距，文字随 Row 在固定
+                      // 高度容器里真正居中（isDense 仍会留 min-height 偏移）
+                      textAlignVertical: TextAlignVertical.center,
                       decoration: InputDecoration(
                         hintText: hint,
                         hintStyle: const TextStyle(
@@ -967,7 +971,7 @@ class ListSearchBar extends StatelessWidget {
                           fontSize: 15,
                         ),
                         border: InputBorder.none,
-                        isDense: true,
+                        isCollapsed: true,
                       ),
                     ),
                   ),
