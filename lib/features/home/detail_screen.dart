@@ -653,18 +653,6 @@ SliverAppBar _detailAppBar({
     pinned: true,
     toolbarHeight: 56,
     backgroundColor: Colors.transparent,
-    flexibleSpace: Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.detailBgOf(context),
-            AppTheme.detailBgOf(context).withValues(alpha: 0.85),
-          ],
-        ),
-      ),
-    ),
     leading: const BackButton(),
     title: Text(
       selectMode ? '已选 $selectedCount 首' : title,
