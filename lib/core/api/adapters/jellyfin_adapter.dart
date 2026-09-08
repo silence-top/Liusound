@@ -1,7 +1,5 @@
 import '../../errors/app_error.dart';
 
-import 'package:dio/dio.dart';
-
 import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
@@ -40,38 +38,14 @@ class JellyfinAdapter extends MediaBrowserAdapter {
     };
   }
 
-  /// 登录与静默重登共用的认证请求
-  static Future<Map<String, dynamic>> _authenticate(
-    String serverUrl,
-    String username,
-    String password,
-  ) async {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: serverUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-      ),
-    );
-    try {
-      final res = await dio.post<Map<String, dynamic>>(
-        '/Users/AuthenticateByName',
-        data: {'Username': username, 'Pw': password},
-        options: Options(
-          headers: {
-            'X-Emby-Authorization': 'MediaBrowser Client="Jellyfin", Device="Flutter", DeviceId="liusound", Version="2.0"',
-          },
-        ),
-      );
-      return res.data ?? const {};
-    } finally {
-      dio.close();
-    }
-  }
-
   @override
   Future<Map<String, String>> loginWithPassword(String password) async {
-    final data = await _authenticate(serverUrl, username, password);
+    final data = await MediaBrowserAdapter.authenticateByName(
+      serverUrl,
+      username,
+      password,
+      client: 'Jellyfin',
+    );
     final accessToken = data['AccessToken']?.toString() ?? '';
     final userId = data['User']?['Id']?.toString() ?? '';
     if (accessToken.isEmpty || userId.isEmpty) {
@@ -81,10 +55,11 @@ class JellyfinAdapter extends MediaBrowserAdapter {
   }
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
-    final data = await _authenticate(
+    final data = await MediaBrowserAdapter.authenticateByName(
       request.serverUrl,
       request.username,
       request.password,
+      client: 'Jellyfin',
     );
     final accessToken = data['AccessToken']?.toString() ?? '';
     final userId = data['User']?['Id']?.toString() ?? '';

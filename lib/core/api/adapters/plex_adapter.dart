@@ -11,6 +11,7 @@ import '../../settings/streaming_prefs.dart';
 import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
+import 'reauth_interceptor.dart';
 
 /// Plex 适配器。
 /// 认证：POST https://plex.tv/users/sign_in.json（Basic Auth）→ X-Plex-Token。
@@ -29,7 +30,14 @@ class PlexAdapter with SecretsUpdatable implements ServerAdapter {
        _musicSectionKey = secrets['musicSectionKey'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
     NetworkRuntime.configureDio(_dio, networkSettings);
-    _dio.interceptors.add(_PlexReauthInterceptor(this));
+    _dio.interceptors.add(
+      ReauthInterceptor(
+        reauthenticate: reauthenticate,
+        applyFreshCredentials: (opts) =>
+            opts.queryParameters['X-Plex-Token'] = _token,
+        dio: _dio,
+      ),
+    );
   }
 
   final ServerConfig _config;
@@ -90,9 +98,6 @@ class PlexAdapter with SecretsUpdatable implements ServerAdapter {
   AdapterCapabilities get capabilities => const AdapterCapabilities(
     ratings: true,
     similarSongs: false,
-    likedSongs: true,
-    download: true,
-    lyrics: true,
     artistBio: true,
     transcoding: true,
     scrobbling: true,
@@ -721,29 +726,4 @@ class PlexAdapter with SecretsUpdatable implements ServerAdapter {
       (j[k] as num?)?.toInt() ?? 0;
   static int? _iOrNull(Map<String, dynamic> j, String k) =>
       (j[k] as num?)?.toInt();
-}
-
-/// 401 → 静默重登一次并重放原请求（token 在 query 参数上，重放前替换）
-class _PlexReauthInterceptor extends QueuedInterceptor {
-  _PlexReauthInterceptor(this._adapter);
-
-  final PlexAdapter _adapter;
-  static const _retriedKey = 'liusoundReauthRetried';
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) async {
-    final opts = err.requestOptions;
-    if (err.response?.statusCode == 401 && opts.extra[_retriedKey] != true) {
-      try {
-        await _adapter.reauthenticate();
-        opts.extra[_retriedKey] = true;
-        opts.queryParameters['X-Plex-Token'] = _adapter._token;
-        final response = await _adapter._dio.fetch<dynamic>(opts);
-        return handler.resolve(response);
-      } catch (_) {
-        // 重登失败：回落到原始 401 错误
-      }
-    }
-    handler.next(err);
-  }
 }

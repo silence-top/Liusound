@@ -40,13 +40,8 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
   ServerType get type => ServerType.audioStation;
 
   @override
-  AdapterCapabilities get capabilities => const AdapterCapabilities(
-    ratings: true,
-    similarSongs: false,
-    likedSongs: true,
-    download: true,
-    lyrics: true,
-  );
+  AdapterCapabilities get capabilities =>
+      const AdapterCapabilities(ratings: true, similarSongs: false);
 
   // Audio Station 无 Scrobble/曲库变更标记接口（能力矩阵如实降级）
   @override

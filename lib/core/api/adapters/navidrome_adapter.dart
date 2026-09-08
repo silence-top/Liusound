@@ -78,9 +78,6 @@ class NavidromeAdapter extends SubsonicProtocolAdapter {
   AdapterCapabilities get capabilities => const AdapterCapabilities(
     ratings: true,
     similarSongs: true,
-    likedSongs: true,
-    download: true,
-    lyrics: true,
     artistBio: true,
     transcoding: true,
     scrobbling: true,

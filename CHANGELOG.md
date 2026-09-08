@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P1-C：重登拦截器合并 + 能力位清理 + 错误日志
+
+- **401 静默重登拦截器抽公共 `ReauthInterceptor`**（reauth_interceptor.dart）：MediaBrowser 系（header 重写）与 Plex（query token 重写）共用同一 QueuedInterceptor 实现，差异收敛为两个闭包；两份私有拦截器类删除
+- **Jellyfin/Emby 认证请求上提基类**：`MediaBrowserAdapter.authenticateByName(client:, md5Password:)` 统一 `/Users/AuthenticateByName` 登录+静默重登请求，两个子类各自的 `_authenticate` 副本删除
+- **AdapterCapabilities 死字段清理**：`likedSongs`/`lyrics` 全库零读取，删除（连带消除「Plex 声明 lyrics:true 但 fetchLyrics 恒 null」的自相矛盾）；`similarSongs` 复核后确认播放页「相似歌曲」在用，保留
+- **navidrome_client 5 处裸 `catch (_)` 补日志**：相似歌曲/歌手简介/歌曲总数/Subsonic 动作/加歌单失败不再静默，统一走 `adapterSwallowLog`
+
 ## 2026-09-08 — 全库审计 P1-B：serverAdapterProvider 下沉 core，解除反向依赖
 
 - **新增 `core/api/adapter_provider.dart`**：`serverAdapterProvider`/`transcodeSupportProvider`/`activeServerIdProvider` 从 features/auth 下沉 core；core 通过 `activeServerSessionProvider`（组合根 main.dart 用 authControllerProvider 覆写注入）拿到会话快照，方向恢复为 features→core 单向

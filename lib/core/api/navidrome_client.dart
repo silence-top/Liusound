@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../models/models.dart';
 import '../storage/auth_store.dart';
+import 'adapter_log.dart';
 import '../subsonic/subsonic.dart';
 
 /// 登录接口响应（实际包含 token + Subsonic 双要素）
@@ -155,7 +156,8 @@ class NavidromeClient {
           .whereType<Map<String, dynamic>>()
           .map(Song.fromJson)
           .toList();
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return const [];
     }
   }
@@ -176,7 +178,8 @@ class NavidromeClient {
               as Map<String, dynamic>?;
       final bio = info?['biography']?.toString().trim() ?? '';
       return bio.isEmpty ? null : bio;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return null;
     }
   }
@@ -217,7 +220,8 @@ class NavidromeClient {
         queryParameters: {'_end': 1},
       );
       return int.tryParse(res.headers.value('x-total-count') ?? '') ?? 0;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return 0;
     }
   }
@@ -234,7 +238,8 @@ class NavidromeClient {
         queryParameters: {...Subsonic.params(_subsonicAuth, extra)},
       );
       return res.data?['subsonic-response']?['status'] == 'ok';
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return false;
     }
   }
@@ -257,7 +262,8 @@ class NavidromeClient {
         },
       );
       return res.statusCode == 200;
-    } catch (_) {
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
       return false;
     }
   }

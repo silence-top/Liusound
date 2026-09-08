@@ -131,9 +131,7 @@ class AdapterCapabilities {
   const AdapterCapabilities({
     this.ratings = false,
     this.similarSongs = false,
-    this.likedSongs = true,
     this.download = true,
-    this.lyrics = true,
     this.artistBio = false,
     this.transcoding = false,
     this.scrobbling = false,
@@ -141,9 +139,7 @@ class AdapterCapabilities {
   });
   final bool ratings;
   final bool similarSongs;
-  final bool likedSongs;
   final bool download;
-  final bool lyrics;
 
   /// 服务端是否提供歌手简介（Audio Station 等无此接口）
   final bool artistBio;

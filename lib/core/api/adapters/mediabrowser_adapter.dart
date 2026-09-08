@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
 import '../../errors/app_error.dart';
@@ -9,6 +10,7 @@ import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
 import '../adapter_log.dart';
 import '../server_adapter.dart';
+import 'reauth_interceptor.dart';
 
 /// Jellyfin / Emby 共享基类（~80% API 相同）。
 /// 子类仅需覆写 [authHeaders]（认证头格式）和 [login]（登录流程）。
@@ -28,7 +30,17 @@ abstract class MediaBrowserAdapter
        _token = secrets['token'] ?? '' {
     _dio.options.baseUrl = serverUrl;
     NetworkRuntime.configureDio(_dio, networkSettings);
-    _dio.interceptors.add(_ReauthInterceptor(this));
+    _dio.interceptors.add(
+      ReauthInterceptor(
+        reauthenticate: reauthenticate,
+        applyFreshCredentials: (opts) => opts.headers
+          ..remove('Authorization')
+          ..remove('X-Emby-Authorization')
+          ..remove('X-Emby-Token')
+          ..addAll(_headers),
+        dio: _dio,
+      ),
+    );
   }
 
   final String _serverUrl;
@@ -75,15 +87,48 @@ abstract class MediaBrowserAdapter
     onSecretsUpdated?.call(Map.of(_secrets));
   }
 
+  /// 登录与静默重登共用的认证请求（Jellyfin/Emby 同为 AuthenticateByName，
+  /// 差异仅在客户端标识与密码形态——Emby 密码需 MD5）
+  static Future<Map<String, dynamic>> authenticateByName(
+    String serverUrl,
+    String username,
+    String password, {
+    required String client,
+    bool md5Password = false,
+  }) async {
+    final pw = md5Password
+        ? md5.convert(password.codeUnits).toString()
+        : password;
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: serverUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
+    try {
+      final res = await dio.post<Map<String, dynamic>>(
+        '/Users/AuthenticateByName',
+        data: {'Username': username, 'Pw': pw},
+        options: Options(
+          headers: {
+            'X-Emby-Authorization':
+                'MediaBrowser Client="$client", Device="Flutter", DeviceId="liusound", Version="2.0"',
+          },
+        ),
+      );
+      return res.data ?? const {};
+    } finally {
+      dio.close();
+    }
+  }
+
   // ========== ServerAdapter 接口默认实现 ==========
 
   @override
   AdapterCapabilities get capabilities => const AdapterCapabilities(
     ratings: false,
     similarSongs: false,
-    likedSongs: true,
-    download: true,
-    lyrics: true,
     artistBio: true,
     transcoding: true,
     scrobbling: true,
@@ -729,35 +774,4 @@ abstract class MediaBrowserAdapter
     AlbumSort.name => 'SortName',
     AlbumSort.year => 'ProductionYear',
   };
-}
-
-/// 401 → 静默重登一次并重放原请求。
-/// QueuedInterceptor 串行化错误处理，避免并发 401 触发多次重登；
-/// 重放请求打 extra 标记，再 401 直接放行（密码也失效时如实报错）。
-class _ReauthInterceptor extends QueuedInterceptor {
-  _ReauthInterceptor(this._adapter);
-
-  final MediaBrowserAdapter _adapter;
-  static const _retriedKey = 'liusoundReauthRetried';
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) async {
-    final opts = err.requestOptions;
-    if (err.response?.statusCode == 401 && opts.extra[_retriedKey] != true) {
-      try {
-        await _adapter.reauthenticate();
-        opts.extra[_retriedKey] = true;
-        opts.headers
-          ..remove('Authorization')
-          ..remove('X-Emby-Authorization')
-          ..remove('X-Emby-Token')
-          ..addAll(_adapter._headers);
-        final response = await _adapter._dio.fetch<dynamic>(opts);
-        return handler.resolve(response);
-      } catch (_) {
-        // 重登失败：回落到原始 401 错误，由调用方按类型展示
-      }
-    }
-    handler.next(err);
-  }
 }
