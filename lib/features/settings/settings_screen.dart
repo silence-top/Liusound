@@ -78,7 +78,13 @@ class SettingsScreen extends ConsumerWidget {
     // 嵌在 AppShell 顶部图标导航之下：不再自带 AppBar，避免双层标题栏叠加
     return Scaffold(
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 48),
+        // 底部：48 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
+        padding: EdgeInsets.fromLTRB(
+          12,
+          4,
+          12,
+          48 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           _GroupCard(
             title: '播放',

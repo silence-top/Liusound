@@ -31,7 +31,11 @@ class MusicLibraryScreen extends ConsumerWidget {
     final total = ref.watch(songTotalProvider);
     return Scaffold(
       body: ListView(
-        padding: const EdgeInsets.only(top: 4, bottom: 96),
+        // 底部：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: 96 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           SearchEntryBar(
             onTap: () =>

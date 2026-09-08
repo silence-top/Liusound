@@ -14,6 +14,10 @@ import 'mini_bar_style.dart';
 import 'player_controller.dart';
 import 'queue_modal.dart';
 
+/// 悬浮叠加模式下迷你条的总占位高度（条内容 8+48+8=64 + 底边距 16）。
+/// 壳层据此通过 MediaQuery 注入底部避让，让页面最后一项不被悬浮条遮住。
+const kMiniBarOverlaySpace = 80.0;
+
 /// 底部迷你播放条（对标 1.x MiniPlayer）：
 /// 圆形旋转封面 + 绿色进度环；点击封面=播放/暂停，点击文字=全屏播放器，
 /// 右侧队列按钮打开队列弹窗。副标题优先显示当前歌词行。

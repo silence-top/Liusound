@@ -83,7 +83,12 @@ class HomeScreen extends ConsumerWidget {
                 child: _AlbumRow(randomAlbumsProvider),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+            // 收尾留白：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 96 + MediaQuery.paddingOf(context).bottom,
+              ),
+            ),
           ],
         ),
       ),
