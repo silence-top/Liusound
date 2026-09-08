@@ -516,6 +516,9 @@ Future<T?> glassBottomSheet<T>(
   BuildContext context,
   Widget child, {
   bool scrollable = false,
+  // 播放器相关弹层可传封面取色 tint（如歌曲操作弹窗的定时/速度选择器），
+  // null 时保持主题自适应玻璃
+  Color? tint,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -525,7 +528,7 @@ Future<T?> glassBottomSheet<T>(
       final content = GlassSurface(
         radius: GlassTokens.radiusSheet,
         blur: GlassTokens.blurHeavy,
-        tint: GlassTokens.tint(ctx),
+        tint: tint ?? GlassTokens.tint(ctx),
         gradientBorder: true,
         padding: EdgeInsets.only(
           top: 12,
@@ -693,7 +696,9 @@ class AmbientBackground extends ConsumerWidget {
         if (tokens.language == SurfaceLanguage.forest)
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(painter: _ForestStagePainter(tokens.textFaint)),
+              child: CustomPaint(
+                painter: _ForestStagePainter(tokens.textFaint),
+              ),
             ),
           ),
         // 终端：CRT 扫描线 + 顶部磷光晕。
@@ -801,8 +806,9 @@ class _GrainStagePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rand = Random(7);
     final grain = Paint()..color = color.withValues(alpha: 0.05);
-    final count =
-        (size.width * size.height / 900 * density).clamp(0, 900).toInt();
+    final count = (size.width * size.height / 900 * density)
+        .clamp(0, 900)
+        .toInt();
     for (var i = 0; i < count; i++) {
       final x = rand.nextDouble() * size.width;
       final y = rand.nextDouble() * size.height;
@@ -903,6 +909,6 @@ class _CrtStagePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CrtStagePainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(_CrtStagePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
-

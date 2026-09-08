@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 冷启动恢复迷你播放条 + 二级弹层封面取色
+
+- **启动显示迷你条**：根因是 `playerActionsProvider` 直到首次交互才被激活，冷启动恢复（`_restore`：上次队列/当前歌/模式/速度）从不执行——组合根 MusicApp 改为 `ref.watch(playerActionsProvider)` 让播放器内核随 App 存活；恢复的歌曲保持暂停不自动播（对齐 1.x），点击封面才续播并跳回上次进度
+- **定时停止/播放速度弹窗**：与设置页确认完全共用（`showSleepTimerPicker`/`showSpeedPicker` 同一实现）；为两选择器加可选 `tint`——从歌曲操作弹窗进入时透传当前歌曲封面主色（`albumAdaptiveTint`），与外层弹窗色系连贯；设置页入口不传 tint 保持主题玻璃
+- 歌曲列表「更多」主弹窗此前已接封面取色（AlbumFrostedPanel，7405d4a），无需改动
+
 ## 2026-09-08 — 迷你播放条改悬浮叠加：页面内容铺满到屏幕底
 
 - 用户反馈「迷你条不在时底部没背景、出现迷你条后条下露出背景带」：根因是壳层 Column 独占布局，条让出的位置（16px 下边距 + 手势条安全区）露出壳背景，与页面自身背景形成断层

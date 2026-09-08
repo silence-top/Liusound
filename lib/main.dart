@@ -111,6 +111,9 @@ class MusicApp extends ConsumerWidget {
     ref.watch(scrobbleServiceProvider);
     // 音效链随 App 存活：监听音频会话并在会话建立后挂载 EQ/低音/空间
     ref.watch(audioEffectsProvider);
+    // 播放器内核随 App 存活：构造即触发冷启动恢复（上次队列/当前歌），
+    // 否则 playerActions 直到首次交互才创建，恢复永不执行、迷你播放条不显示
+    ref.watch(playerActionsProvider);
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
@@ -120,7 +123,9 @@ class MusicApp extends ConsumerWidget {
       currentSongProvider.select((s) => s?.albumId),
     );
     final albumDominant = skin == AppSkin.albumTint
-        ? ref.watch(albumDominantColorProvider(currentAlbumId ?? '')).valueOrNull
+        ? ref
+              .watch(albumDominantColorProvider(currentAlbumId ?? ''))
+              .valueOrNull
         : null;
     // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
     ref.listen<AuthState>(authControllerProvider, (prev, next) {

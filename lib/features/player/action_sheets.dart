@@ -98,9 +98,13 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final caps = ref.watch(serverAdapterProvider)?.capabilities;
     final canRate = caps?.ratings ?? false;
     final canDownload = caps?.download ?? true;
-    // 弹层底色随封面主色（内容驱动取色）：毛玻璃但底色近实色（不要透明）
+    // 弹层底色随封面主色（内容驱动取色）：毛玻璃但底色近实色（不要透明）；
+    // 内部二级弹层（定时/速度）透传同一主色，色系连贯
+    final dominant = ref
+        .watch(albumDominantColorProvider(song.albumId))
+        .valueOrNull;
     return AlbumFrostedPanel(
-      dominant: ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
+      dominant: dominant,
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(GlassTokens.radiusSheet),
       ),
@@ -223,12 +227,18 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   _circleItem(
                     Icons.alarm,
                     '定时停止',
-                    () => showSleepTimerPicker(context),
+                    () => showSleepTimerPicker(
+                      context,
+                      tint: albumAdaptiveTint(dominant),
+                    ),
                   ),
                   _circleItem(
                     Icons.speed,
                     '播放速度',
-                    () => showSpeedPicker(context),
+                    () => showSpeedPicker(
+                      context,
+                      tint: albumAdaptiveTint(dominant),
+                    ),
                   ),
                 ],
               ),
@@ -413,8 +423,13 @@ class _Cover extends StatelessWidget {
 
 /// 定时停止播放选择弹窗（歌曲操作弹窗 / 设置页共用）：
 /// 选择后倒计时展示在设置页；到点自动暂停。
-Future<void> showSleepTimerPicker(BuildContext context) {
-  return glassBottomSheet<void>(context, const _SleepTimerContent());
+/// 从歌曲操作弹窗进入时传封面取色 tint，与弹窗连成同一色系；设置页不传走主题玻璃
+Future<void> showSleepTimerPicker(BuildContext context, {Color? tint}) {
+  return glassBottomSheet<void>(
+    context,
+    const _SleepTimerContent(),
+    tint: tint,
+  );
 }
 
 class _SleepTimerContent extends ConsumerWidget {
@@ -476,8 +491,9 @@ class _SleepTimerContent extends ConsumerWidget {
 // ---------- 播放速度选择 ----------
 
 /// 播放速度选择弹窗（歌曲操作弹窗 / 设置页共用），选择后立即生效并持久化。
-Future<void> showSpeedPicker(BuildContext context) {
-  return glassBottomSheet<void>(context, const _SpeedContent());
+/// tint 语义同 [showSleepTimerPicker]。
+Future<void> showSpeedPicker(BuildContext context, {Color? tint}) {
+  return glassBottomSheet<void>(context, const _SpeedContent(), tint: tint);
 }
 
 class _SpeedContent extends ConsumerWidget {
