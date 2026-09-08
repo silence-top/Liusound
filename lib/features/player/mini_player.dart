@@ -28,10 +28,7 @@ class MiniPlayer extends ConsumerWidget {
     final song = ref.watch(currentSongProvider);
     if (song == null) return const SizedBox.shrink();
     final barStyle = ref.watch(miniBarStyleProvider);
-    // 旧存档可能为负值（曾允许下压露底）；改贴底全宽后负值无意义，钳到 0
-    final offset = ref.watch(miniBarOffsetProvider).clamp(0.0, 40.0);
-    // 吸收系统手势条安全区：条体贴到屏幕物理底边，内容避开手势条
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final offset = ref.watch(miniBarOffsetProvider);
     ref.listen(resumeNoticeProvider, (_, message) {
       if (message == null) return;
       ref.read(resumeNoticeProvider.notifier).state = null;
@@ -73,20 +70,19 @@ class MiniPlayer extends ConsumerWidget {
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
 
     final content = switch (barStyle) {
-      // 原「玻璃」样式：毛玻璃（模糊垫底）但底色 alpha 0.90 近实色，不透底。
-      // 三样式统一贴底全宽收口：下边距去掉、底边直角贴屏，安全区吸收进内边距
+      // 原「玻璃」样式：毛玻璃（模糊垫底）但底色 alpha 0.90 近实色，不透底
       MiniBarStyle.glass => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(999)),
+          borderRadius: BorderRadius.circular(999),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: Container(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 left: 8,
                 right: 16,
                 top: 8,
-                bottom: 8 + bottomInset,
+                bottom: 8,
               ),
               color: base.withValues(alpha: 0.90),
               child: inner,
@@ -95,27 +91,17 @@ class MiniPlayer extends ConsumerWidget {
         ),
       ),
       MiniBarStyle.solid => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        padding: EdgeInsets.only(
-          left: 8,
-          right: 16,
-          top: 8,
-          bottom: 8 + bottomInset,
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          color: base,
+          borderRadius: BorderRadius.circular(999),
         ),
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(999)),
-        ),
-        color: base,
         child: inner,
       ),
       MiniBarStyle.gradient => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        padding: EdgeInsets.only(
-          left: 8,
-          right: 16,
-          top: 8,
-          bottom: 8 + bottomInset,
-        ),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: dominant == null
@@ -131,9 +117,7 @@ class MiniPlayer extends ConsumerWidget {
                     Color.lerp(dominant, Colors.black, 0.60)!,
                   ],
           ),
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(999),
-          ),
+          borderRadius: BorderRadius.circular(999),
         ),
         child: inner,
       ),
