@@ -59,7 +59,7 @@ lib/
 │   ├── cover_art.dart         # CoverArt（网络封面 + 本地封面回退）
 │   └── mini_player.dart       # MiniPlayer（迷你播放条）
 └── shell/                     # 主框架
-    ├── app_shell.dart             # AppShell 整体布局（底部导航 + 路由）
+    ├── app_shell.dart             # AppShell 整体布局（顶部图标导航 + PageView 保活三页 + MiniPlayer 悬浮叠加，条占位经 MediaQuery 注入做底部避让）
     └── icons_screen.dart          # 顶部图标导航栏（Home/Lyrics/Search/Library）
 ```
 
