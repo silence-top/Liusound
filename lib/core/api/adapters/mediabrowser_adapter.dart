@@ -756,11 +756,10 @@ abstract class MediaBrowserAdapter
   }
 
   static String _s(Map<String, dynamic> j, String k, [String d = '']) =>
-      j[k]?.toString() ?? d;
-  static int _i(Map<String, dynamic> j, String k) =>
-      (j[k] as num?)?.toInt() ?? 0;
+      Json.str(j, k, d);
+  static int _i(Map<String, dynamic> j, String k) => Json.intOf(j, k);
   static int? _iOrNull(Map<String, dynamic> j, String k) =>
-      (j[k] as num?)?.toInt();
+      Json.intOfOrNull(j, k);
   static bool _bool(Map<String, dynamic> j, String parent, String key) {
     final ud = j[parent] as Map<String, dynamic>?;
     return ud?[key] == true;

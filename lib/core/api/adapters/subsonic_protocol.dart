@@ -253,16 +253,9 @@ abstract class SubsonicProtocolAdapter implements ServerAdapter {
   // ---------- JSON 小工具（与子类各自的映射工具语义一致） ----------
 
   static String _str(Map<String, dynamic> j, String k, [String d = '']) =>
-      j[k]?.toString() ?? d;
-  static int _int(Map<String, dynamic> j, String k) =>
-      (j[k] as num?)?.toInt() ?? 0;
+      Json.str(j, k, d);
+  static int _int(Map<String, dynamic> j, String k) => Json.intOf(j, k);
 
-  /// 按候选键顺序取第一个非空字符串；用于「原始格式 → 转码格式」回退
-  static String? _firstStr(Map<String, dynamic> j, List<String> keys) {
-    for (final k in keys) {
-      final v = j[k]?.toString().trim() ?? '';
-      if (v.isNotEmpty) return v;
-    }
-    return null;
-  }
+  static String? _firstStr(Map<String, dynamic> j, List<String> keys) =>
+      Json.firstStr(j, keys);
 }

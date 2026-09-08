@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P1-D：JSON 工具收拢到 models.dart
+
+- **`_Json` 提升为公开 `Json`**（models.dart）：str/strOf/intOf/doubleOf/boolOf/strOrNull/doubleOrNull/intOrNull 全量收拢；新增 `intOfOrNull`（单键仅 num）与 `firstStr`（候选键 trim 取首个非空）
+- **五个适配器的本地 JSON 静态方法改为委托 Json**：subsonic/subsonic_protocol/mediabrowser/plex/audio_station 的 `_s/_i/_iOrNull/_n/_firstStr/_firstNum/_doubleOrNull` 等副本统一单源，调用点短名不变
+- **`_toSong/_toAlbum` 与 `fromJson` 合并评估后不做**：Subsonic 的 starred 是时间戳字符串（Navidrome 是 bool）、suffix/codec 有 transcoded 回退键、另有 replayGain/kHz 采样率归一——语义真实分歧，P1-A 的 `parseSong` 钩子已隔离差异，强行合并风险大于省下约 30 行
+
 ## 2026-09-08 — 全库审计 P1-C：重登拦截器合并 + 能力位清理 + 错误日志
 
 - **401 静默重登拦截器抽公共 `ReauthInterceptor`**（reauth_interceptor.dart）：MediaBrowser 系（header 重写）与 Plex（query token 重写）共用同一 QueuedInterceptor 实现，差异收敛为两个闭包；两份私有拦截器类删除

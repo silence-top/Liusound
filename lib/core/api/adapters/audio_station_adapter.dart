@@ -543,25 +543,11 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
     );
   }
 
-  static String? _firstStr(Map<String, dynamic> j, List<String> keys) {
-    for (final k in keys) {
-      final v = j[k]?.toString().trim() ?? '';
-      if (v.isNotEmpty) return v;
-    }
-    return null;
-  }
+  static String? _firstStr(Map<String, dynamic> j, List<String> keys) =>
+      Json.firstStr(j, keys);
 
-  static double? _firstNum(Map<String, dynamic> j, List<String> keys) {
-    for (final k in keys) {
-      final v = j[k];
-      if (v is num) return v.toDouble();
-      if (v is String) {
-        final p = double.tryParse(v);
-        if (p != null) return p;
-      }
-    }
-    return null;
-  }
+  static double? _firstNum(Map<String, dynamic> j, List<String> keys) =>
+      Json.doubleOrNull(j, keys);
 
   /// Audio Station 的 bitrate 单位是 bps（320000），归一到 kbps
   static int? _bpsToKbps(double bps) => bps <= 0 ? null : (bps / 1000).round();
@@ -599,11 +585,9 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
   }
 
   static String _s(Map<String, dynamic> j, String key, [String d = '']) =>
-      j[key]?.toString() ?? d;
-  static int _i(Map<String, dynamic> j, String key) =>
-      (j[key] as num?)?.toInt() ?? 0;
+      Json.str(j, key, d);
+  static int _i(Map<String, dynamic> j, String key) => Json.intOf(j, key);
   static int? _iOrNull(Map<String, dynamic> j, String key) =>
-      (j[key] as num?)?.toInt();
-  static double _n(Map<String, dynamic> j, String key) =>
-      (j[key] as num?)?.toDouble() ?? 0;
+      Json.intOfOrNull(j, key);
+  static double _n(Map<String, dynamic> j, String key) => Json.doubleOf(j, key);
 }

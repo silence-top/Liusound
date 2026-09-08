@@ -1,6 +1,6 @@
 // Navidrome REST / Subsonic 数据模型（对标 1.x src/types/api.ts，fromJson 容错缺失字段）
 
-abstract final class _Json {
+abstract final class Json {
   static String str(
     Map<String, dynamic> j,
     String key, [
@@ -56,14 +56,27 @@ abstract final class _Json {
   }
 
   static int? intOrNull(Map<String, dynamic> j, List<String> keys) =>
-      doubleOrNull(j, keys)?.round();
+      Json.doubleOrNull(j, keys)?.round();
+
+  /// 单键取整数（仅接受 num，不做字符串解析；Subsonic 数字字段用）
+  static int? intOfOrNull(Map<String, dynamic> j, String key) =>
+      (j[key] as num?)?.toInt();
+
+  /// 按候选键顺序取第一个非空（trim 后）字符串；全缺返回 null
+  static String? firstStr(Map<String, dynamic> j, List<String> keys) {
+    for (final k in keys) {
+      final v = j[k]?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+    }
+    return null;
+  }
 }
 
 /// 采样率统一为 Hz：Subsonic 系的 samplingRate 单位是 kHz（44.1），
 /// Jellyfin / Plex 的 sampleRate 是 Hz（44100）。真实音频不存在 1kHz 以下的
 /// 采样率，以 1000 为界做单位归一，避免两种后端展示差三个数量级。
 int? _sampleRateHz(Map<String, dynamic> j) {
-  final raw = _Json.doubleOrNull(j, const ['samplingRate', 'sampleRate']);
+  final raw = Json.doubleOrNull(j, const ['samplingRate', 'sampleRate']);
   if (raw == null || raw <= 0) return null;
   return raw < 1000 ? (raw * 1000).round() : raw.round();
 }
@@ -132,38 +145,38 @@ class Song {
   final String? localCoverPath;
 
   factory Song.fromJson(Map<String, dynamic> j) => Song(
-    id: _Json.str(j, 'id'),
-    title: _Json.str(j, 'title', '未知歌曲'),
-    artist: _Json.str(j, 'artist', '未知歌手'),
-    album: _Json.str(j, 'album'),
-    albumId: _Json.str(j, 'albumId'),
-    artistId: _Json.str(j, 'artistId'),
-    duration: _Json.doubleOf(j, 'duration'),
-    playCount: _Json.intOf(j, 'playCount'),
-    starred: _Json.boolOf(j, 'starred'),
-    size: _Json.intOf(j, 'size'),
-    rating: _Json.intOf(j, 'rating'),
+    id: Json.str(j, 'id'),
+    title: Json.str(j, 'title', '未知歌曲'),
+    artist: Json.str(j, 'artist', '未知歌手'),
+    album: Json.str(j, 'album'),
+    albumId: Json.str(j, 'albumId'),
+    artistId: Json.str(j, 'artistId'),
+    duration: Json.doubleOf(j, 'duration'),
+    playCount: Json.intOf(j, 'playCount'),
+    starred: Json.boolOf(j, 'starred'),
+    size: Json.intOf(j, 'size'),
+    rating: Json.intOf(j, 'rating'),
     lyrics: j['lyrics'] as String?,
-    suffix: _Json.strOrNull(j, const [
+    suffix: Json.strOrNull(j, const [
       'suffix',
       'transcodedSuffix',
       'contentType',
     ]),
-    codec: _Json.strOrNull(j, const ['codec', 'transcodedCodec']),
-    bitRate: _Json.intOrNull(j, const ['bitRate', 'bitrate']),
+    codec: Json.strOrNull(j, const ['codec', 'transcodedCodec']),
+    bitRate: Json.intOrNull(j, const ['bitRate', 'bitrate']),
     sampleRate: _sampleRateHz(j),
-    bitDepth: _Json.intOrNull(j, const ['bitDepth']),
-    albumArtist: _Json.strOrNull(j, const ['albumArtist', 'albumArtistName']),
-    year: _Json.intOrNull(j, const ['year']),
-    discNumber: _Json.intOrNull(j, const ['discNumber']),
-    trackNumber: _Json.intOrNull(j, const ['trackNumber', 'track']),
-    path: _Json.strOrNull(j, const ['path', 'filePath']),
-    lastPlayed: _Json.strOrNull(j, const [
+    bitDepth: Json.intOrNull(j, const ['bitDepth']),
+    albumArtist: Json.strOrNull(j, const ['albumArtist', 'albumArtistName']),
+    year: Json.intOrNull(j, const ['year']),
+    discNumber: Json.intOrNull(j, const ['discNumber']),
+    trackNumber: Json.intOrNull(j, const ['trackNumber', 'track']),
+    path: Json.strOrNull(j, const ['path', 'filePath']),
+    lastPlayed: Json.strOrNull(j, const [
       'played',
       'lastPlayed',
       'lastPlayedAt',
     ]),
-    created: _Json.strOrNull(j, const [
+    created: Json.strOrNull(j, const [
       'created',
       'createdAt',
       'created_at',
@@ -253,10 +266,10 @@ class ReplayGain {
   final double? trackPeak;
 
   factory ReplayGain.fromJson(Map<String, dynamic> j) => ReplayGain(
-    albumGain: _Json.doubleOrNull(j, const ['albumGain']),
-    albumPeak: _Json.doubleOrNull(j, const ['albumPeak']),
-    trackGain: _Json.doubleOrNull(j, const ['trackGain']),
-    trackPeak: _Json.doubleOrNull(j, const ['trackPeak']),
+    albumGain: Json.doubleOrNull(j, const ['albumGain']),
+    albumPeak: Json.doubleOrNull(j, const ['albumPeak']),
+    trackGain: Json.doubleOrNull(j, const ['trackGain']),
+    trackPeak: Json.doubleOrNull(j, const ['trackPeak']),
   );
 
   Map<String, dynamic> toJson() => {
@@ -293,15 +306,15 @@ class Album {
   final int? year;
 
   factory Album.fromJson(Map<String, dynamic> j) => Album(
-    id: _Json.str(j, 'id'),
-    name: _Json.strOf(j, const ['name', 'title', 'album'], '未知专辑'),
-    artist: _Json.strOf(j, const ['artist', 'albumArtist'], '未知歌手'),
-    artistId: _Json.strOf(j, const ['artistId', 'albumArtistId']),
-    songCount: _Json.intOf(j, 'songCount'),
-    duration: _Json.doubleOf(j, 'duration'),
-    playCount: _Json.intOf(j, 'playCount'),
-    starred: _Json.boolOf(j, 'starred'),
-    rating: _Json.intOf(j, 'rating'),
+    id: Json.str(j, 'id'),
+    name: Json.strOf(j, const ['name', 'title', 'album'], '未知专辑'),
+    artist: Json.strOf(j, const ['artist', 'albumArtist'], '未知歌手'),
+    artistId: Json.strOf(j, const ['artistId', 'albumArtistId']),
+    songCount: Json.intOf(j, 'songCount'),
+    duration: Json.doubleOf(j, 'duration'),
+    playCount: Json.intOf(j, 'playCount'),
+    starred: Json.boolOf(j, 'starred'),
+    rating: Json.intOf(j, 'rating'),
     year: (j['maxYear'] as num?)?.toInt() ?? (j['year'] as num?)?.toInt(),
   );
 
@@ -337,10 +350,10 @@ class Artist {
   final int songCount;
 
   factory Artist.fromJson(Map<String, dynamic> j) => Artist(
-    id: _Json.str(j, 'id'),
-    name: _Json.str(j, 'name', '未知歌手'),
-    albumCount: _Json.intOf(j, 'albumCount'),
-    songCount: _Json.intOf(j, 'songCount'),
+    id: Json.str(j, 'id'),
+    name: Json.str(j, 'name', '未知歌手'),
+    albumCount: Json.intOf(j, 'albumCount'),
+    songCount: Json.intOf(j, 'songCount'),
   );
 
   static List<Artist> listFromJson(dynamic json) => (json as List<dynamic>)
@@ -389,9 +402,9 @@ class Playlist {
   final String? owner; // 所有者用户名（区分「我的歌单 / 全部歌单」）
 
   factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
-    id: _Json.str(j, 'id'),
-    name: _Json.str(j, 'name', '未命名歌单'),
-    songCount: _Json.intOf(j, 'songCount'),
+    id: Json.str(j, 'id'),
+    name: Json.str(j, 'name', '未命名歌单'),
+    songCount: Json.intOf(j, 'songCount'),
     coverArt: j['coverArt']?.toString(),
     // Navidrome 返回 owner（用户名）/ownerName（显示名）两个字段，兼容取其一
     owner: (j['owner'] ?? j['ownerName'])?.toString(),
