@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P1-A：Subsonic 协议层抽共享基类
+
+- **新增 `SubsonicProtocolAdapter`**（subsonic_protocol.dart）：`SubsonicAdapter`（纯 Subsonic）与 `NavidromeAdapter` 共用的媒体直链（stream/download/封面）、资料库扩展（歌手索引/流派/电台/流派歌曲/歌词）、版本号与转码探测（含 TranscodeProbeCache 持久化）全部上提；子类只需提供 `dio/auth/api/parseSong` 四个钩子
+- **删除两份重复实现约 230 行**：两适配器各自的 resolveStream/resolveDownload/coverImage/fetchCoverBytes/supportsTranscode/资料库六扩展方法/fetchLyrics/libraryVersion 移除
+- **Navidrome 顺带收益**：原先 `_subsonicGet` 静默吞错，共享层统一 try/catch + `adapterSwallowLog`，Navidrome 的 Subsonic 兼容层请求失败现在有日志可查
+- **歌曲映射保留差异**：`parseSong` 钩子让 Subsonic 继续用扩展映射（采样率/replayGain），Navidrome 用 `Song.fromJson`，行为零变化
+
 ## 2026-09-08 — 全库审计 P0 修复（五项）
 
 - **Subsonic 歌曲总数算错**：`fetchSongCount` 取 `list.length`（恒 ≤1）→ 改读 `albumList2.totalMatches`，负一屏服务器卡片对 Subsonic 系后端恢复正确总数
