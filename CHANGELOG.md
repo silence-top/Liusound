@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-F：大文件 part 化拆分
+
+- **full_screen_player.dart 2451 → 366 行主骨架**：按 Tab/区域拆四个 part——recommend（相似/热门/简介，250 行）、now_playing（黑胶/CD/方图/唱臂/虚化背景，536 行）、lyrics（歌词 Tab + 行瓷贴，1026 行）、bottom（歌曲信息/进度/控制行，286 行）；纯物理拆分（part 同库，私有成员可见性不变），视觉零改动
+- **settings_screen.dart 2093 → 648 行主屏+共享瓷贴**：13 个 `_show*Sheet` 按域拆四个 part——storage（缓存/音质/转码/网络）、appearance（玻璃/封面/皮肤预览）、audio（音效/耳机）、player（主题色/背景/迷你条/结束文案）
+- **music_library_screen（1034）/detail_screen（1063）评估后暂缓**：仅约前两者一半体量，且 detail 内 SongRow 是四页共用组件（外部 import detail_screen），拆动收益低、影响面反而大；留待 P3 再议
+- 拆分遵循 FEATURES.md §15.1 的 player_controller part 先例；导入路径不变，外部调用点零修改
+
 ## 2026-09-08 — 全库审计 P2-E：解析测试补充 + Json.intOfOrNull 缺陷修复
 
 - **新增 test/p2_parsing_test.dart（11 例）**：parseLrcText（多时间戳行/厘秒毫秒口径/元数据标签/空输入）、Json 工具（intOfOrNull/firstStr 语义）、Song.fromJson 各后端键形态（Subsonic 原生与 transcoded 回退、MediaBrowser contentType/albumArtistName/filePath、采样率 kHz↔Hz 归一、trackNumber 双键）
