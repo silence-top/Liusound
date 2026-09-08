@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-E：解析测试补充 + Json.intOfOrNull 缺陷修复
+
+- **新增 test/p2_parsing_test.dart（11 例）**：parseLrcText（多时间戳行/厘秒毫秒口径/元数据标签/空输入）、Json 工具（intOfOrNull/firstStr 语义）、Song.fromJson 各后端键形态（Subsonic 原生与 transcoded 回退、MediaBrowser contentType/albumArtistName/filePath、采样率 kHz↔Hz 归一、trackNumber 双键）
+- **修复 `Json.intOfOrNull`**：原实现 `(j[key] as num?)` 对字符串值抛 TypeError 而非返回 null，与「仅接受 num」语义不符；改 `is num` 判定
+- 范围评估：adapter 私有映射（_toSong 等）需网络层假件才能驱动，已由 parseSong 钩子+fromJson 键形态测试覆盖主路径；library_sync 公共面太薄（ songs/albums 两入口需整 Provider+adapter 假件），本批不做
+- 测试 25 → 36
+
 ## 2026-09-08 — 全库审计 P2-D：颜色 token 清扫（常规页面）
 
 - **五文件白阶归零**：home_screen（分区标题/专辑卡/最近歌曲行的 `Colors.white*` 与 `0xFF666666`/`0xFFB0B0B0`）、song_info（全页 8 处，`_row` 补传 context）、search_screen（输入框/分区标题/艺人专辑行/错误文案）、app_shell（底栏未激活图标）、library_entries（歌手行/字母索引条/电台列表）——统一映射 white→textPrimaryOf、white54/60→textDimOf、white38/45→textFaintOf

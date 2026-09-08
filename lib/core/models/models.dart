@@ -58,9 +58,11 @@ abstract final class Json {
   static int? intOrNull(Map<String, dynamic> j, List<String> keys) =>
       Json.doubleOrNull(j, keys)?.round();
 
-  /// 单键取整数（仅接受 num，不做字符串解析；Subsonic 数字字段用）
-  static int? intOfOrNull(Map<String, dynamic> j, String key) =>
-      (j[key] as num?)?.toInt();
+  /// 单键取整数（仅接受 num，不做字符串解析；其他类型返回 null）
+  static int? intOfOrNull(Map<String, dynamic> j, String key) {
+    final v = j[key];
+    return v is num ? v.toInt() : null;
+  }
 
   /// 按候选键顺序取第一个非空（trim 后）字符串；全缺返回 null
   static String? firstStr(Map<String, dynamic> j, List<String> keys) {
