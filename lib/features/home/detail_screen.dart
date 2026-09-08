@@ -368,14 +368,9 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
       if (paged.error) {
         return [
           SliverToBoxAdapter(
-            child: Padding(
+            child: errorRetryBox(
               padding: const EdgeInsets.all(48),
-              child: Center(
-                child: TextButton(
-                  onPressed: controller.retry,
-                  child: const Text('加载失败，点击重试'),
-                ),
-              ),
+              onRetry: controller.retry,
             ),
           ),
         ];

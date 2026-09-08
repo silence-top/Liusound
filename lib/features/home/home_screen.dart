@@ -9,6 +9,7 @@ import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
+import '../../shared/widgets/search_entry.dart';
 import '../player/action_sheets.dart';
 import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
@@ -44,7 +45,13 @@ class HomeScreen extends ConsumerWidget {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            const SliverToBoxAdapter(child: _SearchBar()),
+            SliverToBoxAdapter(
+              child: SearchEntryBar(
+                onTap: () =>
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(const SearchScreen())),
+              ),
+            ),
             SliverToBoxAdapter(
               child: _Section(
                 title: '最新专辑',
@@ -77,44 +84,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 装饰搜索栏（点击进入全屏搜索页）：
-/// 样式与资料库搜索栏完全一致（半透明圆角条 + 扫码图标），两页平齐
-class _SearchBar extends StatelessWidget {
-  const _SearchBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () =>
-          Navigator.of(context).push(fadeRoute<void>(const SearchScreen())),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search, size: 22, color: Colors.white54),
-            const SizedBox(width: 10),
-            const Text(
-              '搜索',
-              style: TextStyle(color: Colors.white38, fontSize: 15),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.qr_code_scanner,
-              size: 22,
-              color: Colors.white.withValues(alpha: 0.45),
-            ),
           ],
         ),
       ),
@@ -181,8 +150,7 @@ class _AlbumRow extends ConsumerWidget {
         height: _rowHeight,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) =>
-          _ErrorRetry(message: '$e', onRetry: () => ref.invalidate(provider)),
+      error: (e, _) => errorRetryBox(onRetry: () => ref.invalidate(provider)),
       data: (list) {
         if (list.isEmpty) {
           return glassEmptyState(
@@ -325,8 +293,8 @@ class _SongListSection extends ConsumerWidget {
       ),
       error: (e, _) => _Section(
         title: title,
-        child: _ErrorRetry(
-          message: '$e',
+        child: errorRetryBox(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
           onRetry: () => ref.invalidate(provider),
         ),
       ),
@@ -438,33 +406,6 @@ class _SongCardRow extends ConsumerWidget {
                 color: Colors.white,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorRetry extends StatelessWidget {
-  const _ErrorRetry({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 150,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '加载失败',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            TextButton(onPressed: onRetry, child: const Text('重试')),
           ],
         ),
       ),

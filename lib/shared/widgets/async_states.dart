@@ -20,17 +20,23 @@ Widget _loading() => const Padding(
   child: Center(child: CircularProgressIndicator()),
 );
 
-Widget _error(VoidCallback onRetry) => Padding(
-  padding: _kStatePadding,
-  child: Center(
+Widget _error(VoidCallback onRetry) => errorRetryBox(onRetry: onRetry);
+
+/// 紧凑错误重试块（整页三态与分页「加载更多」失败共用同一视觉）。
+Widget errorRetryBox({
+  required VoidCallback onRetry,
+  EdgeInsetsGeometry padding = _kStatePadding,
+}) {
+  final child = Center(
     child: Builder(
       builder: (context) => TextButton(
         onPressed: onRetry,
         child: Text('加载失败，点击重试', style: _stateStyle(context)),
       ),
     ),
-  ),
-);
+  );
+  return Padding(padding: padding, child: child);
+}
 
 /// 玻璃质感空态：圆形玻璃图标 + 提示文案 + 可选操作按钮组。
 /// 空态要给出明确出口（同步 / 新建 / 重试），而不是一句「暂无内容」。

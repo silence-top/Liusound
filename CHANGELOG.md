@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-B：重复 UI 收拢
+
+- **错误重试块统一 `errorRetryBox`**（async_states.dart）：私有 `_error` 改为公共组件的薄封装；手写「加载失败，点击重试」五处替换——home_screen（删除 `_ErrorRetry` 类，专辑行/分区两调用点）、detail_screen 分页失败块、music_library 歌单区与分页专辑格、library_entries 歌手/流派入口；library_entries 385/478 的「失败或不支持」组合态保留不动
+- **搜索入口条抽共享 `SearchEntryBar`**（shared/widgets/search_entry.dart）：home_screen 与 music_library 两份 `_SearchBar` 合一，onTap 由调用方传入（shared 不反向依赖 features/search）；home_screen 版原硬编码 Colors.white* 系一并令牌化
+- 歌曲行收拢评估：SongRow 已被 detail/home/search/full_screen_player 四页共用，队列行因拖拽重排语义不同，无需再动
+
 ## 2026-09-08 — 全库审计 P2-A：死代码清理
 
 - **`NavidromeClient.clearSession` 删除**：登出走 removeServer 重建 adapter，全库零调用

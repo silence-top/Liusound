@@ -35,7 +35,11 @@ class ArtistListPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.detailBgOf(context),
       appBar: AppBar(title: Text(title)),
-      body: _ArtistListBody(async: async, provider: provider, openAlbums: openAlbums),
+      body: _ArtistListBody(
+        async: async,
+        provider: provider,
+        openAlbums: openAlbums,
+      ),
     );
   }
 }
@@ -59,14 +63,9 @@ class _ArtistListBody extends ConsumerWidget {
         return const Center(child: CircularProgressIndicator());
       }
       if (async.hasError) {
-        return Center(
-          child: TextButton(
-            onPressed: () => ref.invalidate(provider),
-            child: const Text(
-              '加载失败，点击重试',
-              style: TextStyle(color: Colors.white38),
-            ),
-          ),
+        return errorRetryBox(
+          padding: EdgeInsets.zero,
+          onRetry: () => ref.invalidate(provider),
         );
       }
       return glassEmptyState(text: '当前服务器不支持该内容', icon: Icons.person_outline);
@@ -102,12 +101,15 @@ String _letterOf(String pinyinKey) {
 }
 
 List<_LetterGroup> _groupArtists(List<Artist> artists) {
-  final sorted = [...artists]..sort((a, b) {
-    final pa = _pinyinKey(a.name);
-    final pb = _pinyinKey(b.name);
-    final cmp = pa.compareTo(pb);
-    return cmp != 0 ? cmp : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-  });
+  final sorted = [...artists]
+    ..sort((a, b) {
+      final pa = _pinyinKey(a.name);
+      final pb = _pinyinKey(b.name);
+      final cmp = pa.compareTo(pb);
+      return cmp != 0
+          ? cmp
+          : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
   final map = <String, List<Artist>>{};
   for (final a in sorted) {
     map.putIfAbsent(_letterOf(_pinyinKey(a.name)), () => []).add(a);
@@ -226,9 +228,7 @@ class _GroupedArtistListState extends ConsumerState<_GroupedArtistList> {
                                         : SongListScreen(
                                             title: artist.name,
                                             pagedSongsProvider:
-                                                artistSongsProvider(
-                                                  artist.id,
-                                                ),
+                                                artistSongsProvider(artist.id),
                                             coverAlbumId: artist.id,
                                           ),
                                   ),

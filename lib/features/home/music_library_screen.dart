@@ -10,6 +10,7 @@ import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
+import '../../shared/widgets/search_entry.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
@@ -32,51 +33,15 @@ class MusicLibraryScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(top: 4, bottom: 96),
         children: [
-          const _SearchBar(),
+          SearchEntryBar(
+            onTap: () =>
+                Navigator.of(context)
+                    .push(fadeRoute<void>(const SearchScreen())),
+          ),
           _ServerPanel(total: total.value ?? 0),
           const SizedBox(height: 20),
           const _PlaylistSection(),
         ],
-      ),
-    );
-  }
-}
-
-/// 顶部搜索栏：圆角半透明条 + 扫码图标，点击进搜索页
-class _SearchBar extends ConsumerWidget {
-  const _SearchBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () =>
-          Navigator.of(context).push(fadeRoute<void>(const SearchScreen())),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceOf(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.search, size: 22, color: AppTheme.textFaintOf(context)),
-            const SizedBox(width: 10),
-            Text(
-              '搜索',
-              style: TextStyle(
-                color: AppTheme.textFaintOf(context),
-                fontSize: 15,
-              ),
-            ),
-            const Spacer(),
-            Icon(
-              Icons.qr_code_scanner,
-              size: 22,
-              color: AppTheme.textFaintOf(context),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -397,17 +362,9 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
         .toLowerCase();
     return playlists.when(
       loading: () => _header(context, null, const [], username),
-      error: (e, _) => Padding(
+      error: (e, _) => errorRetryBox(
         padding: const EdgeInsets.all(16),
-        child: Center(
-          child: TextButton(
-            onPressed: () => ref.invalidate(playlistsProvider),
-            child: Text(
-              '加载失败，点击重试',
-              style: TextStyle(color: AppTheme.textFaintOf(context)),
-            ),
-          ),
-        ),
+        onRetry: () => ref.invalidate(playlistsProvider),
       ),
       data: (list) => _header(context, list, list, username),
     );
@@ -900,11 +857,9 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
       if (state.loading) {
         content = const Center(child: CircularProgressIndicator());
       } else if (state.error) {
-        content = Center(
-          child: TextButton(
-            onPressed: notifier.retry,
-            child: const Text('加载失败，点击重试'),
-          ),
+        content = errorRetryBox(
+          padding: EdgeInsets.zero,
+          onRetry: notifier.retry,
         );
       } else {
         content = glassEmptyState(text: '暂无专辑');
