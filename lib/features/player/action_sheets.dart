@@ -169,6 +169,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: GlassCard(
               radius: AppRadius.l,
+              tint: adaptiveTint,
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.s,
                 vertical: AppSpacing.m,
@@ -238,6 +239,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: GlassCard(
               radius: AppRadius.l,
+              tint: adaptiveTint,
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.s,
                 vertical: AppSpacing.m,
@@ -286,7 +288,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppTheme.surfaceOf(context),
+              // 中性半透明白：叠在封面取色卡片上的浮起层，不随主题变脸
+              color: Colors.white.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 24, color: AppTheme.accentSoft),

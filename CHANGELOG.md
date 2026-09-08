@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页周边功能块改封面取色（QA 反馈）
+- **GlassCard 新增可选 `tint` 透传**：默认 null 仍回落 GlassTokens.tint(context)，全库业务零影响——此前卡片把 tint 写死成主题 token，造成"弹层本体随封面、内部功能块随主题"的割裂
+- **更多弹层两张功能卡**（操作卡片一/二）与**播放页歌手简介卡**传入 `adaptiveTint`，与宿主弹层/播放页背景同色系
+- **更多弹层圆形按钮底色**：AppTheme.surfaceOf（随主题变脸）→ 中性半透明白 0.10，叠在封面取色卡片上的浮起层不再随主题
+- 播放列表弹窗代码上本就是 blurHeavy+adaptiveTint（设备设置确认 liquidGlass+标准档+非省电），"透明感"待真机截图定位
+
 ## 2026-09-08 — Liquid Glass V2：玻璃材质做减法（评审驱动）
 - **砍三特效**（均为 liquidGlass 专属分支，其余 7 套皮肤不受影响）：删除 _MicroNoisePainter 微噪纹理（alpha 0.035 每卡叠加显脏）、_ChromaticEdgePainter 色差边缘（顶部蓝晕是 Dribbble/AI 玻璃标志性特效，上亮下弱由渐变描边承担）、饱和度增强 ColorFiltered 1.25/1.35/1.30（艳度最大来源，且每面强制 saveLayer，砍掉是性能净赚）
 - **镜面高光收窄**：顶部斜向高光渐变 stops 0.45 → 0.25，只覆盖顶部约 25% 后消失，对齐 iOS 材质克制反光

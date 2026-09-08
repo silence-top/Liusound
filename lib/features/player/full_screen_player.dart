@@ -389,12 +389,16 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
         ? null
         : ref.watch(hotSongsProvider(song.artistId));
     final bio = canBio ? ref.watch(artistBioProvider(song.artistId)) : null;
+    // 歌手简介卡片随封面主色取色，与播放页背景同色系
+    final adaptiveTint = albumAdaptiveTint(
+      ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
+    );
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (canSimilar) _SongSection(title: '相似歌曲', async: similar),
-        if (canBio) _BioSection(async: bio),
+        if (canBio) _BioSection(async: bio, tint: adaptiveTint),
         _SongSection(title: '热门歌曲', async: hot),
       ],
     );
@@ -404,9 +408,12 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
 /// 歌手简介分区：玻璃卡片承载长文本，默认折叠 3 行，可展开全文。
 /// 后端没给简介时整个分区不渲染（§4.1 要求避免空洞的「暂无数据」）。
 class _BioSection extends StatefulWidget {
-  const _BioSection({required this.async});
+  const _BioSection({required this.async, this.tint});
 
   final AsyncValue<String?>? async;
+
+  /// 封面取色 tint（与播放页背景同色系）；null 时卡片回落主题 tint
+  final Color? tint;
 
   @override
   State<_BioSection> createState() => _BioSectionState();
@@ -442,6 +449,7 @@ class _BioSectionState extends State<_BioSection> {
           padding: const EdgeInsets.fromLTRB(30, 0, 18, 24),
           child: GlassCard(
             radius: AppRadius.m,
+            tint: widget.tint,
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.m,
               AppSpacing.m,

@@ -310,6 +310,7 @@ class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
     required this.child,
+    this.tint,
     this.padding,
     this.margin,
     this.onTap,
@@ -317,6 +318,9 @@ class GlassCard extends StatelessWidget {
   });
 
   final Widget child;
+
+  /// 覆盖默认主题 tint（播放页周边弹层传封面取色，保持与宿主弹层同色系）
+  final Color? tint;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
@@ -327,7 +331,7 @@ class GlassCard extends StatelessWidget {
     final card = GlassSurface(
       radius: radius,
       blur: 0,
-      tint: GlassTokens.tint(context),
+      tint: tint ?? GlassTokens.tint(context),
       gradientBorder: true,
       padding: padding,
       margin: margin,
