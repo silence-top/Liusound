@@ -289,14 +289,14 @@ class SettingsScreen extends ConsumerWidget {
               _divider,
               _ActionTile(
                 icon: Icons.tune,
-                title: '控制栏样式',
+                title: '迷你播放条样式',
                 subtitle: barStyle.label,
                 onTap: () => _showMiniBarStylePicker(context, ref),
               ),
               _divider,
               _ActionTile(
                 icon: Icons.height,
-                title: '控制栏高度偏移',
+                title: '迷你播放条高度偏移',
                 subtitle: barOffset == 0
                     ? '默认'
                     : '${barOffset.toStringAsFixed(0)}px',

@@ -39,7 +39,7 @@ final miniBarStyleProvider =
       MiniBarStyleController.new,
     );
 
-/// 控制栏高度偏移（§8.2），单位逻辑像素，持久化
+/// 迷你播放条高度偏移（§8.2），单位逻辑像素，持久化
 class MiniBarOffsetController extends Notifier<double> {
   static const _key = 'mini_bar_offset';
 

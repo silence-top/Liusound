@@ -194,7 +194,7 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 控制栏样式选择（§8.2）：毛玻璃 / 纯色 / 渐变
+/// 迷你播放条样式选择（§8.2）：毛玻璃 / 纯色 / 渐变
 Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
   final current = ref.read(miniBarStyleProvider);
   return glassBottomSheet<void>(
@@ -205,7 +205,7 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
         Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
-            '控制栏样式',
+            '迷你播放条样式',
             style: TextStyle(
               color: AppTheme.textPrimaryOf(context),
               fontSize: 16,
@@ -244,7 +244,7 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 控制栏高度偏移微调（§8.2）：-20 ~ 40px，步进 2
+/// 迷你播放条高度偏移微调（§8.2）：-20 ~ 40px，步进 2
 Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
   return glassBottomSheet<void>(
     context,
@@ -257,7 +257,7 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
-                '控制栏高度偏移',
+                '迷你播放条高度偏移',
                 style: TextStyle(
                   color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
