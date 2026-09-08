@@ -30,6 +30,8 @@ class MusicLibraryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final total = ref.watch(songTotalProvider);
     return Scaffold(
+      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
+      backgroundColor: Colors.transparent,
       body: ListView(
         // 底部：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
         padding: EdgeInsets.only(

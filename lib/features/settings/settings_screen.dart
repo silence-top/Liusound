@@ -78,6 +78,8 @@ class SettingsScreen extends ConsumerWidget {
 
     // 嵌在 AppShell 顶部图标导航之下：不再自带 AppBar，避免双层标题栏叠加
     return Scaffold(
+      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
+      backgroundColor: Colors.transparent,
       body: ListView(
         // 底部：48 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
         padding: EdgeInsets.fromLTRB(

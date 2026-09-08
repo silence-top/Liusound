@@ -40,6 +40,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
+      backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: CustomScrollView(

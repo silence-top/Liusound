@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 修复：图片背景只在顶部生效（三页嵌套 Scaffold 不透明底遮挡）
+
+- 真机反馈背景图只有状态栏/顶部导航区域可见：壳三页（首页/资料库/设置）各自嵌套 `Scaffold` 默认继承不透明 `scaffoldBackgroundColor`，把壳层 `AmbientBackground`（背景图/皮肤舞台）整片盖住——顶部导航在壳层直接透明所以唯一透出；三页 Scaffold 改 `backgroundColor: Colors.transparent`，内容卡片表面不受影响
+
 ## 2026-09-08 — 定时停止/播放速度选择器改近实色取色底
 
 - 用户反馈「也不要透明，毛玻璃近实色底」：歌曲操作弹窗进入的定时停止/播放速度选择器 tint 从半透明（alpha 0.55）换为近实色封面取色（`albumFrostedTint`：主色 lerp 黑 0.55 + alpha 0.90，与播放页毛玻璃面板同公式）；GlassSurface 自带毛玻璃模糊保留，透出的只是模糊色斑；设置页入口不传 tint 仍走主题玻璃
