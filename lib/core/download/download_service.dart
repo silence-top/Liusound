@@ -28,7 +28,7 @@ Future<String> downloadSongFile({
 }) async {
   final docs = await getApplicationDocumentsDirectory();
   final musicDir = Directory('${docs.path}${Platform.pathSeparator}Music');
-  if (!musicDir.existsSync()) musicDir.createSync(recursive: true);
+  if (!await musicDir.exists()) await musicDir.create(recursive: true);
 
   final dio = Dio(
     BaseOptions(
@@ -57,21 +57,21 @@ Future<String> downloadSongFile({
 
   // 校验：文件存在且非空，否则视为下载失败
   final tmp = File(tmpPath);
-  if (!tmp.existsSync() || tmp.lengthSync() == 0) {
+  if (!await tmp.exists() || await tmp.length() == 0) {
     try {
-      if (tmp.existsSync()) tmp.deleteSync();
+      if (await tmp.exists()) await tmp.delete();
     } catch (_) {}
     throw const FileSystemException('下载内容为空');
   }
 
   // 原子提交：rename 覆盖旧文件（Windows 上 rename 不能覆盖已存在目标）
   final target = File(path);
-  if (target.existsSync()) {
+  if (await target.exists()) {
     try {
-      target.deleteSync();
+      await target.delete();
     } catch (_) {}
   }
-  tmp.renameSync(path);
+  await tmp.rename(path);
 
   // 登记/更新 download_index（索引失败不影响文件本身，下次反查会走目录兜底回填）
   try {
@@ -82,7 +82,7 @@ Future<String> downloadSongFile({
       'song_id': song.id,
       'fingerprint': fingerprint,
       'path': path,
-      'size': target.lengthSync(),
+      'size': await target.length(),
       'created_at': now,
       'last_accessed_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -111,7 +111,7 @@ Future<String?> findDownloadedSong(Song song) async {
     );
     if (rows.isNotEmpty) {
       final path = rows.first['path'] as String;
-      if (File(path).existsSync()) {
+      if (await File(path).exists()) {
         try {
           await db.update(
             'download_index',
@@ -137,9 +137,9 @@ Future<String?> findDownloadedSong(Song song) async {
   try {
     final docs = await getApplicationDocumentsDirectory();
     final musicDir = Directory('${docs.path}${Platform.pathSeparator}Music');
-    if (!musicDir.existsSync()) return null;
+    if (!await musicDir.exists()) return null;
     final marker = '--$fingerprint.';
-    for (final entry in musicDir.listSync()) {
+    await for (final entry in musicDir.list()) {
       if (entry is! File) continue;
       if (entry.uri.pathSegments.last.contains(marker)) {
         try {
@@ -150,7 +150,7 @@ Future<String?> findDownloadedSong(Song song) async {
             'song_id': song.id,
             'fingerprint': fingerprint,
             'path': entry.path,
-            'size': entry.lengthSync(),
+            'size': await entry.length(),
             'created_at': now,
             'last_accessed_at': now,
           }, conflictAlgorithm: ConflictAlgorithm.replace);

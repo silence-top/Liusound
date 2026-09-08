@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-C：主 isolate 同步 IO 治理
+
+- **AudioCache LRU 清理去同步 stat**（cache_manager.dart）：sizeBytes/enforceLimit 的 `lengthSync` 改 `await length()`；enforceLimit 排序所需的 mtime 在遍历时异步收集为 `(file, size, mtime)` 三元组，不再排序前逐个 `lastModifiedSync`
+- **findDownloadedSong 目录兜底扫描改异步流**：`listSync` 改 `await for (dir.list())`，回填索引的 `lengthSync` 同步消除
+- **downloadSongFile 提交链路异步化**：目录创建/校验/删除/rename 全部走 async API，大文件 `renameSync` 不再阻塞主 isolate
+- 范围外确认：local_library 的同步扫描已在 `Isolate.run` 内（此前批次完成），单次 `existsSync`（封面/播放源回退）开销可忽略不动
+
 ## 2026-09-08 — 全库审计 P2-B：重复 UI 收拢
 
 - **错误重试块统一 `errorRetryBox`**（async_states.dart）：私有 `_error` 改为公共组件的薄封装；手写「加载失败，点击重试」五处替换——home_screen（删除 `_ErrorRetry` 类，专辑行/分区两调用点）、detail_screen 分页失败块、music_library 歌单区与分页专辑格、library_entries 歌手/流派入口；library_entries 385/478 的「失败或不支持」组合态保留不动

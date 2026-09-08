@@ -91,13 +91,13 @@ abstract final class AudioCache {
   static Future<int> sizeBytes() async {
     try {
       final cacheDir = await dir();
-      if (!cacheDir.existsSync()) return 0;
+      if (!await cacheDir.exists()) return 0;
       var total = 0;
       await for (final entity in cacheDir.list(
         recursive: true,
         followLinks: false,
       )) {
-        if (entity is File) total += entity.lengthSync();
+        if (entity is File) total += await entity.length();
       }
       return total;
     } catch (_) {
@@ -121,24 +121,24 @@ abstract final class AudioCache {
     if (maxBytes == null) return;
     try {
       final cacheDir = await dir();
-      if (!cacheDir.existsSync()) return;
-      final files = <File>[];
+      if (!await cacheDir.exists()) return;
+      // (file, size, mtime)：mtime 异步取，避免排序前主 isolate 逐个同步 stat
+      final entries = <(File, int, DateTime)>[];
       var total = 0;
       await for (final entity in cacheDir.list(
         recursive: true,
         followLinks: false,
       )) {
         if (entity is! File) continue;
-        files.add(entity);
-        total += entity.lengthSync();
+        final length = await entity.length();
+        final modified = await entity.lastModified();
+        entries.add((entity, length, modified));
+        total += length;
       }
       if (total <= maxBytes) return;
-      files.sort(
-        (a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()),
-      );
-      for (final f in files) {
+      entries.sort((a, b) => a.$3.compareTo(b.$3));
+      for (final (f, size, _) in entries) {
         if (total <= maxBytes) break;
-        final size = f.lengthSync();
         try {
           await f.delete();
           total -= size;
