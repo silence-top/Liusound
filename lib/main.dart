@@ -127,9 +127,12 @@ class MusicApp extends ConsumerWidget {
               .watch(albumDominantColorProvider(currentAlbumId ?? ''))
               .valueOrNull
         : null;
-    // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
+    // 从一个已激活服务器切换到另一台（登出/换服）→ 同步清空播放器与持久化
+    // 播放状态。prev 的 serverId 必须非 null——否则冷启动 auth 从「未就绪」
+    // 解析为「已登录」也会命中，stop() 把刚恢复的队列/迷你播放条清掉
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
-      if (prev?.activeServerId != next.activeServerId) {
+      final prevServer = prev?.activeServerId;
+      if (prevServer != null && prevServer != next.activeServerId) {
         ref.read(playerActionsProvider).stop();
       }
     });

@@ -21,7 +21,7 @@ enum CacheLimit {
 /// 缓存设置：边听边存 / 自动下载 / 限额
 class CacheSettings {
   const CacheSettings({
-    this.cacheWhileListen = true,
+    this.cacheWhileListen = false,
     this.autoDownload = false,
     this.limit = CacheLimit.g2,
   });

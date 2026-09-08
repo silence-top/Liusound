@@ -78,7 +78,7 @@ class StreamingSettings {
     this.wifiQuality = StreamQuality.lossless,
     this.cellularQuality = StreamQuality.k320,
     this.transcodeFormat = TranscodeFormat.mp3,
-    this.cellularAllowed = true,
+    this.cellularAllowed = false,
   });
 
   final StreamQuality wifiQuality;
@@ -122,7 +122,7 @@ class StreamingSettingsController extends Notifier<StreamingSettings> {
         (f) => f.name == prefs.getString(_formatKey),
         orElse: () => fallback.transcodeFormat,
       ),
-      cellularAllowed: prefs.getBool(_cellularAllowedKey) ?? true,
+      cellularAllowed: prefs.getBool(_cellularAllowedKey) ?? false,
     );
   }
 

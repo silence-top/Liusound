@@ -6,10 +6,10 @@ import '../settings/prefs.dart';
 /// 主题皮肤（P1 主题系统化）：液态玻璃复刻 + 七套扩展主题。
 /// 全部为深色系（白阶文字语义在所有皮肤下保持有效）。
 enum AppSkin {
-  liquidGlass('液态玻璃', '镜面高光描边 · 内容透色（默认）'),
+  liquidGlass('液态玻璃', '镜面高光描边 · 内容透色'),
   deepSpace('深空科幻', '近黑蓝底 · 霓虹青发光点缀'),
   minimal('极简纯色', '暖炭纸纹实色卡片 · 强排版'),
-  materialYou('Material You', '动态取色跟随系统壁纸（Android 12+）'),
+  materialYou('莫奈取色', '动态取色跟随系统壁纸（Android 12+）'),
   sunset('落日熔金', '暖橙玫瑰底 · 低垂夕阳光球'),
   forest('林间苔原', '暖绿纸质 · 冠层微光颗粒'),
   terminal('终端磷光', '纯黑绿字 · CRT 扫描线直角'),
@@ -27,10 +27,10 @@ class SkinController extends Notifier<AppSkin> {
   AppSkin build() {
     final prefs = ref.watch(sharedPrefsProvider);
     final saved = prefs.getString(_key);
-    if (saved == null) return AppSkin.liquidGlass;
+    if (saved == null) return AppSkin.materialYou;
     return AppSkin.values.firstWhere(
       (e) => e.name == saved,
-      orElse: () => AppSkin.liquidGlass,
+      orElse: () => AppSkin.materialYou,
     );
   }
 
