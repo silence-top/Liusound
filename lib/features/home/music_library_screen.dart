@@ -847,11 +847,16 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
   @override
   Widget build(BuildContext context) {
     final body = widget.paged != null ? _buildPaged() : _buildOneShot();
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(widget.title)), // 样式走主题 titleTextStyle
-      bottomNavigationBar: const MiniPlayer(),
-      body: body,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text(widget.title),
+          backgroundColor: Colors.transparent,
+        ),
+        bottomNavigationBar: const MiniPlayer(),
+        body: body,
+      ),
     );
   }
 
@@ -960,7 +965,7 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
 
 /// 列表页搜索栏：圆角输入框 + 尾部漏斗图标（过滤当前列表，非全局搜索）。
 /// 专辑列表 / 歌手列表等二级页共用。
-class ListSearchBar extends StatelessWidget {
+class ListSearchBar extends ConsumerWidget {
   const ListSearchBar({
     super.key,
     required this.controller,
@@ -973,7 +978,7 @@ class ListSearchBar extends StatelessWidget {
   final String hint;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: Row(
@@ -983,7 +988,7 @@ class ListSearchBar extends StatelessWidget {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceOf(context),
+                color: imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(

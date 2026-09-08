@@ -6,6 +6,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
@@ -32,13 +33,15 @@ class ArtistListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(title)),
-      body: _ArtistListBody(
-        async: async,
-        provider: provider,
-        openAlbums: openAlbums,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(title: Text(title), backgroundColor: Colors.transparent),
+        body: _ArtistListBody(
+          async: async,
+          provider: provider,
+          openAlbums: openAlbums,
+        ),
       ),
     );
   }
@@ -453,10 +456,15 @@ class GenrePage extends ConsumerWidget {
         },
       );
     }
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: const Text('流派')),
-      body: body,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('流派'),
+          backgroundColor: Colors.transparent,
+        ),
+        body: body,
+      ),
     );
   }
 }
@@ -528,10 +536,15 @@ class RadioPage extends ConsumerWidget {
         },
       );
     }
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: const Text('电台')),
-      body: body,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('电台'),
+          backgroundColor: Colors.transparent,
+        ),
+        body: body,
+      ),
     );
   }
 }

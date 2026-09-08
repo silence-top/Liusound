@@ -21,85 +21,87 @@ class SongInfoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rg = song.replayGain;
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      bottomNavigationBar: const MiniPlayer(),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            toolbarHeight: 56,
-            backgroundColor: Colors.transparent,
-            foregroundColor: AppTheme.textPrimaryOf(context),
-            title: const Text('歌曲详情'),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _section(context, '基础', [
-                    _row(context, '标题', song.title),
-                    _navRow(
-                      context,
-                      '专辑',
-                      song.album.isEmpty ? '—' : song.album,
-                      onTap: song.albumId.isEmpty
-                          ? null
-                          : () => _openAlbum(context),
-                    ),
-                    _row(context, '专辑艺术家', song.albumArtist ?? song.artist),
-                    _navRow(
-                      context,
-                      '歌手',
-                      song.artist,
-                      onTap: song.artistId.isEmpty
-                          ? null
-                          : () => _openArtist(context),
-                    ),
-                    _navRow(
-                      context,
-                      '歌词',
-                      _hasLyrics ? '查看歌词' : '暂无歌词',
-                      onTap: _hasLyrics ? () => _showLyrics(context) : null,
-                    ),
-                    _row(context, '年代', _num(song.year)),
-                    _row(context, '碟号', _num(song.discNumber)),
-                    _row(context, '音轨号', _num(song.trackNumber)),
-                  ]),
-                  _section(context, '扩展', [
-                    _row(context, '文件路径', song.path ?? '—', wide: true),
-                    _row(
-                      context,
-                      '文件大小',
-                      song.size > 0
-                          ? '${(song.size / 1024 / 1024).toStringAsFixed(2)} MB'
-                          : '—',
-                    ),
-                    _row(context, '文件格式', song.suffix ?? '—'),
-                    _row(context, '时长', _fmtDuration(song.duration)),
-                    _row(
-                      context,
-                      '比特率',
-                      song.bitRate != null ? '${song.bitRate} kbps' : '—',
-                    ),
-                    _row(context, '播放次数', '${song.playCount}'),
-                    _row(context, '上次播放时间', _fmtIso(song.lastPlayed) ?? '—'),
-                    _row(context, '创建时间', _fmtIso(song.created) ?? '—'),
-                  ]),
-                  if (rg != null)
-                    _section(context, '回放增益', [
-                      _row(context, '专辑回放增益', _db(rg.albumGain)),
-                      _row(context, '专辑峰值振幅', _plain(rg.albumPeak)),
-                      _row(context, '音轨回放增益', _db(rg.trackGain)),
-                      _row(context, '音轨峰值振幅', _plain(rg.trackPeak)),
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        bottomNavigationBar: const MiniPlayer(),
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 56,
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.textPrimaryOf(context),
+              title: const Text('歌曲详情'),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _section(context, '基础', [
+                      _row(context, '标题', song.title),
+                      _navRow(
+                        context,
+                        '专辑',
+                        song.album.isEmpty ? '—' : song.album,
+                        onTap: song.albumId.isEmpty
+                            ? null
+                            : () => _openAlbum(context),
+                      ),
+                      _row(context, '专辑艺术家', song.albumArtist ?? song.artist),
+                      _navRow(
+                        context,
+                        '歌手',
+                        song.artist,
+                        onTap: song.artistId.isEmpty
+                            ? null
+                            : () => _openArtist(context),
+                      ),
+                      _navRow(
+                        context,
+                        '歌词',
+                        _hasLyrics ? '查看歌词' : '暂无歌词',
+                        onTap: _hasLyrics ? () => _showLyrics(context) : null,
+                      ),
+                      _row(context, '年代', _num(song.year)),
+                      _row(context, '碟号', _num(song.discNumber)),
+                      _row(context, '音轨号', _num(song.trackNumber)),
                     ]),
-                ],
+                    _section(context, '扩展', [
+                      _row(context, '文件路径', song.path ?? '—', wide: true),
+                      _row(
+                        context,
+                        '文件大小',
+                        song.size > 0
+                            ? '${(song.size / 1024 / 1024).toStringAsFixed(2)} MB'
+                            : '—',
+                      ),
+                      _row(context, '文件格式', song.suffix ?? '—'),
+                      _row(context, '时长', _fmtDuration(song.duration)),
+                      _row(
+                        context,
+                        '比特率',
+                        song.bitRate != null ? '${song.bitRate} kbps' : '—',
+                      ),
+                      _row(context, '播放次数', '${song.playCount}'),
+                      _row(context, '上次播放时间', _fmtIso(song.lastPlayed) ?? '—'),
+                      _row(context, '创建时间', _fmtIso(song.created) ?? '—'),
+                    ]),
+                    if (rg != null)
+                      _section(context, '回放增益', [
+                        _row(context, '专辑回放增益', _db(rg.albumGain)),
+                        _row(context, '专辑峰值振幅', _plain(rg.albumPeak)),
+                        _row(context, '音轨回放增益', _db(rg.trackGain)),
+                        _row(context, '音轨峰值振幅', _plain(rg.trackPeak)),
+                      ]),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

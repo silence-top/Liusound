@@ -19,30 +19,35 @@ class ServerDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(authControllerProvider).activeConfig;
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      appBar: AppBar(title: Text(config?.type.displayName ?? '服务器')),
-      body: config == null
-          ? Center(
-              child: Text(
-                '未连接服务器',
-                style: TextStyle(color: AppTheme.textFaintOf(context)),
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text(config?.type.displayName ?? '服务器'),
+          backgroundColor: Colors.transparent,
+        ),
+        body: config == null
+            ? Center(
+                child: Text(
+                  '未连接服务器',
+                  style: TextStyle(color: AppTheme.textFaintOf(context)),
+                ),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _Header(config: config),
+                  const SizedBox(height: 16),
+                  _StatsCard(),
+                  const SizedBox(height: 20),
+                  const _SectionLabel('用户设置'),
+                  _UserSettingsCard(config: config),
+                  const SizedBox(height: 20),
+                  const _SectionLabel('资料库管理'),
+                  _ManageCard(config: config),
+                ],
               ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _Header(config: config),
-                const SizedBox(height: 16),
-                _StatsCard(),
-                const SizedBox(height: 20),
-                const _SectionLabel('用户设置'),
-                _UserSettingsCard(config: config),
-                const SizedBox(height: 20),
-                const _SectionLabel('资料库管理'),
-                _ManageCard(config: config),
-              ],
-            ),
+      ),
     );
   }
 }
