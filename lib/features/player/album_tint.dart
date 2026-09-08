@@ -48,7 +48,9 @@ Color? albumSolidTint(Color? dominant) =>
 
 /// 播放页弹层毛玻璃面板（用户要求：试毛玻璃但不要透明）：
 /// 高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是模糊色斑，
-/// 背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色
+/// 背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色。
+/// [opaque]=true 时完全实色（去模糊层，反正也不可见）：歌曲上下文弹层
+/// （歌曲更多/添加到歌单）用——既然取了封面色就不要任何透明感。
 class AlbumFrostedPanel extends StatelessWidget {
   const AlbumFrostedPanel({
     super.key,
@@ -56,16 +58,24 @@ class AlbumFrostedPanel extends StatelessWidget {
     required this.borderRadius,
     this.padding,
     required this.child,
+    this.opaque = false,
   });
 
   final Color? dominant;
   final BorderRadius borderRadius;
   final EdgeInsetsGeometry? padding;
   final Widget child;
+  final bool opaque;
 
   @override
   Widget build(BuildContext context) {
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
+    if (opaque) {
+      return ClipRRect(
+        borderRadius: borderRadius,
+        child: Container(color: base, padding: padding, child: child),
+      );
+    }
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(

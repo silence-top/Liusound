@@ -105,6 +105,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
         .valueOrNull;
     return AlbumFrostedPanel(
       dominant: dominant,
+      opaque: true,
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(GlassTokens.radiusSheet),
       ),
@@ -740,13 +741,14 @@ class _PlaylistPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(playlistsProvider);
-    // 弹层底色随封面主色（内容驱动取色）：批量时取第一首的专辑；毛玻璃不透底
+    // 弹层底色随封面主色（内容驱动取色）：批量时取第一首的专辑；完全实色不透明
     return AlbumFrostedPanel(
       dominant: songs.isEmpty
           ? null
           : ref
                 .watch(albumDominantColorProvider(songs.first.albumId))
                 .valueOrNull,
+      opaque: true,
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(GlassTokens.radiusSheet),
       ),
