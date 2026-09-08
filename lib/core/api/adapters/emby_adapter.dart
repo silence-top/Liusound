@@ -17,6 +17,7 @@ class EmbyAdapter extends MediaBrowserAdapter {
     NetworkSettings networkSettings = const NetworkSettings(),
   }) : super(
          serverUrl: config.serverUrl,
+         username: config.username,
          secrets: secrets,
          networkSettings: networkSettings,
        );
@@ -44,11 +45,16 @@ class EmbyAdapter extends MediaBrowserAdapter {
     };
   }
 
-  static Future<AdapterSession> signIn(AuthRequest request) async {
-    final pwMd5 = md5.convert(request.password.codeUnits).toString();
+  /// 登录与静默重登共用的认证请求（Emby 密码需 MD5）
+  static Future<Map<String, dynamic>> _authenticate(
+    String serverUrl,
+    String username,
+    String password,
+  ) async {
+    final pwMd5 = md5.convert(password.codeUnits).toString();
     final dio = Dio(
       BaseOptions(
-        baseUrl: request.serverUrl,
+        baseUrl: serverUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 15),
       ),
@@ -56,25 +62,44 @@ class EmbyAdapter extends MediaBrowserAdapter {
     try {
       final res = await dio.post<Map<String, dynamic>>(
         '/Users/AuthenticateByName',
-        data: {'Username': request.username, 'Pw': pwMd5},
+        data: {'Username': username, 'Pw': pwMd5},
         options: Options(
           headers: {
             'X-Emby-Authorization': 'MediaBrowser Client="Emby", Device="Flutter", DeviceId="liusound", Version="2.0"',
           },
         ),
       );
-      final data = res.data ?? const {};
-      final accessToken = data['AccessToken']?.toString() ?? '';
-      final userId = data['User']?['Id']?.toString() ?? '';
-      if (accessToken.isEmpty || userId.isEmpty) {
-        throw AuthError('Emby 登录响应缺少认证信息');
-      }
-      return AdapterSession(
-        secrets: {'token': accessToken, 'userId': userId},
-        displayName: data['User']?['Name']?.toString(),
-      );
+      return res.data ?? const {};
     } finally {
       dio.close();
     }
+  }
+
+  @override
+  Future<Map<String, String>> loginWithPassword(String password) async {
+    final data = await _authenticate(serverUrl, username, password);
+    final accessToken = data['AccessToken']?.toString() ?? '';
+    final userId = data['User']?['Id']?.toString() ?? '';
+    if (accessToken.isEmpty || userId.isEmpty) {
+      throw const AuthError('Emby 静默重登失败');
+    }
+    return {'token': accessToken, 'userId': userId};
+  }
+
+  static Future<AdapterSession> signIn(AuthRequest request) async {
+    final data = await _authenticate(
+      request.serverUrl,
+      request.username,
+      request.password,
+    );
+    final accessToken = data['AccessToken']?.toString() ?? '';
+    final userId = data['User']?['Id']?.toString() ?? '';
+    if (accessToken.isEmpty || userId.isEmpty) {
+      throw AuthError('Emby 登录响应缺少认证信息');
+    }
+    return AdapterSession(
+      secrets: {'token': accessToken, 'userId': userId},
+      displayName: data['User']?['Name']?.toString(),
+    );
   }
 }

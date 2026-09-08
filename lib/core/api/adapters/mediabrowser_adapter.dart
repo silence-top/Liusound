@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../errors/app_error.dart';
 import '../../models/models.dart';
 import '../../network/http_factory.dart';
 import '../../settings/streaming_prefs.dart';
@@ -11,22 +12,33 @@ import '../server_adapter.dart';
 
 /// Jellyfin / Emby 共享基类（~80% API 相同）。
 /// 子类仅需覆写 [authHeaders]（认证头格式）和 [login]（登录流程）。
-abstract class MediaBrowserAdapter implements ServerAdapter {
+abstract class MediaBrowserAdapter
+    with SecretsUpdatable
+    implements ServerAdapter {
   MediaBrowserAdapter({
     required String serverUrl,
+    required String username,
     required Map<String, String> secrets,
     NetworkSettings networkSettings = const NetworkSettings(),
   }) : _serverUrl = serverUrl,
+       _username = username,
+       _password = secrets['password'] ?? '',
+       _secrets = Map.of(secrets),
        _userId = secrets['userId'] ?? '',
        _token = secrets['token'] ?? '' {
     _dio.options.baseUrl = serverUrl;
     NetworkRuntime.configureDio(_dio, networkSettings);
+    _dio.interceptors.add(_ReauthInterceptor(this));
   }
 
   final String _serverUrl;
-  final String _userId;
-  final String _token;
+  final String _username;
+  final String _password;
+  final Map<String, String> _secrets;
+  String _userId;
+  String _token;
 
+  String get username => _username;
   String get userId => _userId;
   String get token => _token;
   String get serverUrl => _serverUrl;
@@ -45,6 +57,23 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
 
   /// 从登录响应提取 secrets（子类实现）
   Map<String, String> extractSecrets(Map<String, dynamic> loginResponse);
+
+  /// 子类实现：用账号+密码换新 token/userId（Jellyfin 明文 Pw / Emby MD5 Pw）
+  Future<Map<String, String>> loginWithPassword(String password);
+
+  /// 401 静默重登：用本地保存的账号密码换新凭证，更新内存并回调持久化
+  Future<void> reauthenticate() async {
+    if (_username.isEmpty || _password.isEmpty) {
+      throw const AuthError('缺少本地登录凭证，无法静默重新登录');
+    }
+    final fresh = await loginWithPassword(_password);
+    _secrets
+      ..['token'] = fresh['token'] ?? ''
+      ..['userId'] = fresh['userId'] ?? '';
+    _token = _secrets['token']!;
+    _userId = _secrets['userId']!;
+    onSecretsUpdated?.call(Map.of(_secrets));
+  }
 
   // ========== ServerAdapter 接口默认实现 ==========
 
@@ -700,4 +729,35 @@ abstract class MediaBrowserAdapter implements ServerAdapter {
     AlbumSort.name => 'SortName',
     AlbumSort.year => 'ProductionYear',
   };
+}
+
+/// 401 → 静默重登一次并重放原请求。
+/// QueuedInterceptor 串行化错误处理，避免并发 401 触发多次重登；
+/// 重放请求打 extra 标记，再 401 直接放行（密码也失效时如实报错）。
+class _ReauthInterceptor extends QueuedInterceptor {
+  _ReauthInterceptor(this._adapter);
+
+  final MediaBrowserAdapter _adapter;
+  static const _retriedKey = 'liusoundReauthRetried';
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final opts = err.requestOptions;
+    if (err.response?.statusCode == 401 && opts.extra[_retriedKey] != true) {
+      try {
+        await _adapter.reauthenticate();
+        opts.extra[_retriedKey] = true;
+        opts.headers
+          ..remove('Authorization')
+          ..remove('X-Emby-Authorization')
+          ..remove('X-Emby-Token')
+          ..addAll(_adapter._headers);
+        final response = await _adapter._dio.fetch<dynamic>(opts);
+        return handler.resolve(response);
+      } catch (_) {
+        // 重登失败：回落到原始 401 错误，由调用方按类型展示
+      }
+    }
+    handler.next(err);
+  }
 }

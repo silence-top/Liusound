@@ -45,12 +45,17 @@ class _QueueSheet extends ConsumerWidget {
     final primary = Theme.of(context).colorScheme.primary;
     // 流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住
     final playing = ref.watch(isPlayingProvider).value ?? true;
-    // 弹层面板 tint 随当前歌曲封面主色（内容驱动取色）：与播放页同色系
-    final adaptiveTint = albumAdaptiveTint(
-      current == null
-          ? null
-          : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull,
-    );
+    // 弹层面板底色随当前歌曲封面主色（内容驱动取色）：与播放页同色系，
+    // 不透明实色（用户钦定去玻璃：不要毛玻璃/透明玻璃）
+    final panelColor =
+        albumSolidTint(
+          current == null
+              ? null
+              : ref
+                    .watch(albumDominantColorProvider(current.albumId))
+                    .valueOrNull,
+        ) ??
+        AppTheme.surfaceOf(context);
     final modeIcon = switch (mode) {
       PlayMode.order => Icons.repeat,
       PlayMode.shuffle => Icons.shuffle,
@@ -62,12 +67,14 @@ class _QueueSheet extends ConsumerWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.6,
       ),
-      child: GlassSurface(
-        radius: GlassTokens.radiusSheet,
-        blur: GlassTokens.blurHeavy,
-        gradientBorder: true,
-        shadow: false,
-        tint: adaptiveTint,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: panelColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(GlassTokens.radiusSheet),
+          ),
+        ),
         // 弹层底部锚定，不会顶到状态栏，顶部只需给拖动条留白
         padding: EdgeInsets.only(
           top: 8,
@@ -201,12 +208,15 @@ class _QueueSheet extends ConsumerWidget {
                           .read(playerActionsProvider)
                           .removeFromQueue(song.id),
                       child: isCurrent
-                          ? GlassSurface(
-                              radius: AppRadius.m,
-                              blur: 0,
-                              tint: primary.withValues(alpha: 0.14),
-                              shadow: false,
+                          ? Container(
+                              clipBehavior: Clip.antiAlias,
                               margin: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                              decoration: BoxDecoration(
+                                color: primary.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.m,
+                                ),
+                              ),
                               child: row,
                             )
                           : Container(

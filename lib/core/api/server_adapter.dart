@@ -83,6 +83,12 @@ abstract class ServerAdapter {
   void dispose();
 }
 
+/// 静默重登能力（401 时用本地凭证自动换新凭证的适配器混入）：
+/// 重登成功后通过 [onSecretsUpdated] 上报新 secrets，由 AuthController 持久化
+mixin SecretsUpdatable {
+  void Function(Map<String, String> secrets)? onSecretsUpdated;
+}
+
 class PlaybackSource {
   const PlaybackSource({required this.url, this.headers = const {}});
   final String url;

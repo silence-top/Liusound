@@ -2,6 +2,20 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 播放页去玻璃改不透明封面取色 + Token 过期静默重登
+
+### 播放页周边去玻璃（用户钦定：不要玻璃不要透明）
+- **album_tint 新增 `albumSolidTint`**：封面主色 lerp 黑 0.55 的不透明实色，替代玻璃/模糊材质；取色失败回退 AppTheme.surfaceOf
+- **全面替换范围**：播放列表弹窗、歌曲/播放列表操作弹层、歌手简介卡、LRC 菜单、曲目选择器、歌词调整面板、音量面板、迷你播放条——GlassSurface/GlassCard 全部改普通 Container 实色底，内部浮起卡片统一白 0.07 叠加
+- **刻意保留**：播放页底部控制区（页面背景属性）与黑胶封面框（视觉冻结 611b9fa）
+- 迷你条三种样式（玻璃/实色/渐变）全部改为封面主色派生的不透明底，与播放页弹层同色系
+
+### Token 过期静默重新登录（Jellyfin/Emby/Plex/群晖）
+- **`SecretsUpdatable` mixin**（server_adapter.dart）：适配器声明静默重登能力，新凭证经 `onSecretsUpdated` 回调上报
+- **QueuedInterceptor 401 拦截**：MediaBrowser 系（Jellyfin/Emby）与 Plex 在 401 时用本地保存的账号密码重新认证并重放原请求一次（extra 标记防循环）；AudioStation 原有 _relogin 补挂回调
+- **密码入 secrets**：登录时统一把 password 并入 secrets 持久化（此前仅群晖存），旧会话需重新登录一次才具备静默重登能力
+- **静默持久化**：AuthController.updateStoredSecrets 只写存储不改内存 state——避免 provider 重建 dispose 掉正在重放请求的 adapter；下次重建时读新凭证
+
 ## 2026-09-08 — 播放页周边功能块改封面取色（QA 反馈）
 - **GlassCard 新增可选 `tint` 透传**：默认 null 仍回落 GlassTokens.tint(context)，全库业务零影响——此前卡片把 tint 写死成主题 token，造成"弹层本体随封面、内部功能块随主题"的割裂
 - **更多弹层两张功能卡**（操作卡片一/二）与**播放页歌手简介卡**传入 `adaptiveTint`，与宿主弹层/播放页背景同色系

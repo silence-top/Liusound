@@ -98,16 +98,20 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final caps = ref.watch(serverAdapterProvider)?.capabilities;
     final canRate = caps?.ratings ?? false;
     final canDownload = caps?.download ?? true;
-    // 弹层 tint 随封面主色（内容驱动取色）：与播放页背景同色系
-    final adaptiveTint = albumAdaptiveTint(
-      ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
-    );
-    return GlassSurface(
-      radius: GlassTokens.radiusSheet,
-      blur: GlassTokens.blurHeavy,
-      gradientBorder: true,
-      shadow: false,
-      tint: adaptiveTint,
+    // 弹层底色随封面主色（内容驱动取色）：不透明实色（用户钦定去玻璃）
+    final panelColor =
+        albumSolidTint(
+          ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
+        ) ??
+        AppTheme.surfaceOf(context);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(GlassTokens.radiusSheet),
+        ),
+      ),
       padding: EdgeInsets.only(
         top: 12,
         bottom: MediaQuery.of(context).padding.bottom + 10,
@@ -167,9 +171,13 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
           // 操作卡片一：下一首播放/已播放/添加到/下载/删除文件 + 定时停止/播放速度
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: GlassCard(
-              radius: AppRadius.l,
-              tint: adaptiveTint,
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                // 白 0.07 叠在实色底上的浮起卡片层，不随主题变脸
+                color: Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(AppRadius.l),
+              ),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.s,
                 vertical: AppSpacing.m,
@@ -237,9 +245,13 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
           // 操作卡片二：歌手 / 专辑 / 歌曲信息（歌曲信息进完整详情页）
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: GlassCard(
-              radius: AppRadius.l,
-              tint: adaptiveTint,
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                // 白 0.07 叠在实色底上的浮起卡片层，不随主题变脸
+                color: Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(AppRadius.l),
+              ),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.s,
                 vertical: AppSpacing.m,
@@ -719,20 +731,24 @@ class _PlaylistPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(playlistsProvider);
-    // 弹层 tint 随封面主色（内容驱动取色）：批量时取第一首的专辑
-    final adaptiveTint = albumAdaptiveTint(
-      songs.isEmpty
-          ? null
-          : ref
-                .watch(albumDominantColorProvider(songs.first.albumId))
-                .valueOrNull,
-    );
-    return GlassSurface(
-      radius: GlassTokens.radiusSheet,
-      blur: GlassTokens.blurHeavy,
-      gradientBorder: true,
-      shadow: false,
-      tint: adaptiveTint,
+    // 弹层底色随封面主色（内容驱动取色）：批量时取第一首的专辑；不透明实色
+    final panelColor =
+        albumSolidTint(
+          songs.isEmpty
+              ? null
+              : ref
+                    .watch(albumDominantColorProvider(songs.first.albumId))
+                    .valueOrNull,
+        ) ??
+        AppTheme.surfaceOf(context);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(GlassTokens.radiusSheet),
+        ),
+      ),
       padding: EdgeInsets.only(
         top: 12,
         bottom: MediaQuery.of(context).padding.bottom + 10,

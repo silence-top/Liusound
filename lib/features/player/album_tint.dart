@@ -37,3 +37,8 @@ final albumDominantColorProvider = FutureProvider.autoDispose
 Color? albumAdaptiveTint(Color? dominant) => dominant == null
     ? null
     : Color.lerp(dominant, Colors.black, 0.42)!.withValues(alpha: 0.55);
+
+/// 播放页弹层不透明底色（用户钦定去玻璃）：主色 lerp 黑 0.55 实色，
+/// 保证白字可读，彻底去掉毛玻璃/透明感；取色失败返回 null（回退主题表面色）。
+Color? albumSolidTint(Color? dominant) =>
+    dominant == null ? null : Color.lerp(dominant, Colors.black, 0.55)!;

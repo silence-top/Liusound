@@ -14,7 +14,7 @@ import '../server_type.dart';
 /// Synology Audio Station 适配器。
 /// 认证：SYNO.API.Auth → SID（会话 ID）。
 /// API：entry.cgi + SYNO.AudioStation.* 方法调用。
-class AudioStationAdapter implements ServerAdapter {
+class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
   AudioStationAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
@@ -492,6 +492,8 @@ class AudioStationAdapter implements ServerAdapter {
     if (data['success'] != true) throw AuthError('Audio Station 重新登录失败');
     _sid = data['data']?['sid']?.toString() ?? '';
     if (_sid.isEmpty) throw AuthError('Audio Station 重新登录失败：无 SID');
+    // 新 SID 上报持久化，下次冷启动直接可用
+    onSecretsUpdated?.call({'sid': _sid, 'password': _password});
   }
 
   List<dynamic> _dataList(Map<String, dynamic> data) {

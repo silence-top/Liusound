@@ -15,21 +15,28 @@ import '../server_type.dart';
 /// Plex 适配器。
 /// 认证：POST https://plex.tv/users/sign_in.json（Basic Auth）→ X-Plex-Token。
 /// 需发现音乐分区（/library/sections type=music）。
-class PlexAdapter implements ServerAdapter {
+class PlexAdapter with SecretsUpdatable implements ServerAdapter {
   PlexAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
     NetworkSettings networkSettings = const NetworkSettings(),
   }) : _config = config,
+       _username = config.username,
+       _password = secrets['password'] ?? '',
+       _secrets = Map.of(secrets),
        _token = secrets['plexToken'] ?? '',
        _machineId = secrets['machineId'] ?? '',
        _musicSectionKey = secrets['musicSectionKey'] ?? '' {
     _dio.options.baseUrl = config.serverUrl;
     NetworkRuntime.configureDio(_dio, networkSettings);
+    _dio.interceptors.add(_PlexReauthInterceptor(this));
   }
 
   final ServerConfig _config;
-  final String _token;
+  final String _username;
+  final String _password;
+  final Map<String, String> _secrets;
+  String _token;
   final String _machineId;
   final String _musicSectionKey;
   final Dio _dio = Dio(
@@ -38,6 +45,43 @@ class PlexAdapter implements ServerAdapter {
       receiveTimeout: const Duration(seconds: 20),
     ),
   );
+
+  /// 401 静默重登：Basic Auth 换新 X-Plex-Token，更新内存并回调持久化
+  Future<void> reauthenticate() async {
+    if (_username.isEmpty || _password.isEmpty) {
+      throw const AuthError('缺少本地登录凭证，无法静默重新登录');
+    }
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
+    try {
+      final credentials = base64Encode(utf8.encode('$_username:$_password'));
+      final res = await dio.post<Map<String, dynamic>>(
+        'https://plex.tv/users/sign_in.json',
+        options: Options(
+          headers: {
+            'Authorization': 'Basic $credentials',
+            'X-Plex-Client-Identifier': 'liusound-reauth',
+            'X-Plex-Product': 'LiuSound',
+            'X-Plex-Device': 'Flutter',
+          },
+        ),
+      );
+      final token =
+          (res.data?['user'] as Map<String, dynamic>?)?['authToken']
+              ?.toString() ??
+          '';
+      if (token.isEmpty) throw const AuthError('Plex 静默重登失败');
+      _secrets['plexToken'] = token;
+      _token = token;
+      onSecretsUpdated?.call(Map.of(_secrets));
+    } finally {
+      dio.close();
+    }
+  }
 
   @override
   ServerType get type => ServerType.plex;
@@ -677,4 +721,29 @@ class PlexAdapter implements ServerAdapter {
       (j[k] as num?)?.toInt() ?? 0;
   static int? _iOrNull(Map<String, dynamic> j, String k) =>
       (j[k] as num?)?.toInt();
+}
+
+/// 401 → 静默重登一次并重放原请求（token 在 query 参数上，重放前替换）
+class _PlexReauthInterceptor extends QueuedInterceptor {
+  _PlexReauthInterceptor(this._adapter);
+
+  final PlexAdapter _adapter;
+  static const _retriedKey = 'liusoundReauthRetried';
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final opts = err.requestOptions;
+    if (err.response?.statusCode == 401 && opts.extra[_retriedKey] != true) {
+      try {
+        await _adapter.reauthenticate();
+        opts.extra[_retriedKey] = true;
+        opts.queryParameters['X-Plex-Token'] = _adapter._token;
+        final response = await _adapter._dio.fetch<dynamic>(opts);
+        return handler.resolve(response);
+      } catch (_) {
+        // 重登失败：回落到原始 401 错误
+      }
+    }
+    handler.next(err);
+  }
 }

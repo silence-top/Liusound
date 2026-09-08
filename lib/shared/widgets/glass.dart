@@ -354,6 +354,7 @@ class GlassPill extends StatelessWidget {
   const GlassPill({
     super.key,
     required this.child,
+    this.tint,
     this.padding,
     this.margin,
     this.onTap,
@@ -361,6 +362,9 @@ class GlassPill extends StatelessWidget {
   });
 
   final Widget child;
+
+  /// 覆盖默认主题 tint（迷你播放条等传封面取色，与播放页同色系）
+  final Color? tint;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
@@ -371,7 +375,7 @@ class GlassPill extends StatelessWidget {
     final pill = GlassSurface(
       radius: GlassTokens.radiusPill,
       blur: blur,
-      tint: GlassTokens.tint(context),
+      tint: tint ?? GlassTokens.tint(context),
       gradientBorder: true,
       padding: padding,
       margin: margin,

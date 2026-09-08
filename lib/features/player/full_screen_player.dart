@@ -389,8 +389,8 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
         ? null
         : ref.watch(hotSongsProvider(song.artistId));
     final bio = canBio ? ref.watch(artistBioProvider(song.artistId)) : null;
-    // 歌手简介卡片随封面主色取色，与播放页背景同色系
-    final adaptiveTint = albumAdaptiveTint(
+    // 歌手简介卡片随封面主色取色，不透明实色（用户钦定去玻璃）
+    final bioCardColor = albumSolidTint(
       ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
     );
 
@@ -398,7 +398,7 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (canSimilar) _SongSection(title: '相似歌曲', async: similar),
-        if (canBio) _BioSection(async: bio, tint: adaptiveTint),
+        if (canBio) _BioSection(async: bio, color: bioCardColor),
         _SongSection(title: '热门歌曲', async: hot),
       ],
     );
@@ -408,12 +408,12 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
 /// 歌手简介分区：玻璃卡片承载长文本，默认折叠 3 行，可展开全文。
 /// 后端没给简介时整个分区不渲染（§4.1 要求避免空洞的「暂无数据」）。
 class _BioSection extends StatefulWidget {
-  const _BioSection({required this.async, this.tint});
+  const _BioSection({required this.async, this.color});
 
   final AsyncValue<String?>? async;
 
-  /// 封面取色 tint（与播放页背景同色系）；null 时卡片回落主题 tint
-  final Color? tint;
+  /// 封面取色实色底（与播放页弹层同款）；null 时卡片回落主题表面色
+  final Color? color;
 
   @override
   State<_BioSection> createState() => _BioSectionState();
@@ -447,9 +447,12 @@ class _BioSectionState extends State<_BioSection> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(30, 0, 18, 24),
-          child: GlassCard(
-            radius: AppRadius.m,
-            tint: widget.tint,
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: widget.color ?? AppTheme.surfaceOf(context),
+              borderRadius: BorderRadius.circular(AppRadius.m),
+            ),
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.m,
               AppSpacing.m,
@@ -1553,13 +1556,17 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     ref.listen(positionProvider, (_, _) => _scheduleSyncIndex());
     ref.listen(sliderDragValueProvider, (_, _) => _scheduleSyncIndex());
 
-    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色，与整页同色系
+    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色实色底（用户钦定去玻璃）
     final current = ref.watch(currentSongProvider);
-    final adaptiveTint = albumAdaptiveTint(
-      current == null
-          ? null
-          : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull,
-    );
+    final panelColor =
+        albumSolidTint(
+          current == null
+              ? null
+              : ref
+                    .watch(albumDominantColorProvider(current.albumId))
+                    .valueOrNull,
+        ) ??
+        AppTheme.surfaceOf(context);
 
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
@@ -1729,11 +1736,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: GlassSurface(
-                radius: AppRadius.l,
-                blur: GlassTokens.blurMedium,
-                tint: adaptiveTint ?? GlassTokens.tint(context),
-                gradientBorder: true,
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: panelColor,
+                  borderRadius: BorderRadius.circular(AppRadius.l),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1773,11 +1781,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: GlassSurface(
-                radius: AppRadius.l,
-                blur: GlassTokens.blurMedium,
-                tint: adaptiveTint ?? GlassTokens.tint(context),
-                gradientBorder: true,
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: panelColor,
+                  borderRadius: BorderRadius.circular(AppRadius.l),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1815,11 +1824,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
           Positioned(
             right: 18,
             top: MediaQuery.of(context).size.height * 0.18,
-            child: GlassSurface(
-              radius: AppRadius.xl,
-              blur: GlassTokens.blurMedium,
-              tint: adaptiveTint ?? GlassTokens.tint(context),
-              gradientBorder: true,
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: panelColor,
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+              ),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
               child: SizedBox(
                 width: 56,
@@ -1877,11 +1887,12 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               behavior: HitTestBehavior.opaque,
               onTapDown: (d) => _applyVolume(d.localPosition.dx),
               onHorizontalDragUpdate: (d) => _applyVolume(d.localPosition.dx),
-              child: GlassSurface(
-                radius: GlassTokens.radiusPill,
-                blur: GlassTokens.blurMedium,
-                tint: adaptiveTint ?? GlassTokens.tint(context),
-                gradientBorder: true,
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: panelColor,
+                  borderRadius: BorderRadius.circular(GlassTokens.radiusPill),
+                ),
                 child: SizedBox(
                   width: 180,
                   height: 36,

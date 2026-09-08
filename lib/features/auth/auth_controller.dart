@@ -93,14 +93,16 @@ class AuthController extends Notifier<AuthState> {
     );
 
     final servers = [...state.servers, config];
+    // 密码一并入 secrets：token 过期时适配器可静默重登（对齐群晖 SID 重登）
+    final secrets = {...result.secrets, 'password': password};
     await _repo.saveServers(servers);
-    await _repo.saveSecrets(id, result.secrets);
+    await _repo.saveSecrets(id, secrets);
     await _repo.saveActiveId(id);
 
     state = state.copyWith(
       servers: servers,
       activeServerId: id,
-      activeSecrets: result.secrets,
+      activeSecrets: secrets,
       initialized: true,
     );
   }
@@ -134,6 +136,19 @@ class AuthController extends Notifier<AuthState> {
       return await adapter.validateSession();
     } finally {
       adapter.dispose();
+    }
+  }
+
+  /// 静默重登后持久化刷新的凭证。故意不更新内存 state：state 变更会重建
+  /// adapter 并 dispose 掉正在重放请求的旧实例；下次 adapter 重建时从存储读取
+  Future<void> updateStoredSecrets(
+    String id,
+    Map<String, String> secrets,
+  ) async {
+    try {
+      await _repo.saveSecrets(id, secrets);
+    } catch (_) {
+      // 持久化失败静默：本次内存凭证已更新，后续 401 会再次触发重登
     }
   }
 
@@ -173,6 +188,14 @@ final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
   final config = auth.activeConfig;
   if (config == null) return null;
   final adapter = config.type.createAdapter(config, auth.activeSecrets, net);
+  // 静默重登的适配器（Jellyfin/Emby/Plex/群晖）把新凭证回写存储
+  // 类型提升对 mixin 交叉类型不生效，需显式转换才能拿到 onSecretsUpdated
+  final SecretsUpdatable? sink = adapter is SecretsUpdatable
+      ? adapter as SecretsUpdatable
+      : null;
+  sink?.onSecretsUpdated = (fresh) => ref
+      .read(authControllerProvider.notifier)
+      .updateStoredSecrets(config.id, fresh);
   ref.onDispose(adapter.dispose);
   return adapter;
 });

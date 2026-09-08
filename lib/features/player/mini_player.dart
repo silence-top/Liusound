@@ -6,7 +6,7 @@ import '../../core/models/models.dart';
 import '../../core/settings/prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
-import '../../shared/widgets/glass.dart';
+import 'album_tint.dart';
 import 'full_screen_player.dart';
 import 'mini_bar_style.dart';
 import 'player_controller.dart';
@@ -61,17 +61,28 @@ class MiniPlayer extends ConsumerWidget {
       ],
     );
 
+    // 迷你条底色随封面主色（与播放页弹层同款实色，去玻璃、不随主题变脸）
+    final dominant = ref
+        .watch(albumDominantColorProvider(song.albumId))
+        .valueOrNull;
+    final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
+
     final content = switch (barStyle) {
-      MiniBarStyle.glass => GlassPill(
+      MiniBarStyle.glass => Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          // 原「玻璃」样式：实色底 + 轻微提亮，与 solid 拉开层次
+          color: Color.alphaBlend(Colors.white.withValues(alpha: 0.06), base),
+          borderRadius: BorderRadius.circular(999),
+        ),
         child: inner,
       ),
       MiniBarStyle.solid => Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color: AppTheme.surfaceOf(context),
+          color: base,
           borderRadius: BorderRadius.circular(999),
         ),
         child: inner,
@@ -81,10 +92,18 @@ class MiniPlayer extends ConsumerWidget {
         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-              AppTheme.surfaceOf(context),
-            ],
+            colors: dominant == null
+                ? [
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.08),
+                      base,
+                    ),
+                    Color.lerp(base, Colors.black, 0.35)!,
+                  ]
+                : [
+                    Color.lerp(dominant, Colors.black, 0.30)!,
+                    Color.lerp(dominant, Colors.black, 0.60)!,
+                  ],
           ),
           borderRadius: BorderRadius.circular(999),
         ),
