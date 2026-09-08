@@ -249,8 +249,8 @@ class SubsonicAdapter implements ServerAdapter {
   @override
   Future<int> fetchSongCount() async {
     final data = await _api('getAlbumList2', {'type': 'newest', 'size': '1'});
-    final list = data['albumList2']?['album'] as List<dynamic>?;
-    return list?.length ?? 0;
+    // 全库总数在 totalMatches；取 list.length 恒 ≤ size（1），是错的
+    return (data['albumList2']?['totalMatches'] as num?)?.toInt() ?? 0;
   }
 
   // ---------- 搜索 ----------
@@ -529,7 +529,7 @@ class SubsonicAdapter implements ServerAdapter {
   Future<Uint8List?> fetchCoverBytes(String albumId, {int size = 64}) async {
     if (!_auth.isValid || albumId.isEmpty) return null;
     try {
-      final url = Subsonic.coverArtUrl(_auth, albumId);
+      final url = Subsonic.coverArtUrl(_auth, albumId, size: size);
       final resp = await _dio.get<Uint8List>(
         url,
         options: Options(responseType: ResponseType.bytes),

@@ -2,6 +2,14 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P0 修复（五项）
+
+- **Subsonic 歌曲总数算错**：`fetchSongCount` 取 `list.length`（恒 ≤1）→ 改读 `albumList2.totalMatches`，负一屏服务器卡片对 Subsonic 系后端恢复正确总数
+- **下载/封面绕过网络设置**：`downloadSongFile` 新增 `networkSettings` 参数并走 `NetworkRuntime.configureDio`（代理/自签证书/hosts 对下载生效），两个调用方（手动下载/自动下载）传入当前设置；Navidrome `fetchCoverBytes` 从裸 `Dio()` 改用 client dio
+- **Dio 泄漏**：Navidrome `dispose()` 由空实现改为关闭 client dio；`signIn` 登录后关闭临时 client；`downloadSongFile` 下载完成即关闭 dio
+- **Provider 缓存泄漏**：`albumSongsProvider/playlistSongsProvider/playlistCoverIdsProvider` 三个 family 改 autoDispose，长浏览会话不再按 id 无限累积
+- **下载扩展名**：文件名按 `song.suffix` 真实容器命名（flac/m4a 等），无 suffix 回退 mp3；同时修掉 Subsonic/Navidrome `fetchCoverBytes` 忽略 size 参数的问题
+
 ## 2026-09-08 — 播放页弹层试毛玻璃（底色近实色不透底）
 
 - **album_tint 新增 `AlbumFrostedPanel`**：BackdropFilter blur 28 垫底 + alpha 0.90 的封面取色底——毛玻璃质感但背后内容不可辨（只透模糊色斑），白字可读性不受影响；取色失败回退主题表面色

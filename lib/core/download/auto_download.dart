@@ -47,6 +47,7 @@ class AutoDownload {
             source: source,
             song: song,
             serverId: serverId,
+            networkSettings: read(networkSettingsProvider),
           );
         } catch (_) {
           continue; // 单曲失败继续下一首

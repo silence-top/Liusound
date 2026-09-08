@@ -65,42 +65,36 @@ final playlistsProvider = FutureProvider<List<Playlist>>((ref) async {
   return adapter.fetchPlaylists();
 });
 
-/// 专辑内歌曲（详情页按 albumId 异步加载）
-final albumSongsProvider = FutureProvider.family<List<Song>, String>((
-  ref,
-  albumId,
-) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return [];
-  return adapter.fetchAlbumSongs(albumId);
-});
+/// 专辑内歌曲（详情页按 albumId 异步加载）；autoDispose 防止长会话按 id 累积缓存
+final albumSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>, String>((ref, albumId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return [];
+      return adapter.fetchAlbumSongs(albumId);
+    });
 
-/// 歌单内歌曲（详情页按 playlistId 异步加载）
-final playlistSongsProvider = FutureProvider.family<List<Song>, String>((
-  ref,
-  playlistId,
-) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return [];
-  return adapter.fetchPlaylistSongs(playlistId);
-});
+/// 歌单内歌曲（详情页按 playlistId 异步加载）；autoDispose 同上
+final playlistSongsProvider = FutureProvider.autoDispose
+    .family<List<Song>, String>((ref, playlistId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return [];
+      return adapter.fetchPlaylistSongs(playlistId);
+    });
 
-/// 歌单拼贴封面：前 4 首歌的去重专辑 id（资料库歌单行 2×2 封面用）
-final playlistCoverIdsProvider = FutureProvider.family<List<String>, String>((
-  ref,
-  playlistId,
-) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return [];
-  final songs = await adapter.fetchPlaylistSongs(playlistId);
-  final ids = <String>[];
-  for (final s in songs) {
-    if (ids.contains(s.albumId)) continue;
-    ids.add(s.albumId);
-    if (ids.length == 4) break;
-  }
-  return ids;
-});
+/// 歌单拼贴封面：前 4 首歌的去重专辑 id（资料库歌单行 2×2 封面用）；autoDispose 同上
+final playlistCoverIdsProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, playlistId) async {
+      final adapter = ref.watch(serverAdapterProvider);
+      if (adapter == null) return [];
+      final songs = await adapter.fetchPlaylistSongs(playlistId);
+      final ids = <String>[];
+      for (final s in songs) {
+        if (ids.contains(s.albumId)) continue;
+        ids.add(s.albumId);
+        if (ids.length == 4) break;
+      }
+      return ids;
+    });
 
 /// 曲库歌曲总数（负一屏服务器卡片展示）
 final songTotalProvider = FutureProvider<int>((ref) async {
@@ -213,10 +207,10 @@ class LibraryAlbumsController extends AutoDisposeNotifier<AlbumPagedState> {
   Future<void> retry() => _fetch();
 }
 
-final libraryAlbumsPagedProvider = NotifierProvider.autoDispose<
-  LibraryAlbumsController,
-  AlbumPagedState
->(LibraryAlbumsController.new);
+final libraryAlbumsPagedProvider =
+    NotifierProvider.autoDispose<LibraryAlbumsController, AlbumPagedState>(
+      LibraryAlbumsController.new,
+    );
 
 /// 语义约定（P0-04）：null = 后端不支持该能力（入口隐藏）；
 /// 请求失败直接 rethrow（AsyncError，UI 显示失败态，与「不支持」严格区分）。

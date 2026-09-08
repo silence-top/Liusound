@@ -8,6 +8,8 @@ import 'package:sqflite/sqflite.dart';
 
 import '../api/server_adapter.dart';
 import '../models/models.dart';
+import '../network/http_factory.dart';
+import '../settings/streaming_prefs.dart';
 import '../storage/app_db.dart';
 
 /// 歌曲离线下载：通过 adapter.resolveDownload 获取的 PlaybackSource 下载
@@ -21,6 +23,7 @@ Future<String> downloadSongFile({
   required PlaybackSource source,
   required Song song,
   String serverId = '',
+  NetworkSettings networkSettings = const NetworkSettings(),
   void Function(int received, int total)? onProgress,
 }) async {
   final docs = await getApplicationDocumentsDirectory();
@@ -34,14 +37,23 @@ Future<String> downloadSongFile({
       headers: source.headers.isNotEmpty ? source.headers : null,
     ),
   );
+  // 代理/自签证书/hosts 映射对下载同样生效（否则网络设置形同虚设）
+  NetworkRuntime.configureDio(dio, networkSettings);
   final fingerprint = _songFingerprint(song.id);
+  // 按源文件真实容器命名（FLAC/M4A 等），无 suffix 时回退 mp3
+  final suffix = song.suffix?.trim().toLowerCase() ?? '';
+  final ext = suffix.isEmpty ? 'mp3' : suffix;
   final fileName =
-      '${_safeName('${song.artist} - ${song.title}')}--$fingerprint.mp3';
+      '${_safeName('${song.artist} - ${song.title}')}--$fingerprint.$ext';
   final path = '${musicDir.path}${Platform.pathSeparator}$fileName';
   final tmpPath = '$path.tmp';
 
   // 临时文件下载（中途失败保留 .tmp 供续传场景，但最终路径不被认为有效）
-  await dio.download(source.url, tmpPath, onReceiveProgress: onProgress);
+  try {
+    await dio.download(source.url, tmpPath, onReceiveProgress: onProgress);
+  } finally {
+    dio.close();
+  }
 
   // 校验：文件存在且非空，否则视为下载失败
   final tmp = File(tmpPath);

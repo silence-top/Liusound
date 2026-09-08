@@ -63,19 +63,23 @@ class NavidromeAdapter implements ServerAdapter {
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
     final client = NavidromeClient();
-    final result = await client.login(
-      request.serverUrl,
-      request.username,
-      request.password,
-    );
-    return AdapterSession(
-      secrets: {
-        'token': result.token,
-        'subsonicToken': result.subsonicToken,
-        'subsonicSalt': result.subsonicSalt,
-      },
-      displayName: result.username.isNotEmpty ? result.username : null,
-    );
+    try {
+      final result = await client.login(
+        request.serverUrl,
+        request.username,
+        request.password,
+      );
+      return AdapterSession(
+        secrets: {
+          'token': result.token,
+          'subsonicToken': result.subsonicToken,
+          'subsonicSalt': result.subsonicSalt,
+        },
+        displayName: result.username.isNotEmpty ? result.username : null,
+      );
+    } finally {
+      client.dio.close();
+    }
   }
 
   @override
@@ -427,8 +431,8 @@ class NavidromeAdapter implements ServerAdapter {
     final auth = _subsonicAuth;
     if (!auth.isValid || albumId.isEmpty) return null;
     try {
-      final url = Subsonic.coverArtUrl(auth, albumId);
-      final resp = await Dio().get<Uint8List>(
+      final url = Subsonic.coverArtUrl(auth, albumId, size: size);
+      final resp = await _client.dio.get<Uint8List>(
         url,
         options: Options(responseType: ResponseType.bytes),
       );
@@ -451,5 +455,5 @@ class NavidromeAdapter implements ServerAdapter {
   }
 
   @override
-  void dispose() {}
+  void dispose() => _client.dio.close();
 }
