@@ -103,7 +103,7 @@ class GlassSurface extends ConsumerWidget {
                   Colors.white.withValues(alpha: 0.10 * highlight),
                   Colors.white.withValues(alpha: 0),
                 ],
-                stops: const [0.0, 0.45],
+                stops: const [0.0, 0.25],
               ),
             ),
       // 透明 Material：让内部 ListTile/InkWell 的墨水落在自身 Material 上，
@@ -635,22 +635,18 @@ class AmbientBackground extends ConsumerWidget {
     final primary = Theme.of(context).colorScheme.primary;
     return Stack(
       children: [
-        // 液态玻璃独有的折射光源。其他主题绝不复用此舞台。
+        // 液态玻璃独有的折射光源（减淡版：低强度，保留模糊可折物但不抢戏）。
+        // 其他主题绝不复用此舞台。
         if (tokens.language == SurfaceLanguage.liquidGlass) ...[
           Positioned(
             top: -140,
             left: -100,
-            child: _blob(340, primary.withValues(alpha: 0.20)),
-          ),
-          Positioned(
-            top: 80,
-            right: -120,
-            child: _blob(300, primary.withValues(alpha: 0.18)),
+            child: _blob(340, primary.withValues(alpha: 0.10)),
           ),
           Positioned(
             bottom: -80,
             left: 20,
-            child: _blob(300, primary.withValues(alpha: 0.15)),
+            child: _blob(300, primary.withValues(alpha: 0.075)),
           ),
         ],
         // 深空主题采用星图/扫描线，不使用玻璃光斑。
@@ -885,3 +881,4 @@ class _CrtStagePainter extends CustomPainter {
   @override
   bool shouldRepaint(_CrtStagePainter oldDelegate) => oldDelegate.color != color;
 }
+
