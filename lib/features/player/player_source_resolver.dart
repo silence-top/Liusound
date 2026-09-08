@@ -44,6 +44,9 @@ mixin PlayerSourceResolver
     await _saveLongTrackBreakpoint();
     try {
       final source = await adapter.resolveStream(song, quality: hint);
+      // 写音源前先验代数：连点时旧请求晚到会把旧音源覆写到播放器上，
+      // 打断新一轮加载（连点必炸的根源）
+      if (gen != _playGeneration) return;
       await _setStreamSource(source);
       if (gen != _playGeneration) return;
       _ref.read(currentQualityProvider.notifier).state = hint.quality;
@@ -54,6 +57,9 @@ mixin PlayerSourceResolver
       unawaited(_resumeLongTrack(song));
     } catch (e) {
       _debugLog('play(${song.id}) quality=${quality.name} failed: $e');
+      // 本次已是旧代数：新一轮播放正在跑，旧失败必须静默，
+      // 也不能再发起无损回退去和新请求竞争
+      if (gen != _playGeneration) return;
       // 转码流失败（服务端缺转码器/参数不受支持等）自动回退无损原文件；
       // 原文件流也失败才是真正的网络/鉴权问题
       if (!hint.transcode) {
@@ -62,6 +68,7 @@ mixin PlayerSourceResolver
       }
       try {
         final source = await adapter.resolveStream(song);
+        if (gen != _playGeneration) return;
         await _setStreamSource(source);
         if (gen != _playGeneration) return;
         _ref.read(currentQualityProvider.notifier).state =
@@ -117,6 +124,7 @@ mixin PlayerSourceResolver
   Future<void> _playLocal(Song song, String path, int gen) async {
     _ref.read(currentQualityProvider.notifier).state = null;
     await _saveLongTrackBreakpoint();
+    if (gen != _playGeneration) return;
     try {
       await _player.setAudioSource(AudioSource.file(path));
       if (gen != _playGeneration) return;

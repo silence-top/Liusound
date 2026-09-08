@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 修复：连点切歌误报「播放失败，请检查服务器连接」
+
+- **根因一（toast 泄漏）**：`play()` catch 分支的无损直连失败提示缺少代数守卫（同函数另两处提示都有 `gen == _playGeneration` 检查）——连点时旧加载流程被新一轮播放接管而报错，旧代数本该静默作废却照样弹 toast
+- **根因二（音源覆写竞态）**：`_setStreamSource`（向播放器写音源）发生在代数检查之前——旧请求晚完成时会把旧歌音源覆写到播放器上，打断新歌加载；无损回退重试也会为旧代数再跑一次与新请求竞争
+- **修复**：`resolveStream` 返回后、写音源前先验代数；catch 入口旧代数直接静默返回（不再发起回退）；本地播放 `_playLocal` 写音源前同样补验
+
 ## 2026-09-08 — 主题：删高对比无障碍，换封面取色皮肤（albumTint）
 
 - **AppSkin.highContrast 移除，新增 `albumTint('封面取色')`**：全局跟随当前播放歌曲封面主色取色，与播放页同源——组合根 main.dart `select` 只监听 currentSong 的 albumId，复用播放页同一个 `albumDominantColorProvider`（64px 缩样 vibrant/muted/dominant）；旧皮肤存档 `highContrast` 自动回退默认液态玻璃
