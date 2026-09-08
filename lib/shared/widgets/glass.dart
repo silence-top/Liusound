@@ -306,7 +306,7 @@ class _GradientBorderPainter extends CustomPainter {
       oldDelegate.fallback != fallback;
 }
 
-class GlassCard extends StatelessWidget {
+class GlassCard extends ConsumerWidget {
   const GlassCard({
     super.key,
     required this.child,
@@ -327,11 +327,20 @@ class GlassCard extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 自定义图片背景时卡片底色降低不透明度（封顶 0.75），
+    // 让背景图从卡片后面透出来；无图时保持皮肤原 tint
+    final hasImage = ref.watch(
+      backgroundProvider.select((b) => b.path != null),
+    );
+    var effectiveTint = tint ?? GlassTokens.tint(context);
+    if (hasImage && effectiveTint.a > 0.75) {
+      effectiveTint = effectiveTint.withValues(alpha: 0.75);
+    }
     final card = GlassSurface(
       radius: radius,
       blur: 0,
-      tint: tint ?? GlassTokens.tint(context),
+      tint: effectiveTint,
       gradientBorder: true,
       padding: padding,
       margin: margin,

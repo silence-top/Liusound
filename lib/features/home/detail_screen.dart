@@ -263,54 +263,58 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
     // 资料库入口没有固定封面：回退用第一首歌的专辑封面（艺人页传 artistId）
     final coverAlbumId =
         widget.coverAlbumId ?? (all.isEmpty ? null : all.first.albumId);
-    return Scaffold(
-      backgroundColor: AppTheme.detailBgOf(context),
-      bottomNavigationBar: selectMode
-          ? _BatchBar(
-              count: selectedCount,
-              canDownload: canDownload,
-              onPlayNext: () => batchPlayNext(songs),
-              onAddToPlaylist: () => batchAddToPlaylist(songs),
-              onDownload: () => batchDownload(songs),
-            )
-          : const MiniPlayer(),
-      body: _pagedLoader(
-        child: CustomScrollView(
-          slivers: [
-            _detailAppBar(
-              context: context,
-              title: widget.title,
-              selectMode: selectMode,
-              selectedCount: selectedCount,
-              totalCount: songs.length,
-              onToggleSelectMode: toggleSelectMode,
-              onSelectAll: () => toggleSelectAll(songs),
-              filterExpanded: _filterExpanded,
-              onToggleFilter: _toggleFilter,
-              primaryColor: Theme.of(context).colorScheme.primary,
-            ),
-            SliverToBoxAdapter(
-              child: _Header(
+    // 统一背景系统：图片背景最高优先级 + 皮肤舞台（与壳层三页一致），
+    // 不再使用主题联动的固定 detailBgOf 底色
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        bottomNavigationBar: selectMode
+            ? _BatchBar(
+                count: selectedCount,
+                canDownload: canDownload,
+                onPlayNext: () => batchPlayNext(songs),
+                onAddToPlaylist: () => batchAddToPlaylist(songs),
+                onDownload: () => batchDownload(songs),
+              )
+            : const MiniPlayer(),
+        body: _pagedLoader(
+          child: CustomScrollView(
+            slivers: [
+              _detailAppBar(
+                context: context,
                 title: widget.title,
-                subtitle: widget.date ?? subtitle,
-                coverAlbumId: coverAlbumId,
-                rating: canRate ? _rating : null,
-                onRating: canRate ? _rate : null,
+                selectMode: selectMode,
+                selectedCount: selectedCount,
+                totalCount: songs.length,
+                onToggleSelectMode: toggleSelectMode,
+                onSelectAll: () => toggleSelectAll(songs),
+                filterExpanded: _filterExpanded,
+                onToggleFilter: _toggleFilter,
+                primaryColor: Theme.of(context).colorScheme.primary,
               ),
-            ),
-            SliverToBoxAdapter(
-              child: _ListTop(
-                count: songs.length,
-                onPlayAll: () => _playAll(songs),
-                onShuffle: () => _playShuffle(songs),
-                onQueue: () => _enqueue(songs),
-                onChanged: (v) => setState(() => _search = v),
-                controller: _filterController,
-                expanded: _filterExpanded,
+              SliverToBoxAdapter(
+                child: _Header(
+                  title: widget.title,
+                  subtitle: widget.date ?? subtitle,
+                  coverAlbumId: coverAlbumId,
+                  rating: canRate ? _rating : null,
+                  onRating: canRate ? _rate : null,
+                ),
               ),
-            ),
-            ..._listSlivers(paged: paged, async: async, songs: songs),
-          ],
+              SliverToBoxAdapter(
+                child: _ListTop(
+                  count: songs.length,
+                  onPlayAll: () => _playAll(songs),
+                  onShuffle: () => _playShuffle(songs),
+                  onQueue: () => _enqueue(songs),
+                  onChanged: (v) => setState(() => _search = v),
+                  controller: _filterController,
+                  expanded: _filterExpanded,
+                ),
+              ),
+              ..._listSlivers(paged: paged, async: async, songs: songs),
+            ],
+          ),
         ),
       ),
     );
