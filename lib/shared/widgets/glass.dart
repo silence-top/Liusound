@@ -306,6 +306,14 @@ class _GradientBorderPainter extends CustomPainter {
       oldDelegate.fallback != fallback;
 }
 
+/// 自定义图片背景时降低卡片底色不透明度（封顶 0.75），
+/// 让背景图从卡片后面透出来；无图时原样返回。
+Color imageBgAwareTint(WidgetRef ref, Color tint) {
+  final hasImage = ref.watch(backgroundProvider.select((b) => b.path != null));
+  if (hasImage && tint.a > 0.75) return tint.withValues(alpha: 0.75);
+  return tint;
+}
+
 class GlassCard extends ConsumerWidget {
   const GlassCard({
     super.key,
@@ -328,15 +336,10 @@ class GlassCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 自定义图片背景时卡片底色降低不透明度（封顶 0.75），
-    // 让背景图从卡片后面透出来；无图时保持皮肤原 tint
-    final hasImage = ref.watch(
-      backgroundProvider.select((b) => b.path != null),
+    final effectiveTint = imageBgAwareTint(
+      ref,
+      tint ?? GlassTokens.tint(context),
     );
-    var effectiveTint = tint ?? GlassTokens.tint(context);
-    if (hasImage && effectiveTint.a > 0.75) {
-      effectiveTint = effectiveTint.withValues(alpha: 0.75);
-    }
     final card = GlassSurface(
       radius: radius,
       blur: 0,
@@ -406,7 +409,7 @@ class GlassPill extends StatelessWidget {
 /// 容器级液态玻璃浮层：12px 背景模糊 + 1px 受光描边 + 投影，营造浮空层叠感。
 /// 性能红线：仅用于非滚动 chrome 或单卡（导航栏 / 服务器卡 / 分组外框），
 /// 列表滚动项一律用 blur 为 0 的 [GlassCard]，禁止逐行挂 BackdropFilter。
-class GlassContainer extends StatelessWidget {
+class GlassContainer extends ConsumerWidget {
   const GlassContainer({
     super.key,
     required this.child,
@@ -425,11 +428,11 @@ class GlassContainer extends StatelessWidget {
   final double blur;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final container = GlassSurface(
       radius: radius,
       blur: blur,
-      tint: GlassTokens.tint(context),
+      tint: imageBgAwareTint(ref, GlassTokens.tint(context)),
       gradientBorder: true,
       padding: padding,
       margin: margin,
