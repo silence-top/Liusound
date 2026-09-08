@@ -230,7 +230,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                     '定时停止',
                     () => showSleepTimerPicker(
                       context,
-                      tint: albumAdaptiveTint(dominant),
+                      tint: albumFrostedTint(dominant),
                     ),
                   ),
                   _circleItem(
@@ -238,7 +238,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                     '播放速度',
                     () => showSpeedPicker(
                       context,
-                      tint: albumAdaptiveTint(dominant),
+                      tint: albumFrostedTint(dominant),
                     ),
                   ),
                 ],

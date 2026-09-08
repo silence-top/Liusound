@@ -46,6 +46,13 @@ Color? albumAdaptiveTint(Color? dominant) => dominant == null
 Color? albumSolidTint(Color? dominant) =>
     dominant == null ? null : Color.lerp(dominant, Colors.black, 0.55)!;
 
+/// glassBottomSheet 用近实色取色 tint（定时停止/播放速度选择器）：
+/// 同 albumSolidTint 公式但 alpha 0.90——GlassSurface 自带毛玻璃模糊，
+/// 底色近实色后透出的只是模糊色斑，与播放页毛玻璃面板同一观感。
+Color? albumFrostedTint(Color? dominant) => dominant == null
+    ? null
+    : Color.lerp(dominant, Colors.black, 0.55)!.withValues(alpha: 0.90);
+
 /// 播放页弹层毛玻璃面板（用户要求：试毛玻璃但不要透明）：
 /// 高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是模糊色斑，
 /// 背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色。
