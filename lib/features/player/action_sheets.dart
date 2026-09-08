@@ -98,19 +98,11 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
     final caps = ref.watch(serverAdapterProvider)?.capabilities;
     final canRate = caps?.ratings ?? false;
     final canDownload = caps?.download ?? true;
-    // 弹层底色随封面主色（内容驱动取色）：不透明实色（用户钦定去玻璃）
-    final panelColor =
-        albumSolidTint(
-          ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
-        ) ??
-        AppTheme.surfaceOf(context);
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: panelColor,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(GlassTokens.radiusSheet),
-        ),
+    // 弹层底色随封面主色（内容驱动取色）：毛玻璃但底色近实色（不要透明）
+    return AlbumFrostedPanel(
+      dominant: ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(GlassTokens.radiusSheet),
       ),
       padding: EdgeInsets.only(
         top: 12,
@@ -731,23 +723,15 @@ class _PlaylistPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlists = ref.watch(playlistsProvider);
-    // 弹层底色随封面主色（内容驱动取色）：批量时取第一首的专辑；不透明实色
-    final panelColor =
-        albumSolidTint(
-          songs.isEmpty
-              ? null
-              : ref
-                    .watch(albumDominantColorProvider(songs.first.albumId))
-                    .valueOrNull,
-        ) ??
-        AppTheme.surfaceOf(context);
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: panelColor,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(GlassTokens.radiusSheet),
-        ),
+    // 弹层底色随封面主色（内容驱动取色）：批量时取第一首的专辑；毛玻璃不透底
+    return AlbumFrostedPanel(
+      dominant: songs.isEmpty
+          ? null
+          : ref
+                .watch(albumDominantColorProvider(songs.first.albumId))
+                .valueOrNull,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(GlassTokens.radiusSheet),
       ),
       padding: EdgeInsets.only(
         top: 12,

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -68,15 +70,25 @@ class MiniPlayer extends ConsumerWidget {
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
 
     final content = switch (barStyle) {
-      MiniBarStyle.glass => Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-        padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          // 原「玻璃」样式：实色底 + 轻微提亮，与 solid 拉开层次
-          color: Color.alphaBlend(Colors.white.withValues(alpha: 0.06), base),
+      // 原「玻璃」样式：毛玻璃（模糊垫底）但底色 alpha 0.90 近实色，不透底
+      MiniBarStyle.glass => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(999),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+            child: Container(
+              padding: const EdgeInsets.only(
+                left: 8,
+                right: 16,
+                top: 8,
+                bottom: 8,
+              ),
+              color: base.withValues(alpha: 0.90),
+              child: inner,
+            ),
+          ),
         ),
-        child: inner,
       ),
       MiniBarStyle.solid => Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),

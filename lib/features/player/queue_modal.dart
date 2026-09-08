@@ -46,16 +46,10 @@ class _QueueSheet extends ConsumerWidget {
     // 流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住
     final playing = ref.watch(isPlayingProvider).value ?? true;
     // 弹层面板底色随当前歌曲封面主色（内容驱动取色）：与播放页同色系，
-    // 不透明实色（用户钦定去玻璃：不要毛玻璃/透明玻璃）
-    final panelColor =
-        albumSolidTint(
-          current == null
-              ? null
-              : ref
-                    .watch(albumDominantColorProvider(current.albumId))
-                    .valueOrNull,
-        ) ??
-        AppTheme.surfaceOf(context);
+    // 毛玻璃但底色近实色（用户要求：试毛玻璃但不要透明）
+    final panelDominant = current == null
+        ? null
+        : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull;
     final modeIcon = switch (mode) {
       PlayMode.order => Icons.repeat,
       PlayMode.shuffle => Icons.shuffle,
@@ -67,13 +61,10 @@ class _QueueSheet extends ConsumerWidget {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.6,
       ),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: panelColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(GlassTokens.radiusSheet),
-          ),
+      child: AlbumFrostedPanel(
+        dominant: panelDominant,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(GlassTokens.radiusSheet),
         ),
         // 弹层底部锚定，不会顶到状态栏，顶部只需给拖动条留白
         padding: EdgeInsets.only(

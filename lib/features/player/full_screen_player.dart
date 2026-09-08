@@ -389,16 +389,16 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
         ? null
         : ref.watch(hotSongsProvider(song.artistId));
     final bio = canBio ? ref.watch(artistBioProvider(song.artistId)) : null;
-    // 歌手简介卡片随封面主色取色，不透明实色（用户钦定去玻璃）
-    final bioCardColor = albumSolidTint(
-      ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull,
-    );
+    // 歌手简介卡片随封面主色毛玻璃底（底色近实色不透底）
+    final bioDominant = ref
+        .watch(albumDominantColorProvider(song.albumId))
+        .valueOrNull;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (canSimilar) _SongSection(title: '相似歌曲', async: similar),
-        if (canBio) _BioSection(async: bio, color: bioCardColor),
+        if (canBio) _BioSection(async: bio, dominant: bioDominant),
         _SongSection(title: '热门歌曲', async: hot),
       ],
     );
@@ -408,12 +408,12 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
 /// 歌手简介分区：玻璃卡片承载长文本，默认折叠 3 行，可展开全文。
 /// 后端没给简介时整个分区不渲染（§4.1 要求避免空洞的「暂无数据」）。
 class _BioSection extends StatefulWidget {
-  const _BioSection({required this.async, this.color});
+  const _BioSection({required this.async, this.dominant});
 
   final AsyncValue<String?>? async;
 
-  /// 封面取色实色底（与播放页弹层同款）；null 时卡片回落主题表面色
-  final Color? color;
+  /// 封面主色（毛玻璃底，与播放页弹层同款）；null 时回落主题表面色
+  final Color? dominant;
 
   @override
   State<_BioSection> createState() => _BioSectionState();
@@ -447,12 +447,9 @@ class _BioSectionState extends State<_BioSection> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(30, 0, 18, 24),
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: widget.color ?? AppTheme.surfaceOf(context),
-              borderRadius: BorderRadius.circular(AppRadius.m),
-            ),
+          child: AlbumFrostedPanel(
+            dominant: widget.dominant,
+            borderRadius: BorderRadius.circular(AppRadius.m),
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.m,
               AppSpacing.m,
@@ -1556,17 +1553,11 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     ref.listen(positionProvider, (_, _) => _scheduleSyncIndex());
     ref.listen(sliderDragValueProvider, (_, _) => _scheduleSyncIndex());
 
-    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色实色底（用户钦定去玻璃）
+    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色毛玻璃底（底色近实色不透底）
     final current = ref.watch(currentSongProvider);
-    final panelColor =
-        albumSolidTint(
-          current == null
-              ? null
-              : ref
-                    .watch(albumDominantColorProvider(current.albumId))
-                    .valueOrNull,
-        ) ??
-        AppTheme.surfaceOf(context);
+    final panelDominant = current == null
+        ? null
+        : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull;
 
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {
@@ -1736,12 +1727,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: panelColor,
-                  borderRadius: BorderRadius.circular(AppRadius.l),
-                ),
+              child: AlbumFrostedPanel(
+                dominant: panelDominant,
+                borderRadius: BorderRadius.circular(AppRadius.l),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1781,12 +1769,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             bottom: 58,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: panelColor,
-                  borderRadius: BorderRadius.circular(AppRadius.l),
-                ),
+              child: AlbumFrostedPanel(
+                dominant: panelDominant,
+                borderRadius: BorderRadius.circular(AppRadius.l),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1824,12 +1809,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
           Positioned(
             right: 18,
             top: MediaQuery.of(context).size.height * 0.18,
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: panelColor,
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-              ),
+            child: AlbumFrostedPanel(
+              dominant: panelDominant,
+              borderRadius: BorderRadius.circular(AppRadius.xl),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
               child: SizedBox(
                 width: 56,
@@ -1887,12 +1869,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
               behavior: HitTestBehavior.opaque,
               onTapDown: (d) => _applyVolume(d.localPosition.dx),
               onHorizontalDragUpdate: (d) => _applyVolume(d.localPosition.dx),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: panelColor,
-                  borderRadius: BorderRadius.circular(GlassTokens.radiusPill),
-                ),
+              child: AlbumFrostedPanel(
+                dominant: panelDominant,
+                borderRadius: BorderRadius.circular(GlassTokens.radiusPill),
                 child: SizedBox(
                   width: 180,
                   height: 36,

@@ -1,8 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../core/api/server_adapter.dart';
+import '../../core/theme/app_theme.dart';
 import '../auth/auth_controller.dart';
 
 /// 专辑封面主色取色（动态背景，对标 Spotify 沉浸式播放页）。
@@ -42,3 +45,37 @@ Color? albumAdaptiveTint(Color? dominant) => dominant == null
 /// 保证白字可读，彻底去掉毛玻璃/透明感；取色失败返回 null（回退主题表面色）。
 Color? albumSolidTint(Color? dominant) =>
     dominant == null ? null : Color.lerp(dominant, Colors.black, 0.55)!;
+
+/// 播放页弹层毛玻璃面板（用户要求：试毛玻璃但不要透明）：
+/// 高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是模糊色斑，
+/// 背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色
+class AlbumFrostedPanel extends StatelessWidget {
+  const AlbumFrostedPanel({
+    super.key,
+    required this.dominant,
+    required this.borderRadius,
+    this.padding,
+    required this.child,
+  });
+
+  final Color? dominant;
+  final BorderRadius borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Container(
+          color: base.withValues(alpha: 0.90),
+          padding: padding,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
