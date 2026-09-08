@@ -169,14 +169,11 @@ class GlassSurface extends ConsumerWidget {
     final effectiveRadius = BorderRadius.circular(
       radius == GlassTokens.radiusPill ? radius : radius * tokens.radiusScale,
     );
-    // 全贴边面（radius 0，如播放页底部控制区/详情页底部操作条）不画描边——
-    // 描边的上边缘会在内容区与控制区之间形成一条横线
-    final showBorder = radius != 0;
     final decoration = switch (tokens.language) {
       SurfaceLanguage.deepSpace => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
             ? [BoxShadow(color: tokens.glow, blurRadius: 18, spreadRadius: -5)]
             : null,
@@ -184,17 +181,17 @@ class GlassSurface extends ConsumerWidget {
       SurfaceLanguage.minimal => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.divider) : null,
+        border: Border.all(color: tokens.divider),
       ),
       SurfaceLanguage.materialYou => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.sunset => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
             ? [BoxShadow(color: tokens.glow, blurRadius: 18, spreadRadius: -6)]
             : null,
@@ -202,12 +199,12 @@ class GlassSurface extends ConsumerWidget {
       SurfaceLanguage.forest => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.terminal => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
             ? [BoxShadow(color: tokens.glow, blurRadius: 10, spreadRadius: -4)]
             : null,
@@ -215,7 +212,7 @@ class GlassSurface extends ConsumerWidget {
       SurfaceLanguage.albumTint => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: showBorder ? Border.all(color: tokens.borderHairline) : null,
+        border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.liquidGlass => throw StateError('Handled above'),
     };

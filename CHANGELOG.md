@@ -2,9 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
-## 2026-09-08 — 修复：播放页内容区与控制区之间的横线
+## 2026-09-08 — 修复：播放页内容区与控制区之间的横线（播放页材质与皮肤解耦）
 
-- 真机反馈播放页控制区上沿有一条线：非液态玻璃皮肤的 `GlassSurface` 非玻璃面（`_buildNonGlassSurface`）一律画 `borderHairline` 描边（极简为 `divider`），播放页底部控制区是全贴边 radius 0 的面，描边上边缘就成了横线；改为全贴边面（radius 0）不画描边，有圆角的悬浮面照旧——歌曲详情页底部操作条同规则受益
+- 真机反馈播放页控制区上沿有一条线：非液态玻璃皮肤的 `GlassSurface` 非玻璃面画 hairline 描边，播放页底部控制区是全贴边 radius 0 的面，描边上边缘就成了横线——根因是播放页还在走皮肤分支，违背「播放页不与主题关联」原则
+- **最终方案（用户指正后）**：底部控制区弃用 `GlassSurface`，改为固定的 ClipRect + BackdropFilter(blur28) + 封面取色 tint（`albumAdaptiveTint`，取色失败回退黑色 0.55）——任何皮肤下同一观感；回退上一版在 `GlassSurface` 全局加的 radius-0 免描边规则，非玻璃皮肤描边逻辑恢复原状（详情页底部操作条等非播放页面不受影响）
 
 ## 2026-09-08 — 修复：图片背景只在顶部生效（三页嵌套 Scaffold 不透明底遮挡）
 

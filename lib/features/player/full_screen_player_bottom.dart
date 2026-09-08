@@ -34,79 +34,92 @@ class _BottomArea extends ConsumerWidget {
     final tint = song == null
         ? null
         : ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull;
-    final barTint = albumAdaptiveTint(tint);
+    final barTint =
+        albumAdaptiveTint(tint) ?? Colors.black.withValues(alpha: 0.55);
 
-    return GlassSurface(
-      radius: 0,
-      blur: GlassTokens.blurHeavy,
-      gradientBorder: false,
-      shadow: false,
-      tint: barTint,
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(28, 8, 12, 8),
-            child: Row(
+    // 播放页材质与皮肤解耦（钦定：播放页不与主题关联）：不用 GlassSurface
+    // （非玻璃皮肤会换成表面色 + hairline 描边，控制区上沿出现一条横线），
+    // 固定毛玻璃 + 封面取色 tint，任何皮肤下同一观感
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(
+          sigmaX: GlassTokens.blurHeavy,
+          sigmaY: GlassTokens.blurHeavy,
+        ),
+        child: Container(
+          color: barTint,
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 8, 12, 8),
+                  child: Row(
                     children: [
-                      Text(
-                        song?.title ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              song?.title ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              song != null
+                                  ? '${song.artist} - ${song.album}'
+                                  : '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.white38,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        song != null ? '${song.artist} - ${song.album}' : '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white38,
+                      IconButton(
+                        icon: Icon(
+                          (song?.starred ?? false)
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: 22,
+                          color: (song?.starred ?? false)
+                              ? const Color(0xFFE57373)
+                              : Colors.white,
                         ),
+                        onPressed: song == null
+                            ? null
+                            : () => _toggleStar(context, ref, song),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          size: 22,
+                          color: Colors.white,
+                        ),
+                        onPressed: song == null
+                            ? null
+                            : () => showSongActionSheet(context, song),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    (song?.starred ?? false)
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    size: 22,
-                    color: (song?.starred ?? false)
-                        ? const Color(0xFFE57373)
-                        : Colors.white,
-                  ),
-                  onPressed: song == null
-                      ? null
-                      : () => _toggleStar(context, ref, song),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    size: 22,
-                    color: Colors.white,
-                  ),
-                  onPressed: song == null
-                      ? null
-                      : () => showSongActionSheet(context, song),
-                ),
+                const _ProgressSlider(),
+                const _ControlsRow(),
               ],
             ),
           ),
-          const _ProgressSlider(),
-          const _ControlsRow(),
-        ],
+        ),
       ),
     );
   }
