@@ -60,7 +60,8 @@ class GlassSurface extends ConsumerWidget {
     ref.watch(powerSaveProvider);
     // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer；
     // 极简/高对比皮肤整体关闭模糊
-    final useBlur = shouldUseBlur(context) && blur > 0 && tokens.blurEnabled;
+    final blurRequested = blur > 0 && tokens.blurEnabled;
+    final useBlur = shouldUseBlur(context) && blurRequested;
     final blurScale = glassBlurScale(context) * tokens.blurScale;
     // 内容透色：默认 tint 混入主题色，玻璃随 accent 带微弱色感
     final accent = Theme.of(context).colorScheme.primary;
@@ -80,13 +81,18 @@ class GlassSurface extends ConsumerWidget {
       );
     }
 
+    // 本来要挂模糊但档位关闭/省电降级时，0.30 左右的玻璃 tint 会直接透底——
+    // 把 tint 叠到皮肤实色 surface 上补成近实色；blur<=0 的纯 tint 卡片
+    // （GlassCard 等）维持原有 lerp 变暗路径，不受档位影响
+    final degradedColor = blurRequested
+        ? Color.alphaBlend(effectiveTint, tokens.surface)
+        : Color.lerp(effectiveTint, Colors.black, 0.15)!;
+
     // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
     Widget tinted(Widget child) => Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: useBlur
-            ? effectiveTint
-            : Color.lerp(effectiveTint, Colors.black, 0.15)!,
+        color: useBlur ? effectiveTint : degradedColor,
         borderRadius: borderRadius,
         border: borderColor == null
             ? null
