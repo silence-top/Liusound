@@ -96,7 +96,7 @@ class _AppShellState extends State<AppShell> {
                         size: 24,
                         color: _index == i
                             ? Theme.of(context).colorScheme.primary
-                            : Colors.white54,
+                            : AppTheme.textDimOf(context),
                       ),
                       const SizedBox(height: 4),
                       // 下划线指示条：激活项展开，未激活收起

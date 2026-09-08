@@ -95,7 +95,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       onChanged: _onChanged,
                       autocorrect: false,
                       textInputAction: TextInputAction.search,
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryOf(context),
+                        fontSize: 16,
+                      ),
                       decoration: InputDecoration(
                         hintText: '搜索音乐、专辑、艺人',
                         hintStyle: TextStyle(
@@ -151,7 +154,12 @@ class _Results extends ConsumerWidget {
           skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: Colors.white38)),
+            child: Builder(
+              builder: (context) => Text(
+                '$e',
+                style: TextStyle(color: AppTheme.textFaintOf(context)),
+              ),
+            ),
           ),
           data: (results) {
             if (query.trim().isEmpty) return const SizedBox.shrink();
@@ -349,8 +357,8 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: AppTheme.textPrimaryOf(context),
           fontSize: 19,
           fontWeight: FontWeight.bold,
         ),
@@ -391,7 +399,10 @@ class _ArtistRow extends StatelessWidget {
                     artist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -447,7 +458,10 @@ class _AlbumRowCard extends StatelessWidget {
                     album.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(

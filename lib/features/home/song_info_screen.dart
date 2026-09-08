@@ -30,7 +30,7 @@ class SongInfoScreen extends StatelessWidget {
             pinned: true,
             toolbarHeight: 56,
             backgroundColor: Colors.transparent,
-            foregroundColor: Colors.white,
+            foregroundColor: AppTheme.textPrimaryOf(context),
             title: const Text('歌曲详情'),
           ),
           SliverToBoxAdapter(
@@ -40,7 +40,7 @@ class SongInfoScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _section(context, '基础', [
-                    _row('标题', song.title),
+                    _row(context, '标题', song.title),
                     _navRow(
                       context,
                       '专辑',
@@ -49,7 +49,7 @@ class SongInfoScreen extends StatelessWidget {
                           ? null
                           : () => _openAlbum(context),
                     ),
-                    _row('专辑艺术家', song.albumArtist ?? song.artist),
+                    _row(context, '专辑艺术家', song.albumArtist ?? song.artist),
                     _navRow(
                       context,
                       '歌手',
@@ -64,34 +64,36 @@ class SongInfoScreen extends StatelessWidget {
                       _hasLyrics ? '查看歌词' : '暂无歌词',
                       onTap: _hasLyrics ? () => _showLyrics(context) : null,
                     ),
-                    _row('年代', _num(song.year)),
-                    _row('碟号', _num(song.discNumber)),
-                    _row('音轨号', _num(song.trackNumber)),
+                    _row(context, '年代', _num(song.year)),
+                    _row(context, '碟号', _num(song.discNumber)),
+                    _row(context, '音轨号', _num(song.trackNumber)),
                   ]),
                   _section(context, '扩展', [
-                    _row('文件路径', song.path ?? '—', wide: true),
+                    _row(context, '文件路径', song.path ?? '—', wide: true),
                     _row(
+                      context,
                       '文件大小',
                       song.size > 0
                           ? '${(song.size / 1024 / 1024).toStringAsFixed(2)} MB'
                           : '—',
                     ),
-                    _row('文件格式', song.suffix ?? '—'),
-                    _row('时长', _fmtDuration(song.duration)),
+                    _row(context, '文件格式', song.suffix ?? '—'),
+                    _row(context, '时长', _fmtDuration(song.duration)),
                     _row(
+                      context,
                       '比特率',
                       song.bitRate != null ? '${song.bitRate} kbps' : '—',
                     ),
-                    _row('播放次数', '${song.playCount}'),
-                    _row('上次播放时间', _fmtIso(song.lastPlayed) ?? '—'),
-                    _row('创建时间', _fmtIso(song.created) ?? '—'),
+                    _row(context, '播放次数', '${song.playCount}'),
+                    _row(context, '上次播放时间', _fmtIso(song.lastPlayed) ?? '—'),
+                    _row(context, '创建时间', _fmtIso(song.created) ?? '—'),
                   ]),
                   if (rg != null)
                     _section(context, '回放增益', [
-                      _row('专辑回放增益', _db(rg.albumGain)),
-                      _row('专辑峰值振幅', _plain(rg.albumPeak)),
-                      _row('音轨回放增益', _db(rg.trackGain)),
-                      _row('音轨峰值振幅', _plain(rg.trackPeak)),
+                      _row(context, '专辑回放增益', _db(rg.albumGain)),
+                      _row(context, '专辑峰值振幅', _plain(rg.albumPeak)),
+                      _row(context, '音轨回放增益', _db(rg.trackGain)),
+                      _row(context, '音轨峰值振幅', _plain(rg.trackPeak)),
                     ]),
                 ],
               ),
@@ -141,8 +143,8 @@ class SongInfoScreen extends StatelessWidget {
         child: SingleChildScrollView(
           child: Text(
             text,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppTheme.textPrimaryOf(context),
               fontSize: 15,
               height: 1.7,
             ),
@@ -166,7 +168,10 @@ class SongInfoScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 16, 0, 10),
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textDimOf(context),
+                fontSize: 14,
+              ),
             ),
           ),
           GlassCard(
@@ -180,7 +185,12 @@ class SongInfoScreen extends StatelessWidget {
         ],
       );
 
-  Widget _row(String label, String value, {bool wide = false}) {
+  Widget _row(
+    BuildContext context,
+    String label,
+    String value, {
+    bool wide = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -188,7 +198,7 @@ class SongInfoScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 15),
+            style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 15),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -197,7 +207,10 @@ class SongInfoScreen extends StatelessWidget {
               maxLines: wide ? 3 : 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.end,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 15,
+              ),
             ),
           ),
         ],
@@ -212,7 +225,7 @@ class SongInfoScreen extends StatelessWidget {
     String value, {
     VoidCallback? onTap,
   }) {
-    if (onTap == null) return _row(label, value);
+    if (onTap == null) return _row(context, label, value);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.s),
@@ -222,7 +235,10 @@ class SongInfoScreen extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 15),
+              style: TextStyle(
+                color: AppTheme.textDimOf(context),
+                fontSize: 15,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -231,11 +247,18 @@ class SongInfoScreen extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
+                  fontSize: 15,
+                ),
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, size: 20, color: Colors.white38),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppTheme.textFaintOf(context),
+            ),
           ],
         ),
       ),

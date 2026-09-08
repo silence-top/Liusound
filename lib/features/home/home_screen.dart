@@ -112,8 +112,8 @@ class _Section extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryOf(context),
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
@@ -231,8 +231,8 @@ class _AlbumCard extends StatelessWidget {
               MarqueeText(
                 album.name,
                 maxLines: 2,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -240,7 +240,10 @@ class _AlbumCard extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               MarqueeText(
                 album.artist,
-                style: const TextStyle(color: Color(0xFF666666), fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -375,8 +378,8 @@ class _SongCardRow extends ConsumerWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -386,8 +389,8 @@ class _SongCardRow extends ConsumerWidget {
                     '${song.artist} - ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFB0B0B0),
+                    style: TextStyle(
+                      color: AppTheme.textDimOf(context),
                       fontSize: 14,
                     ),
                   ),
@@ -400,10 +403,10 @@ class _SongCardRow extends ConsumerWidget {
               onPressed: () => _play(context, ref),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              icon: const Icon(
+              icon: Icon(
                 Icons.play_circle_outline,
                 size: 34,
-                color: Colors.white,
+                color: AppTheme.textPrimaryOf(context),
               ),
             ),
           ],

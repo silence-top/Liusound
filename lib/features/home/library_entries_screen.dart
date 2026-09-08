@@ -299,14 +299,17 @@ class _ArtistRow extends StatelessWidget {
                     artist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 15,
+                    ),
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: Colors.white38,
+                      style: TextStyle(
+                        color: AppTheme.textFaintOf(context),
                         fontSize: 12,
                       ),
                     ),
@@ -352,8 +355,8 @@ class _LetterIndexBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 0.5),
                 child: Text(
                   letters[i],
-                  style: const TextStyle(
-                    color: Colors.white60,
+                  style: TextStyle(
+                    color: AppTheme.textDimOf(context),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -505,7 +508,10 @@ class RadioPage extends ConsumerWidget {
               s.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 15,
+              ),
             ),
             subtitle: s.homePageUrl == null
                 ? null
@@ -513,7 +519,10 @@ class RadioPage extends ConsumerWidget {
                     s.homePageUrl!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textFaintOf(context),
+                      fontSize: 12,
+                    ),
                   ),
           );
         },

@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-D：颜色 token 清扫（常规页面）
+
+- **五文件白阶归零**：home_screen（分区标题/专辑卡/最近歌曲行的 `Colors.white*` 与 `0xFF666666`/`0xFFB0B0B0`）、song_info（全页 8 处，`_row` 补传 context）、search_screen（输入框/分区标题/艺人专辑行/错误文案）、app_shell（底栏未激活图标）、library_entries（歌手行/字母索引条/电台列表）——统一映射 white→textPrimaryOf、white54/60→textDimOf、white38/45→textFaintOf
+- **保留的白**：流派瓷贴文字压在彩色块上（色块前景语义）；播放页四文件与 glass.dart/theme 层按既定豁免不动
+- **fontSize 令牌未动**：目前无字号令牌体系（仅 TextTheme 静态样式），新增令牌属设计决策，需单独定方案后另行批次；审计所列 219 处维持现状
+
 ## 2026-09-08 — 全库审计 P2-C：主 isolate 同步 IO 治理
 
 - **AudioCache LRU 清理去同步 stat**（cache_manager.dart）：sizeBytes/enforceLimit 的 `lengthSync` 改 `await length()`；enforceLimit 排序所需的 mtime 在遍历时异步收集为 `(file, size, mtime)` 三元组，不再排序前逐个 `lastModifiedSync`
