@@ -50,6 +50,42 @@ final glassQualityProvider =
       GlassQualityController.new,
     );
 
+/// 玻璃面透明度系数（0.2–1.0）：1.0 = 跟随皮肤原值（默认）。
+/// 与 [GlassLevel] 解耦——档位只管模糊强度，透明度全局所有皮肤生效，
+/// 作用于玻璃 tint 与非玻璃皮肤的面板底色。
+class GlassTintOpacityController extends Notifier<double> {
+  static const _key = 'glass_tint_opacity';
+  static const min = 0.2;
+
+  @override
+  double build() {
+    final prefs = ref.watch(sharedPrefsProvider);
+    final saved = prefs.getDouble(_key);
+    if (saved == null) return 1.0;
+    return saved.clamp(min, 1.0);
+  }
+
+  /// 拖动中只更新内存态（设置页实时预览），松手 [commit] 才落盘
+  void preview(double value) => state = value.clamp(min, 1.0);
+
+  Future<void> commit() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_key, state);
+  }
+}
+
+final glassTintOpacityProvider =
+    NotifierProvider<GlassTintOpacityController, double>(
+      GlassTintOpacityController.new,
+    );
+
+/// 把用户透明度系数作用到表面色（f=1.0 原样返回）
+Color withGlassTintOpacity(WidgetRef ref, Color color) {
+  final f = ref.watch(glassTintOpacityProvider);
+  if (f >= 1.0) return color;
+  return color.withValues(alpha: (color.a * f).clamp(0.0, 1.0));
+}
+
 bool shouldUseBlur(BuildContext context) {
   final powerSave = ProviderScope.containerOf(context).read(powerSaveProvider);
   if (powerSave) return false;

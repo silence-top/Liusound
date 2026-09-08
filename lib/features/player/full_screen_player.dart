@@ -19,7 +19,6 @@ import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
-import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import 'action_sheets.dart';
 import 'album_tint.dart';

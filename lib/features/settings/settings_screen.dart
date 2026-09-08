@@ -23,7 +23,6 @@ import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../shared/widgets/glass.dart';
-import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/cover_style.dart';
@@ -58,6 +57,7 @@ class SettingsScreen extends ConsumerWidget {
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
     final glassLevel = ref.watch(glassQualityProvider);
+    final tintOpacity = ref.watch(glassTintOpacityProvider);
     final coverStyle = ref.watch(coverStyleProvider);
     final accent = ref.watch(appAccentProvider);
     final skin = ref.watch(appSkinProvider);
@@ -272,6 +272,14 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => _showGlassLevelPicker(context, ref),
                 ),
               ],
+              // 透明度与档位解耦：档位只管模糊，透明度全皮肤可调
+              _divider,
+              _ActionTile(
+                icon: Icons.opacity_outlined,
+                title: '玻璃透明度',
+                subtitle: '${(tintOpacity * 100).round()}%',
+                onTap: () => _showGlassOpacitySheet(context, ref),
+              ),
               _divider,
               _ActionTile(
                 icon: coverStyle.icon,

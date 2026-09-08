@@ -988,7 +988,10 @@ class ListSearchBar extends ConsumerWidget {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
+                color: withGlassTintOpacity(
+                  ref,
+                  imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(

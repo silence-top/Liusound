@@ -12,6 +12,7 @@ import '../../core/theme/settings_prefs.dart';
 import 'glass_quality.dart';
 
 export '../../core/theme/glass_theme.dart';
+export 'glass_quality.dart';
 
 /// ── 主题组件命名契约 ─────────────────────────────────────────
 /// 页面层只消费语义组件，不直接判断皮肤枚举或手写颜色；
@@ -58,6 +59,7 @@ class GlassSurface extends ConsumerWidget {
     // 让全局视觉设置成为响应式依赖，已保活页面和底部导航会同步刷新。
     ref.watch(glassQualityProvider);
     ref.watch(powerSaveProvider);
+    final tintOpacity = ref.watch(glassTintOpacityProvider);
     // blur<=0（列表卡片纯 tint 提质）不挂 BackdropFilter，避免无谓的 saveLayer；
     // 极简/高对比皮肤整体关闭模糊
     final blurRequested = blur > 0 && tokens.blurEnabled;
@@ -77,22 +79,37 @@ class GlassSurface extends ConsumerWidget {
 
     if (tokens.language != SurfaceLanguage.liquidGlass) {
       return RepaintBoundary(
-        child: _buildNonGlassSurface(context, tokens: tokens),
+        child: _buildNonGlassSurface(
+          context,
+          tokens: tokens,
+          tintOpacity: tintOpacity,
+        ),
       );
     }
 
     // 本来要挂模糊但档位关闭/省电降级时，0.30 左右的玻璃 tint 会直接透底——
-    // 把 tint 叠到皮肤实色 surface 上补成近实色；blur<=0 的纯 tint 卡片
-    // （GlassCard 等）维持原有 lerp 变暗路径，不受档位影响
+    // 把 tint 叠到皮肤实色 surface 上补成近实色（系数 1.0 时不透明，
+    // 用户调低透明度则按比例透出）；blur<=0 的纯 tint 卡片（GlassCard 等）
+    // 维持原有 lerp 变暗路径，不受档位影响。三条路径都乘用户透明度系数
+    final cardTint = Color.lerp(effectiveTint, Colors.black, 0.15)!;
     final degradedColor = blurRequested
-        ? Color.alphaBlend(effectiveTint, tokens.surface)
-        : Color.lerp(effectiveTint, Colors.black, 0.15)!;
+        ? Color.alphaBlend(
+            effectiveTint,
+            tokens.surface,
+          ).withValues(alpha: tintOpacity)
+        : cardTint.withValues(
+            alpha: (cardTint.a * tintOpacity).clamp(0.0, 1.0),
+          );
 
     // 顶部斜向高光是玻璃反光质感的核心，blur 与纯 tint 两条路径共用
     Widget tinted(Widget child) => Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: useBlur ? effectiveTint : degradedColor,
+        color: useBlur
+            ? effectiveTint.withValues(
+                alpha: (effectiveTint.a * tintOpacity).clamp(0.0, 1.0),
+              )
+            : degradedColor,
         borderRadius: borderRadius,
         border: borderColor == null
             ? null
@@ -168,16 +185,21 @@ class GlassSurface extends ConsumerWidget {
   Widget _buildNonGlassSurface(
     BuildContext context, {
     required SkinTokens tokens,
+    required double tintOpacity,
   }) {
     final requestedTint = tint == tokens.glassTint ? null : tint;
     // 非玻璃面同样走皮肤圆角档位（radiusScale 表达高对比直角/极简小圆角；
-    // 胶囊仍保持全圆）
+    // 胶囊仍保持全圆）。面板底色乘用户透明度系数——所有皮肤都可调透明
+    final baseSurface = requestedTint ?? tokens.surface;
+    final surfaceColor = baseSurface.withValues(
+      alpha: (baseSurface.a * tintOpacity).clamp(0.0, 1.0),
+    );
     final effectiveRadius = BorderRadius.circular(
       radius == GlassTokens.radiusPill ? radius : radius * tokens.radiusScale,
     );
     final decoration = switch (tokens.language) {
       SurfaceLanguage.deepSpace => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
@@ -185,17 +207,17 @@ class GlassSurface extends ConsumerWidget {
             : null,
       ),
       SurfaceLanguage.minimal => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.divider),
       ),
       SurfaceLanguage.materialYou => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.sunset => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
@@ -203,12 +225,12 @@ class GlassSurface extends ConsumerWidget {
             : null,
       ),
       SurfaceLanguage.forest => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.terminal => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
         boxShadow: shadow
@@ -216,7 +238,7 @@ class GlassSurface extends ConsumerWidget {
             : null,
       ),
       SurfaceLanguage.albumTint => BoxDecoration(
-        color: requestedTint ?? tokens.surface,
+        color: surfaceColor,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
       ),
@@ -457,7 +479,7 @@ class GlassContainer extends ConsumerWidget {
   }
 }
 
-class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
+class GlassAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const GlassAppBar({
     super.key,
     this.title,
@@ -473,10 +495,11 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Size preferredSize;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tokens = SkinTokens.of(context);
     final useBlur = shouldUseBlur(context) && tokens.blurEnabled;
     final blurScale = glassBlurScale(context) * tokens.blurScale;
+    final tint = withGlassTintOpacity(ref, tokens.glassTint);
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(
         bottom: Radius.circular(GlassTokens.radiusCard),
@@ -489,7 +512,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: tokens.glassTint,
+                  color: tint,
                   border: Border(
                     bottom: BorderSide(color: tokens.borderTop, width: 0.5),
                   ),
@@ -499,7 +522,9 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : Container(
               decoration: BoxDecoration(
-                color: tokens.background.withValues(alpha: 0.95),
+                color: tokens.background.withValues(
+                  alpha: 0.95 * ref.watch(glassTintOpacityProvider),
+                ),
                 border: Border(
                   bottom: BorderSide(color: tokens.borderTop, width: 0.5),
                 ),

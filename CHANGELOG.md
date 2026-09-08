@@ -2,6 +2,11 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 玻璃透明度独立成全局设置，档位只管模糊
+
+- 用户需求「透明度单独抽出来，所有主题都可以调，液态玻璃效果只调模糊」：新增 `glassTintOpacityProvider`（0.2–1.0，默认 1.0 = 主题原值），设置页外观组新增「玻璃透明度」滑杆（全皮肤可见，拖动实时预览、松手落盘）；GlassSurface 液态玻璃/非玻璃两条路径、GlassAppBar、搜索框类表面统一乘该系数——包括此前完全不透明的极简/莫奈取色等皮肤的卡片底色
+- glass.dart 新增 `export 'glass_quality.dart'`，清理两处冗余 import
+
 ## 2026-09-08 — 修复液态玻璃关闭档卡片透底
 
 - 用户反馈「关闭档就透明了，没加图片背景什么情况」：GlassSurface 液态玻璃路径在档位关闭/省电降级时只把 tint 往黑压 15%、没补不透明度，而液态玻璃/莫奈取色皮肤的 glassTint 只有 ~0.30 alpha，模糊一摘卡片就纯透明；改为降级时把 tint 叠到皮肤实色 surface 上（Color.alphaBlend）补成近实色，符合注释宣称的「退化为近实色底」。GlassCard 等 blur=0 的纯 tint 列表卡走原路径不受影响

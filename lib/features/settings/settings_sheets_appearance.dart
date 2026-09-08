@@ -53,6 +53,77 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
   );
 }
 
+/// 玻璃透明度滑杆（全局所有皮肤）：拖动实时预览，松手落盘。
+/// 100% = 各主题默认观感；与「液态玻璃效果」解耦——那个只管模糊。
+Future<void> _showGlassOpacitySheet(BuildContext context, WidgetRef ref) {
+  return glassBottomSheet<void>(
+    context,
+    Consumer(
+      builder: (context, ref, _) {
+        final opacity = ref.watch(glassTintOpacityProvider);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                '玻璃透明度',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      '${(opacity * 100).round()}%',
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: opacity,
+                      min: GlassTintOpacityController.min,
+                      max: 1.0,
+                      divisions: 16,
+                      label: '${(opacity * 100).round()}%',
+                      onChanged: (v) => ref
+                          .read(glassTintOpacityProvider.notifier)
+                          .preview(v),
+                      onChangeEnd: (_) =>
+                          ref.read(glassTintOpacityProvider.notifier).commit(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                '卡片与面板底色的透明程度，所有主题生效；'
+                '100% 为主题默认观感，调得越低背景透出越多',
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(context),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 /// 唱片形态选择（§4.2：黑胶 / CD / 方形玻璃卡片 / 全屏模糊大图）
 Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
   final current = ref.read(coverStyleProvider);

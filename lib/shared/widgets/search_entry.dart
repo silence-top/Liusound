@@ -19,7 +19,10 @@ class SearchEntryBar extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
+          color: withGlassTintOpacity(
+            ref,
+            imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
