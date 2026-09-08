@@ -259,7 +259,8 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
       textPrimary: Colors.white,
       glow: const Color(0x00000000),
       blurScale: 1.0,
-      blurEnabled: true,
+      // 钦定：玻璃特性仅液态玻璃皮肤独有——封面取色卡片实色，顶栏也走实色底
+      blurEnabled: false,
       highlightStrength: 0.5,
       radiusScale: 1.0,
       language: SurfaceLanguage.albumTint,
@@ -285,7 +286,7 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     textPrimary: Color(0xFFFFFFFF),
     glow: Color(0x00000000),
     blurScale: 1.0,
-    blurEnabled: true,
+    blurEnabled: false,
     highlightStrength: 0.5,
     radiusScale: 1.0,
     language: SurfaceLanguage.albumTint,
@@ -300,8 +301,9 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
         AppSkin.sunset => sunset,
         AppSkin.forest => forest,
         AppSkin.terminal => terminal,
-        AppSkin.albumTint when albumDominant != null =>
-          albumTint(albumDominant),
+        AppSkin.albumTint when albumDominant != null => albumTint(
+          albumDominant,
+        ),
         AppSkin.albumTint => albumTintFallback,
       };
 
