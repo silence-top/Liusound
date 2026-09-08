@@ -53,7 +53,7 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 玻璃透明度滑杆（全局所有皮肤）：拖动实时预览，松手落盘。
+/// 卡片透明度滑杆（全局所有皮肤）：拖动实时预览，松手落盘。
 /// 100% = 各主题默认观感；与「液态玻璃效果」解耦——那个只管模糊。
 Future<void> _showGlassOpacitySheet(BuildContext context, WidgetRef ref) {
   return glassBottomSheet<void>(
@@ -67,7 +67,7 @@ Future<void> _showGlassOpacitySheet(BuildContext context, WidgetRef ref) {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
-                '玻璃透明度',
+                '卡片透明度',
                 style: TextStyle(
                   color: AppTheme.textPrimaryOf(context),
                   fontSize: 16,
@@ -109,7 +109,7 @@ Future<void> _showGlassOpacitySheet(BuildContext context, WidgetRef ref) {
             Padding(
               padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
-                '卡片与面板底色的透明程度，所有主题生效；'
+                '卡片与面板底色的透明程度，所有主题生效（无论是否有玻璃）；'
                 '100% 为主题默认观感，调得越低背景透出越多',
                 style: TextStyle(
                   color: AppTheme.textFaintOf(context),
