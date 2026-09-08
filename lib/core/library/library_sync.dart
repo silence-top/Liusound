@@ -5,7 +5,8 @@ import 'dart:isolate';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../../features/auth/auth_controller.dart';
+import '../api/adapter_provider.dart'
+    show activeServerIdProvider, serverAdapterProvider;
 import '../api/server_adapter.dart';
 import '../models/models.dart';
 import '../storage/app_db.dart';
@@ -68,7 +69,7 @@ abstract final class LibrarySync {
     if (!adapter.capabilities.versionedSnapshot) return fetch();
     String? cachedPayload;
     try {
-      final serverId = read(authControllerProvider).activeServerId ?? 'none';
+      final serverId = read(activeServerIdProvider);
       final db = await AppDb.instance();
       final rows = await db.query(
         'library_snapshot',

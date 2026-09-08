@@ -5,6 +5,14 @@ import '../../core/api/server_type.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/storage/server_repository.dart';
 
+// serverAdapterProvider 等已下沉 core/api/adapter_provider.dart
+// （core 层不得反向依赖 features）；re-export 维持既有 import 路径不变
+export '../../core/api/adapter_provider.dart'
+    show
+        activeServerIdProvider,
+        serverAdapterProvider,
+        transcodeSupportProvider;
+
 class AuthState {
   const AuthState({
     this.servers = const [],
@@ -179,34 +187,6 @@ class AuthController extends Notifier<AuthState> {
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
 );
-
-final serverAdapterProvider = Provider<ServerAdapter?>((ref) {
-  final auth = ref.watch(authControllerProvider);
-  // 网络设置显式注入 adapter（P1-NetworkRuntime：无全局可变状态）；
-  // 网络设置变更时重建 adapter，让超时/代理/证书/hosts 重新生效
-  final net = ref.watch(networkSettingsProvider);
-  final config = auth.activeConfig;
-  if (config == null) return null;
-  final adapter = config.type.createAdapter(config, auth.activeSecrets, net);
-  // 静默重登的适配器（Jellyfin/Emby/Plex/群晖）把新凭证回写存储
-  // 类型提升对 mixin 交叉类型不生效，需显式转换才能拿到 onSecretsUpdated
-  final SecretsUpdatable? sink = adapter is SecretsUpdatable
-      ? adapter as SecretsUpdatable
-      : null;
-  sink?.onSecretsUpdated = (fresh) => ref
-      .read(authControllerProvider.notifier)
-      .updateStoredSecrets(config.id, fresh);
-  ref.onDispose(adapter.dispose);
-  return adapter;
-});
-
-/// 服务端转码能力（后台静默探测，真结果缓存在 adapter 会话内）。
-/// 探测完成前 value 为 null，UI 先按支持显示、播放侧另有回退兜底
-final transcodeSupportProvider = FutureProvider<bool>((ref) async {
-  final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null) return false;
-  return adapter.supportsTranscode();
-});
 
 String normalizeServerUrl(String raw) {
   var url = raw.trim();

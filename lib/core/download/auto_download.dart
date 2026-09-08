@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/auth/auth_controller.dart'
-    show serverAdapterProvider, authControllerProvider;
+import '../api/adapter_provider.dart'
+    show activeServerIdProvider, serverAdapterProvider;
 import '../cache/cache_manager.dart' show cacheSettingsProvider;
 import '../models/models.dart';
 import '../settings/streaming_prefs.dart';
@@ -32,11 +32,11 @@ class AutoDownload {
       } catch (_) {
         return;
       }
-      final serverId = read(authControllerProvider).activeServerId ?? '';
+      final serverId = read(activeServerIdProvider);
       for (final song in liked) {
         // 循环中重读当前服务器：切换服务器后旧流程必须中止，
         // 否则会把旧服务器的歌曲下到新服务器的归属里
-        if ((read(authControllerProvider).activeServerId ?? '') != serverId) {
+        if (read(activeServerIdProvider) != serverId) {
           return;
         }
         if (!read(cacheSettingsProvider).autoDownload) return;

@@ -4,8 +4,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart' show Database;
 
+import '../api/adapter_provider.dart'
+    show activeServerIdProvider, serverAdapterProvider;
 import '../storage/app_db.dart';
-import '../../features/auth/auth_controller.dart';
 import '../../features/player/player_controller.dart';
 
 /// RefReader：统一 Ref / WidgetRef 的 read tear-off
@@ -57,9 +58,9 @@ class ScrobbleService {
 
   Future<void> _report(String songId) async {
     final adapter = _read(serverAdapterProvider);
-    final serverId = _read(authControllerProvider).activeServerId;
+    final serverId = _read(activeServerIdProvider);
     if (adapter == null ||
-        serverId == null ||
+        serverId.isEmpty ||
         !adapter.capabilities.scrobbling) {
       return;
     }
@@ -91,9 +92,9 @@ class ScrobbleService {
   /// 失败按 1/2/4/8/16 分钟退避，单条不可恢复记录不得阻塞整条队列
   Future<void> _flush() async {
     final adapter = _read(serverAdapterProvider);
-    final serverId = _read(authControllerProvider).activeServerId;
+    final serverId = _read(activeServerIdProvider);
     if (adapter == null ||
-        serverId == null ||
+        serverId.isEmpty ||
         !adapter.capabilities.scrobbling) {
       return;
     }

@@ -10,6 +10,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api/adapter_provider.dart';
 import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
 import 'core/download/auto_download.dart';
@@ -47,7 +48,22 @@ Future<void> main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = 64 << 20;
   // 全局容器：audio_service 需在 runApp 前读取 handler
   final container = ProviderContainer(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      // 组合根把登录会话喂给 core 的 adapter 层（core 不依赖 features/auth）
+      activeServerSessionProvider.overrideWith((ref) {
+        final auth = ref.watch(authControllerProvider);
+        final config = auth.activeConfig;
+        if (config == null) return null;
+        return ActiveServerSession(
+          config: config,
+          secrets: auth.activeSecrets,
+          saveSecrets: (id, fresh) => ref
+              .read(authControllerProvider.notifier)
+              .updateStoredSecrets(id, fresh),
+        );
+      }),
+    ],
   );
   FloatingLyrics.permissionChanges.listen((granted) {
     if (!granted) {

@@ -4,10 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/api/adapter_provider.dart';
 import '../core/api/server_adapter.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/motion_tokens.dart';
-import '../features/auth/auth_controller.dart';
 
 /// 统一封面组件：
 /// - localCover 非空时优先展示本地内嵌封面文件（本地扫描歌曲）

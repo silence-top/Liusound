@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P1-B：serverAdapterProvider 下沉 core，解除反向依赖
+
+- **新增 `core/api/adapter_provider.dart`**：`serverAdapterProvider`/`transcodeSupportProvider`/`activeServerIdProvider` 从 features/auth 下沉 core；core 通过 `activeServerSessionProvider`（组合根 main.dart 用 authControllerProvider 覆写注入）拿到会话快照，方向恢复为 features→core 单向
+- **解除 4 处 core/shared→features 反向依赖**：`library_sync`/`scrobble_service`/`auto_download`/`shared/cover_art` 改引 core provider，activeServerId 一律走 `activeServerIdProvider`（未登录为空串语义）
+- features 内约 15 处既有 import 不动：auth_controller 对新位置 re-export
+
 ## 2026-09-08 — 全库审计 P1-A：Subsonic 协议层抽共享基类
 
 - **新增 `SubsonicProtocolAdapter`**（subsonic_protocol.dart）：`SubsonicAdapter`（纯 Subsonic）与 `NavidromeAdapter` 共用的媒体直链（stream/download/封面）、资料库扩展（歌手索引/流派/电台/流派歌曲/歌词）、版本号与转码探测（含 TranscodeProbeCache 持久化）全部上提；子类只需提供 `dio/auth/api/parseSong` 四个钩子
