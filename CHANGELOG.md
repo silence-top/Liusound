@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 修复：播放页内容区与控制区之间的横线
+
+- 真机反馈播放页控制区上沿有一条线：非液态玻璃皮肤的 `GlassSurface` 非玻璃面（`_buildNonGlassSurface`）一律画 `borderHairline` 描边（极简为 `divider`），播放页底部控制区是全贴边 radius 0 的面，描边上边缘就成了横线；改为全贴边面（radius 0）不画描边，有圆角的悬浮面照旧——歌曲详情页底部操作条同规则受益
+
 ## 2026-09-08 — 修复：图片背景只在顶部生效（三页嵌套 Scaffold 不透明底遮挡）
 
 - 真机反馈背景图只有状态栏/顶部导航区域可见：壳三页（首页/资料库/设置）各自嵌套 `Scaffold` 默认继承不透明 `scaffoldBackgroundColor`，把壳层 `AmbientBackground`（背景图/皮肤舞台）整片盖住——顶部导航在壳层直接透明所以唯一透出；三页 Scaffold 改 `backgroundColor: Colors.transparent`，内容卡片表面不受影响
