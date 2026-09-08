@@ -63,12 +63,6 @@ class NavidromeClient {
     dio.options.baseUrl = session.serverUrl;
   }
 
-  /// 登出时调用：清除内存凭证与 baseUrl
-  void clearSession() {
-    _session = null;
-    dio.options.baseUrl = '';
-  }
-
   StoredSession? get session => _session;
 
   /// 内部工具：当前会话的 Subsonic 认证要素（未登录抛异常）

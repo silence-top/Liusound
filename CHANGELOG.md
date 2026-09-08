@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 全库审计 P2-A：死代码清理
+
+- **`NavidromeClient.clearSession` 删除**：登出走 removeServer 重建 adapter，全库零调用
+- **`parseLyrics`（lyrics.dart 单轨便捷封装）删除**：播放页用 `_parseLyrics` 自有封装，顶层函数零引用；`parseLyricsData`/`alignTranslations` 在用保留
+- 审计另列的 `glassAsyncBody`/`SubsonicAuth.empty` 经 grep 确认已不存在
+
 ## 2026-09-08 — 全库审计 P1-D：JSON 工具收拢到 models.dart
 
 - **`_Json` 提升为公开 `Json`**（models.dart）：str/strOf/intOf/doubleOf/boolOf/strOrNull/doubleOrNull/intOrNull 全量收拢；新增 `intOfOrNull`（单键仅 num）与 `firstStr`（候选键 trim 取首个非空）

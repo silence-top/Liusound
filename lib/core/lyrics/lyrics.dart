@@ -95,10 +95,6 @@ List<LyricLine> parseLrcText(String lrc) {
   return result;
 }
 
-/// 单轨便捷封装：仅返回主轨歌词行
-List<LyricLine> parseLyrics(String? lyricsText) =>
-    parseLyricsData(lyricsText).lines;
-
 /// 将译轨按时间戳对齐到主轨行（时间差 < 0.5s 视为同一行）。
 /// 返回与 [lines] 等长的列表：每项为该行译文或 null（无匹配译文）。
 List<String?> alignTranslations(
