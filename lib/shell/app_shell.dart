@@ -59,7 +59,7 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
             ),
-            SafeArea(top: false, child: const MiniPlayer()),
+            const MiniPlayer(),
           ],
         ),
       ),

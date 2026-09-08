@@ -244,13 +244,14 @@ Future<void> _showMiniBarStylePicker(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 迷你播放条高度偏移微调（§8.2）：-20 ~ 40px，步进 2
+/// 迷你播放条高度偏移微调（§8.2）：0 ~ 40px，步进 2
 Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
   return glassBottomSheet<void>(
     context,
     Consumer(
       builder: (context, ref, _) {
-        final offset = ref.watch(miniBarOffsetProvider);
+        // 旧存档可能为负值（贴底收口后已不允许下压），钳进滑杆范围
+        final offset = ref.watch(miniBarOffsetProvider).clamp(0.0, 40.0);
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -280,9 +281,9 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
                     data: const SliderThemeData(trackHeight: 2),
                     child: Slider(
                       value: offset,
-                      min: -20,
+                      min: 0,
                       max: 40,
-                      divisions: 30,
+                      divisions: 20,
                       activeColor: Theme.of(context).colorScheme.primary,
                       inactiveColor: AppTheme.textFaintOf(context),
                       onChanged: (v) =>
@@ -295,7 +296,7 @@ Future<void> _showMiniBarOffsetPicker(BuildContext context, WidgetRef ref) {
             Padding(
               padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
-                '正值上移、负值下移，用于适配不同底部导航栏高度',
+                '正值上移，用于适配不同底部导航栏高度',
                 style: TextStyle(
                   color: AppTheme.textFaintOf(context),
                   fontSize: 12,
