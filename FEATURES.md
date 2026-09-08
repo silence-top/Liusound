@@ -1013,9 +1013,12 @@ int findLyricIndex(List<LyricLine> list, double time) {
 enum AppSkin {
   liquidGlass('液态玻璃', '镜面高光描边 · 内容透色（默认）'),
   deepSpace('深空科幻', '近黑蓝底 · 霓虹青发光点缀'),
-  minimal('极简纯色', '无模糊实色卡片 · 强排版'),
+  minimal('极简纯色', '暖炭纸纹实色卡片 · 强排版'),
   materialYou('Material You', '动态取色跟随系统壁纸（Android 12+）'),
-  highContrast('高对比无障碍', '纯黑白 · 去模糊去发光 · 对比度 ≥7:1');
+  sunset('落日熔金', '暖橙玫瑰底 · 低垂夕阳光球'),
+  forest('林间苔原', '暖绿纸质 · 冠层微光颗粒'),
+  terminal('终端磷光', '纯黑绿字 · CRT 扫描线直角'),
+  albumTint('封面取色', '全局跟随当前播放封面取色 · 与播放页同源');
 
   final String label;
   final String desc;
@@ -1052,30 +1055,34 @@ SkinController:
 | textFaint | Color | 装饰图标/占位 |
 | glow | Color | 科幻发光（透明=无发光） |
 | blurScale | double | 模糊强度缩放 |
-| blurEnabled | bool | 极简/高对比强制关模糊 |
+| blurEnabled | bool | 极简/终端强制关模糊 |
 | highlightStrength | double | 镜面高光强度（0=实色描边） |
 | language | SurfaceLanguage | 当前皮肤语言 |
 
-**5 套皮肤的具体数值**:
+**各皮肤具体数值**: sunset/forest/terminal 见 skin_tokens.dart 静态常量；
+albumTint 为动态取色皮肤（`SkinTokens.albumTint(dominant)` 由当前播放封面主色
+按播放页同源公式推导整套色板，封面过亮先压暗；`albumTintFallback` 为取色中/
+失败的中性深灰回退），不设静态表。下表为静态皮肤参照（材料 You 列为 M3 动态
+色覆盖前的底板）：
 
-| Token | liquidGlass | deepSpace | minimal | materialYou | highContrast |
-|-------|-------------|-----------|---------|-------------|--------------|
-| background | 0xFF001B2E | 0xFF05070E | 0xFF111111 | 0xFF131318 | 0xFF000000 |
-| shell | 0xFF0A1428 | 0xFF070A14 | 0xFF161616 | 0xFF1B1B21 | 0xFF000000 |
-| surface | 0xFF1A2C3A | 0xFF0D1322 | 0xFF1F1F1F | 0xFF232329 | 0xFF111111 |
-| glassTint | 0x4D13243C | 0x59101830 | 0xF01F1F1F | 0x52262630 | 0xE6111111 |
-| borderTop | 0x33FFFFFF | 0x4048D8FF | 0x1FFFFFFF | 0x33FFFFFF | 0x99FFFFFF |
-| borderBottom | 0x0AFFFFFF | 0x0D28C8FF | 0x0AFFFFFF | 0x0AFFFFFF | 0x66FFFFFF |
-| borderHairline | 0x1FFFFFFF | 0x2428C8FF | 0x1FFFFFFF | 0x1FFFFFFF | 0x66FFFFFF |
-| glow | 0x00000000 | 0x3800E5FF | 0x00000000 | 0x00000000 | 0x00000000 |
-| textDim | 0xFF888888 | 0xFF9FB4CC | 0xFFAAAAAA | 0xFFCAC4D0 | 0xFFE0E0E0 |
-| textFaint | 0xFF444444 | 0xFF4A5A72 | 0xFF666666 | 0xFF79747E | 0xFFB0B0B0 |
-| blurScale | 1.0 | 1.1 | 0 | 1.0 | 0 |
-| blurEnabled | true | false | false | false | false |
-| highlightStrength | 1.0 | 0 | 0.2 | 0 | 0.0 |
+| Token | liquidGlass | deepSpace | minimal | materialYou |
+|-------|-------------|-----------|---------|-------------|
+| background | 0xFF001B2E | 0xFF05070E | 0xFF141210 | 0xFF14121B |
+| shell | 0xFF0A1428 | 0xFF070A14 | 0xFF1A1714 | 0xFF1D1B22 |
+| surface | 0xFF1A2C3A | 0xFF0D1322 | 0xFF221E1A | 0xFF282430 |
+| glassTint | 0x4D13243C | 0x59101830 | 0xF0221E1A | 0x522A2536 |
+| borderTop | 0x33FFFFFF | 0x4048D8FF | 0x1FFFFFFF | 0x33FFFFFF |
+| borderBottom | 0x0AFFFFFF | 0x0D28C8FF | 0x0AFFFFFF | 0x0AFFFFFF |
+| borderHairline | 0x1FFFFFFF | 0x2428C8FF | 0x1FFFFFFF | 0x1FFFFFFF |
+| glow | 0x00000000 | 0x3800E5FF | 0x00000000 | 0x00000000 |
+| textDim | 0xFF888888 | 0xFF9FB4CC | 0xFFB3ABA2 | 0xFFCAC4D0 |
+| textFaint | 0xFF444444 | 0xFF4A5A72 | 0xFF6E655C | 0xFF79747E |
+| blurScale | 1.0 | 1.1 | 0 | 1.0 |
+| blurEnabled | true | false | false | false |
+| highlightStrength | 1.0 | 0 | 0.2 | 0 |
 
 - `lerp(SkinTokens? other, double t)`: Color.lerp 插值 + blurScale/lerp + boolean threshold(t<0.5) + language threshold
-- `forSkin(AppSkin skin)`: 映射表
+- `forSkin(AppSkin skin, {Color? albumDominant})`: 映射表；albumTint 分支按 dominant 动态构建、null 时回退 albumTintFallback
 
 #### 4.14.4 GlassTokens 尺寸常量
 
@@ -1151,10 +1158,12 @@ prefs keys: `'bg_image_path'`, `'bg_opacity'`, `'bg_blur'`
 | 皮肤 | 背景实现 |
 |------|----------|
 | liquidGlass | 3 个 RadialGradient 光源 blob（primary alpha 0.15-0.20），位置 (-100,-140)/(right-120,80)/(left+20,-80)，大小 300-340 |
-| deepSpace | CustomPaint 网格(56px step) + 7 个 star circle(r=1.3, primary alpha 0.45)，坐标 O(34,96), O(164,178), O(294,72), O(92,486), O(342,624), O(226,744) |
-| minimal/materialYou | 纯色背景（SkinTokens.background） |
-| highContrast | 纯黑背景 |
-| custom bg | Image.file(path, fit=cover, gapless) + Opacity + ImageFilter.blur(sigmaX=blur, sigmaY=blur) |
+| deepSpace | CustomPaint 网格(56px step) + 7 个 star circle(r=1.3, primary alpha 0.45) |
+| minimal | 纸纹颗粒 _GrainStagePainter（seeded Random 确定性） |
+| materialYou | M3 柔光球（跟随动态主色） |
+| sunset/forest/terminal | 各自专属舞台 painter（夕阳光球/冠层微光/CRT 扫描线） |
+| albumTint | 顶部提亮渐变（tintLight→transparent，复刻播放页上浅下深）；不叠加用户背景图（封面色为唯一背景源） |
+| custom bg | Image.file(path, fit=cover, gapless) + Opacity + ImageFilter.blur；terminal/albumTint 皮肤跳过 |
 
 #### 4.14.8 _DeepSpaceStagePainter
 

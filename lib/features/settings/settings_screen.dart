@@ -277,7 +277,7 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: accent.label,
                 onTap: () => _showAccentPicker(context, ref),
               ),
-              if (skin != AppSkin.highContrast && skin != AppSkin.terminal) ...[
+              if (skin != AppSkin.albumTint && skin != AppSkin.terminal) ...[
                 _divider,
                 _ActionTile(
                   icon: Icons.image_outlined,

@@ -13,7 +13,7 @@ enum AppSkin {
   sunset('落日熔金', '暖橙玫瑰底 · 低垂夕阳光球'),
   forest('林间苔原', '暖绿纸质 · 冠层微光颗粒'),
   terminal('终端磷光', '纯黑绿字 · CRT 扫描线直角'),
-  highContrast('高对比无障碍', '纯黑白 · 去模糊去发光 · 对比度 ≥7:1');
+  albumTint('封面取色', '全局跟随当前播放封面取色 · 与播放页同源');
 
   const AppSkin(this.label, this.desc);
   final String label;

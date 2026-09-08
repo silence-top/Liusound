@@ -23,6 +23,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/settings_prefs.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
+import 'features/player/album_tint.dart';
 import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
 import 'shared/widgets/glass.dart';
@@ -113,6 +114,14 @@ class MusicApp extends ConsumerWidget {
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
+    // 封面取色皮肤：全局跟随当前播放封面主色（与播放页同一取色 provider）。
+    // select 只在专辑变化时重建组合根，歌曲其它字段更新不触发整页换肤
+    final currentAlbumId = ref.watch(
+      currentSongProvider.select((s) => s?.albumId),
+    );
+    final albumDominant = skin == AppSkin.albumTint
+        ? ref.watch(albumDominantColorProvider(currentAlbumId ?? '')).valueOrNull
+        : null;
     // 登出（会话从有到无）→ 同步清空播放器与持久化播放状态
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       if (prev?.activeServerId != next.activeServerId) {
@@ -165,6 +174,7 @@ class MusicApp extends ConsumerWidget {
               materialOutlineVariant: darkDynamic?.outlineVariant,
               materialOnSurface: darkDynamic?.onSurface,
               materialOnSurfaceVariant: darkDynamic?.onSurfaceVariant,
+              albumDominant: albumDominant,
             ),
             home: !auth.initialized
                 ? const _Splash()

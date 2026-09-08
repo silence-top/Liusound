@@ -93,8 +93,9 @@ abstract final class AppTheme {
     Color? materialOutlineVariant,
     Color? materialOnSurface,
     Color? materialOnSurfaceVariant,
+    Color? albumDominant,
   }) {
-    var t = SkinTokens.forSkin(skin);
+    var t = SkinTokens.forSkin(skin, albumDominant: albumDominant);
     final scheme = ColorScheme.fromSeed(
       seedColor: accentColor,
       brightness: Brightness.dark,

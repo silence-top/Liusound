@@ -12,7 +12,7 @@ enum SurfaceLanguage {
   sunset,
   forest,
   terminal,
-  highContrast,
+  albumTint,
 }
 
 /// 每主题 token 束（ThemeExtension 注入 ThemeData，组件层经 context 读取）。
@@ -232,39 +232,78 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     language: SurfaceLanguage.terminal,
   );
 
-  static const highContrast = SkinTokens(
-    background: Color(0xFF000000),
-    shell: Color(0xFF000000),
-    detailBg: Color(0xFF000000),
-    surface: Color(0xFF111111),
-    divider: Color(0x66FFFFFF),
-    glassTint: Color(0xE6111111),
-    tintLight: Color(0x24FFFFFF),
-    borderTop: Color(0x99FFFFFF),
-    borderBottom: Color(0x66FFFFFF),
-    borderHairline: Color(0x66FFFFFF),
-    shadowColor: Color(0x00000000),
-    textDim: Color(0xFFE0E0E0),
-    textFaint: Color(0xFFB0B0B0),
+  /// 封面取色（与播放页同源公式）：由当前歌曲封面主色动态推导整套色板。
+  /// 播放页渐变 top = 主色 lerp 黑 0.42 / 弹层底 = lerp 黑 0.55，
+  /// 此处沿用同一色系；封面过亮时先压暗，保证白字对比度。
+  static SkinTokens albumTint(Color dominant) {
+    final base = dominant.computeLuminance() > 0.5
+        ? Color.lerp(dominant, Colors.black, 0.45)!
+        : dominant;
+    Color mixBlack(double t) => Color.lerp(base, Colors.black, t)!;
+    Color mixWhite(double t, double alpha) =>
+        Color.lerp(base, Colors.white, t)!.withValues(alpha: alpha);
+    return SkinTokens(
+      background: mixBlack(0.42),
+      shell: mixBlack(0.55),
+      detailBg: mixBlack(0.60),
+      surface: mixBlack(0.50),
+      divider: mixWhite(0.4, 0.08),
+      glassTint: mixBlack(0.50).withValues(alpha: 0.30),
+      tintLight: mixWhite(0.5, 0.07),
+      borderTop: mixWhite(0.35, 0.15),
+      borderBottom: mixWhite(0.2, 0.04),
+      borderHairline: mixWhite(0.3, 0.12),
+      shadowColor: const Color(0x40000000),
+      textDim: mixWhite(0.62, 1),
+      textFaint: mixWhite(0.38, 1),
+      textPrimary: Colors.white,
+      glow: const Color(0x00000000),
+      blurScale: 1.0,
+      blurEnabled: true,
+      highlightStrength: 0.5,
+      radiusScale: 1.0,
+      language: SurfaceLanguage.albumTint,
+    );
+  }
+
+  /// 封面取色回退色板：取色中/取色失败（本地歌曲/无封面）时使用的中性深灰，
+  /// 避免整页等待或闪变。
+  static const albumTintFallback = SkinTokens(
+    background: Color(0xFF101318),
+    shell: Color(0xFF151920),
+    detailBg: Color(0xFF14181E),
+    surface: Color(0xFF1E242C),
+    divider: Color(0x14FFFFFF),
+    glassTint: Color(0x4D16202C),
+    tintLight: Color(0x12FFFFFF),
+    borderTop: Color(0x26FFFFFF),
+    borderBottom: Color(0x0AFFFFFF),
+    borderHairline: Color(0x1FFFFFFF),
+    shadowColor: Color(0x40000000),
+    textDim: Color(0xFF9AA3AD),
+    textFaint: Color(0xFF565E68),
     textPrimary: Color(0xFFFFFFFF),
     glow: Color(0x00000000),
-    blurScale: 0,
-    blurEnabled: false,
-    highlightStrength: 0.0,
-    radiusScale: 0.0, // 无障碍：直角
-    language: SurfaceLanguage.highContrast,
+    blurScale: 1.0,
+    blurEnabled: true,
+    highlightStrength: 0.5,
+    radiusScale: 1.0,
+    language: SurfaceLanguage.albumTint,
   );
 
-  static SkinTokens forSkin(AppSkin skin) => switch (skin) {
-    AppSkin.liquidGlass => liquidGlass,
-    AppSkin.deepSpace => deepSpace,
-    AppSkin.minimal => minimal,
-    AppSkin.materialYou => materialYou,
-    AppSkin.sunset => sunset,
-    AppSkin.forest => forest,
-    AppSkin.terminal => terminal,
-    AppSkin.highContrast => highContrast,
-  };
+  static SkinTokens forSkin(AppSkin skin, {Color? albumDominant}) =>
+      switch (skin) {
+        AppSkin.liquidGlass => liquidGlass,
+        AppSkin.deepSpace => deepSpace,
+        AppSkin.minimal => minimal,
+        AppSkin.materialYou => materialYou,
+        AppSkin.sunset => sunset,
+        AppSkin.forest => forest,
+        AppSkin.terminal => terminal,
+        AppSkin.albumTint when albumDominant != null =>
+          albumTint(albumDominant),
+        AppSkin.albumTint => albumTintFallback,
+      };
 
   @override
   SkinTokens copyWith({

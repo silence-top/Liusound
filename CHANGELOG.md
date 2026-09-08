@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 主题：删高对比无障碍，换封面取色皮肤（albumTint）
+
+- **AppSkin.highContrast 移除，新增 `albumTint('封面取色')`**：全局跟随当前播放歌曲封面主色取色，与播放页同源——组合根 main.dart `select` 只监听 currentSong 的 albumId，复用播放页同一个 `albumDominantColorProvider`（64px 缩样 vibrant/muted/dominant）；旧皮肤存档 `highContrast` 自动回退默认液态玻璃
+- **SkinTokens 动态色板**：`albumTint(dominant)` 工厂按播放页同源公式推导（背景 = 主色 lerp 黑 0.42，弹层面 = lerp 0.55）；封面过亮（luminance>0.5）先压暗 0.45 保证白字对比；`albumTintFallback` 中性深灰兜底取色中/失败（本地歌曲/无封面），`forSkin` 加 `albumDominant` 可选参数
+- **舞台与背景**：AmbientBackground 新增封面取色舞台（顶部提亮渐变复刻播放页上浅下深）；该皮肤不叠加用户自定义背景图（封面色为唯一背景源，与终端一致），设置页自定义背景入口同步隐藏
+- 表面语言：GlassSurface 非玻璃面 highContrast case → albumTint（surface 底 + hairline 描边）；FEATURES.md §4.14 同步（此前停在 5 皮肤时代的枚举/数值表/舞台表一并更新到 8 皮肤现状）
+
 ## 2026-09-08 — 全库审计 P2-F：大文件 part 化拆分
 
 - **full_screen_player.dart 2451 → 366 行主骨架**：按 Tab/区域拆四个 part——recommend（相似/热门/简介，250 行）、now_playing（黑胶/CD/方图/唱臂/虚化背景，536 行）、lyrics（歌词 Tab + 行瓷贴，1026 行）、bottom（歌曲信息/进度/控制行，286 行）；纯物理拆分（part 同库，私有成员可见性不变），视觉零改动

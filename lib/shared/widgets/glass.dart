@@ -209,10 +209,10 @@ class GlassSurface extends ConsumerWidget {
             ? [BoxShadow(color: tokens.glow, blurRadius: 10, spreadRadius: -4)]
             : null,
       ),
-      SurfaceLanguage.highContrast => BoxDecoration(
+      SurfaceLanguage.albumTint => BoxDecoration(
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
-        border: Border.all(color: tokens.borderTop, width: 2),
+        border: Border.all(color: tokens.borderHairline),
       ),
       SurfaceLanguage.liquidGlass => throw StateError('Handled above'),
     };
@@ -703,9 +703,25 @@ class AmbientBackground extends ConsumerWidget {
               child: CustomPaint(painter: _CrtStagePainter(tokens.textPrimary)),
             ),
           ),
-        // 高对比/终端主题不叠加用户背景，避免削弱对比度或破坏纯黑审美。
+        // 封面取色：顶部提亮渐变，复刻播放页「上浅下深」的单色纵深。
+        if (tokens.language == SurfaceLanguage.albumTint)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [tokens.tintLight, Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        // 终端不叠加用户背景（纯黑审美）；封面取色以封面色为唯一背景源，
+        // 叠图会掩盖取色结果。
         if (bg.path != null &&
-            tokens.language != SurfaceLanguage.highContrast &&
+            tokens.language != SurfaceLanguage.albumTint &&
             tokens.language != SurfaceLanguage.terminal)
           Positioned.fill(
             child: IgnorePointer(
