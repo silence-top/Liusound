@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../settings/prefs.dart';
 
 /// 自定义背景图状态（§8.1）：路径 + 不透明度 + 模糊度，全部持久化。
-/// path 为 null 表示未设置，此时 AmbientBackground 只渲染默认光斑。
+/// path 为 null 表示未设置，此时 AmbientBackground 渲染各皮肤专属舞台。
+/// 设了图则图片即背景（最高优先级，全皮肤生效）。
 class BackgroundConfig {
-  const BackgroundConfig({this.path, this.opacity = 0.35, this.blur = 8.0});
+  const BackgroundConfig({this.path, this.opacity = 0.85, this.blur = 8.0});
   final String? path;
   final double opacity;
   final double blur;
@@ -37,13 +39,25 @@ class BackgroundController extends Notifier<BackgroundConfig> {
   static const _pathKey = 'bg_image_path';
   static const _opacityKey = 'bg_opacity';
   static const _blurKey = 'bg_blur';
+  // 一次性迁移标记：图片背景从「低透明度点缀」升级为「优先背景」
+  static const _opacityMigratedKey = 'bg_opacity_migrated_v2';
 
   @override
   BackgroundConfig build() {
     final prefs = ref.watch(sharedPrefsProvider);
+    var opacity = prefs.getDouble(_opacityKey) ?? 0.85;
+    // 旧默认 0.35 在图片升级为优先背景后太淡（几乎看不见），一次性提到 0.85；
+    // 用户此前显式调高过（≥0.6）的保持原值
+    if (prefs.getBool(_opacityMigratedKey) != true) {
+      unawaited(prefs.setBool(_opacityMigratedKey, true));
+      if (prefs.getString(_pathKey) != null && opacity < 0.6) {
+        opacity = 0.85;
+        unawaited(prefs.setDouble(_opacityKey, opacity));
+      }
+    }
     final cfg = BackgroundConfig(
       path: prefs.getString(_pathKey),
-      opacity: prefs.getDouble(_opacityKey) ?? 0.35,
+      opacity: opacity,
       blur: prefs.getDouble(_blurKey) ?? 8.0,
     );
     // 背景图文件可能已被系统/用户删除：异步校验（不阻塞 build），
@@ -85,8 +99,14 @@ class BackgroundController extends Notifier<BackgroundConfig> {
     state = BackgroundConfig(opacity: cfg.opacity, blur: cfg.blur);
   }
 
-  Future<void> setOpacity(double v) async => _save(opacity: v);
-  Future<void> setBlur(double v) async => _save(blur: v);
+  /// 滑块拖动中只更新内存态（每次回调都落盘太密），松手时 [commitSliders] 持久化
+  void updateOpacity(double v) => state = state.copyWith(opacity: v);
+  void updateBlur(double v) => state = state.copyWith(blur: v);
+
+  Future<void> commitSliders() async {
+    final s = state;
+    await _save(opacity: s.opacity, blur: s.blur);
+  }
 
   Future<void> _save({String? path, double? opacity, double? blur}) async {
     final prefs = await SharedPreferences.getInstance();

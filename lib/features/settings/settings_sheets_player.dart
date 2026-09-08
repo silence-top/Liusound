@@ -127,7 +127,45 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
               ],
             ),
             if (bg.path != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              // 实时预览：弹窗挡住了屏幕背后的真实背景，调滑块时在这里看效果
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.m),
+                  child: SizedBox(
+                    height: 110,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ColoredBox(color: AppTheme.shellOf(context)),
+                        Opacity(
+                          opacity: bg.opacity.clamp(0.0, 1.0),
+                          child: bg.blur > 0
+                              ? ImageFiltered(
+                                  imageFilter: ui.ImageFilter.blur(
+                                    sigmaX: bg.blur,
+                                    sigmaY: bg.blur,
+                                  ),
+                                  child: Image.file(
+                                    File(bg.path!),
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                  ),
+                                )
+                              : Image.file(
+                                  File(bg.path!),
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -148,8 +186,13 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                         max: 1.0,
                         activeColor: Theme.of(context).colorScheme.primary,
                         inactiveColor: AppTheme.textFaintOf(context),
-                        onChanged: (v) =>
-                            ref.read(backgroundProvider.notifier).setOpacity(v),
+                        // 拖动中仅更新内存态实时预览，松手才落盘
+                        onChanged: (v) => ref
+                            .read(backgroundProvider.notifier)
+                            .updateOpacity(v),
+                        onChangeEnd: (_) => ref
+                            .read(backgroundProvider.notifier)
+                            .commitSliders(),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -169,7 +212,10 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                         activeColor: Theme.of(context).colorScheme.primary,
                         inactiveColor: AppTheme.textFaintOf(context),
                         onChanged: (v) =>
-                            ref.read(backgroundProvider.notifier).setBlur(v),
+                            ref.read(backgroundProvider.notifier).updateBlur(v),
+                        onChangeEnd: (_) => ref
+                            .read(backgroundProvider.notifier)
+                            .commitSliders(),
                       ),
                     ),
                   ],

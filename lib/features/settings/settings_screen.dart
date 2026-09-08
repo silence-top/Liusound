@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -283,15 +284,14 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: accent.label,
                 onTap: () => _showAccentPicker(context, ref),
               ),
-              if (skin != AppSkin.albumTint && skin != AppSkin.terminal) ...[
-                _divider,
-                _ActionTile(
-                  icon: Icons.image_outlined,
-                  title: '自定义背景',
-                  subtitle: bgConfig.path != null ? '已设置' : '未设置',
-                  onTap: () => _showBackgroundSettings(context, ref),
-                ),
-              ],
+              // 自定义背景全皮肤可用：图片背景优先级最高（设图即背景，皮肤舞台让位）
+              _divider,
+              _ActionTile(
+                icon: Icons.image_outlined,
+                title: '自定义背景',
+                subtitle: bgConfig.path != null ? '已设置' : '未设置',
+                onTap: () => _showBackgroundSettings(context, ref),
+              ),
               _divider,
               _ActionTile(
                 icon: Icons.tune,

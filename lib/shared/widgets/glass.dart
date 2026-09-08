@@ -644,90 +644,93 @@ class AmbientBackground extends ConsumerWidget {
     final bg = ref.watch(backgroundProvider);
     final tokens = SkinTokens.of(context);
     final primary = Theme.of(context).colorScheme.primary;
+    // 用户自定义背景图最高优先级：设置后跳过所有皮肤舞台装饰，图片即背景
+    // （全皮肤生效，包括封面取色/终端）；未设图时才渲染各皮肤专属舞台
+    final hasImage = bg.path != null;
     return Stack(
       children: [
-        // 液态玻璃独有的折射光源（减淡版：低强度，保留模糊可折物但不抢戏）。
-        // 其他主题绝不复用此舞台。
-        if (tokens.language == SurfaceLanguage.liquidGlass) ...[
-          Positioned(
-            top: -140,
-            left: -100,
-            child: _blob(340, primary.withValues(alpha: 0.10)),
-          ),
-          Positioned(
-            bottom: -80,
-            left: 20,
-            child: _blob(300, primary.withValues(alpha: 0.075)),
-          ),
-        ],
-        // 深空主题采用星图/扫描线，不使用玻璃光斑。
-        if (tokens.language == SurfaceLanguage.deepSpace)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _DeepSpaceStagePainter(primary)),
+        if (!hasImage) ...[
+          // 液态玻璃独有的折射光源（减淡版：低强度，保留模糊可折物但不抢戏）。
+          // 其他主题绝不复用此舞台。
+          if (tokens.language == SurfaceLanguage.liquidGlass) ...[
+            Positioned(
+              top: -140,
+              left: -100,
+              child: _blob(340, primary.withValues(alpha: 0.10)),
             ),
-          ),
-        // 极简：暖炭纸纹颗粒（细微质感，区别于纯色扁平）。
-        if (tokens.language == SurfaceLanguage.minimal)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _GrainStagePainter(tokens.textFaint, density: 0.6),
+            Positioned(
+              bottom: -80,
+              left: 20,
+              child: _blob(300, primary.withValues(alpha: 0.075)),
+            ),
+          ],
+          // 深空主题采用星图/扫描线，不使用玻璃光斑。
+          if (tokens.language == SurfaceLanguage.deepSpace)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(painter: _DeepSpaceStagePainter(primary)),
               ),
             ),
-          ),
-        // Material You：M3 柔光球（跟随动态主色）。
-        if (tokens.language == SurfaceLanguage.materialYou)
-          Positioned(
-            top: -120,
-            right: -80,
-            child: _blob(360, primary.withValues(alpha: 0.16)),
-          ),
-        // 落日：低垂夕阳暖光球 + 顶部暖晕。
-        if (tokens.language == SurfaceLanguage.sunset)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _SunsetStagePainter(tokens.glow, primary),
+          // 极简：暖炭纸纹颗粒（细微质感，区别于纯色扁平）。
+          if (tokens.language == SurfaceLanguage.minimal)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _GrainStagePainter(tokens.textFaint, density: 0.6),
+                ),
               ),
             ),
-          ),
-        // 林间：冠层微光 + 纸纹颗粒。
-        if (tokens.language == SurfaceLanguage.forest)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ForestStagePainter(tokens.textFaint),
+          // Material You：M3 柔光球（跟随动态主色）。
+          if (tokens.language == SurfaceLanguage.materialYou)
+            Positioned(
+              top: -120,
+              right: -80,
+              child: _blob(360, primary.withValues(alpha: 0.16)),
+            ),
+          // 落日：低垂夕阳暖光球 + 顶部暖晕。
+          if (tokens.language == SurfaceLanguage.sunset)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _SunsetStagePainter(tokens.glow, primary),
+                ),
               ),
             ),
-          ),
-        // 终端：CRT 扫描线 + 顶部磷光晕。
-        if (tokens.language == SurfaceLanguage.terminal)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _CrtStagePainter(tokens.textPrimary)),
+          // 林间：冠层微光 + 纸纹颗粒。
+          if (tokens.language == SurfaceLanguage.forest)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _ForestStagePainter(tokens.textFaint),
+                ),
+              ),
             ),
-          ),
-        // 封面取色：顶部提亮渐变，复刻播放页「上浅下深」的单色纵深。
-        if (tokens.language == SurfaceLanguage.albumTint)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [tokens.tintLight, Colors.transparent],
+          // 终端：CRT 扫描线 + 顶部磷光晕。
+          if (tokens.language == SurfaceLanguage.terminal)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _CrtStagePainter(tokens.textPrimary),
+                ),
+              ),
+            ),
+          // 封面取色：顶部提亮渐变，复刻播放页「上浅下深」的单色纵深。
+          if (tokens.language == SurfaceLanguage.albumTint)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [tokens.tintLight, Colors.transparent],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        // 终端不叠加用户背景（纯黑审美）；封面取色以封面色为唯一背景源，
-        // 叠图会掩盖取色结果。
-        if (bg.path != null &&
-            tokens.language != SurfaceLanguage.albumTint &&
-            tokens.language != SurfaceLanguage.terminal)
+        ],
+        if (hasImage)
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
