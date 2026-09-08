@@ -2,6 +2,16 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 主题阶段2：新增 3 套皮肤 + 全皮肤专属环境舞台
+- **区别度诊断**：原 5 套里 liquidGlass/deepSpace 因有专属舞台（折射光斑 / 星图扫描线）一眼可辨，而 minimal/materialYou/highContrast 仅靠扁平底色 + 圆角档位区分、无任何装饰层，字体密度也一致——这是"看着像"的根因，而非皮肤数量少
+- **保留高对比**：它是唯一功能性（无障碍）皮肤（纯黑 / 直角 / 去模糊去发光 / 对比度 ≥7:1），视觉朴素正是设计目的，删除即砍掉无障碍能力
+- **新增 3 套皮肤**（AppSkin/SurfaceLanguage/SkinTokens 同步扩到 8 值）：落日熔金 sunset（暖橙玫瑰 + 低垂夕阳光球，radiusScale 1.1）、林间苔原 forest（暖绿纸质 + 冠层微光颗粒，radiusScale 0.6）、终端磷光 terminal（纯黑绿字 + CRT 扫描线，radiusScale 0 直角 + 绿色 glow）
+- **全皮肤专属环境舞台**（AmbientBackground）：给原本扁平的 minimal 加纸纹颗粒、materialYou 加 M3 柔光球（跟随动态主色）；新皮肤各自 _Sunset/_Forest/_Crt 舞台 painter。新增 _GrainStagePainter（seeded Random 确定性颗粒，静态不闪烁）；终端与高对比一同跳过用户背景图绘制
+- **GlassSurface** _buildNonGlassSurface switch 补 sunset/forest/terminal 分支（sunset/terminal shadow 带各自 glow 柔光投影，forest 纯纸质无投影）
+- **textPrimary 取 token**：ThemeData textTheme 主文本色改用 t.textPrimary（原恒为纯白），终端磷光绿得以贯穿未显式指定样式的 Text；liquidGlass 的 t.textPrimary 本就纯白，播放页视觉不变
+- **设置页门控**：自定义背景入口排除 terminal（纯黑审美下背景图无效）
+- 已知限制：Terminal 的"真等宽字体轴"需内置字体资源（pubspec 当前无 fonts），本次以磷光绿配色 + CRT 扫描线 + 直角达成终端观感，等宽字体留作可选后续
+
 ## 2026-09-08 — 认证两页主题联动 + 输入框可见性（QA 反馈修复）
 - **login_screen / server_select_screen 令牌化**：两页全部硬编码白（标题/标签/副标题/图标容器/Chevron）接入 textPrimary/Dim/Faint + SkinTokens.surface——当初令牌化清扫只覆盖登录后页面，这组认证页漏了
 - **输入框可见性**：InputDecorationTheme 常态加 borderHairline 微亮描边 + focusedBorder（primary×0.5）+ hintStyle textFaint——原先无描边且 fillColor=surface，在极简暖皮下与卡片 tint 同色直接隐形；边框圆角 8×radiusScale 随皮肤

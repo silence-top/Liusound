@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -186,6 +187,27 @@ class GlassSurface extends ConsumerWidget {
         color: requestedTint ?? tokens.surface,
         borderRadius: effectiveRadius,
         border: Border.all(color: tokens.borderHairline),
+      ),
+      SurfaceLanguage.sunset => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderHairline),
+        boxShadow: shadow
+            ? [BoxShadow(color: tokens.glow, blurRadius: 18, spreadRadius: -6)]
+            : null,
+      ),
+      SurfaceLanguage.forest => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderHairline),
+      ),
+      SurfaceLanguage.terminal => BoxDecoration(
+        color: requestedTint ?? tokens.surface,
+        borderRadius: effectiveRadius,
+        border: Border.all(color: tokens.borderHairline),
+        boxShadow: shadow
+            ? [BoxShadow(color: tokens.glow, blurRadius: 10, spreadRadius: -4)]
+            : null,
       ),
       SurfaceLanguage.highContrast => BoxDecoration(
         color: requestedTint ?? tokens.surface,
@@ -638,8 +660,49 @@ class AmbientBackground extends ConsumerWidget {
               child: CustomPaint(painter: _DeepSpaceStagePainter(primary)),
             ),
           ),
-        // 高对比主题不叠加用户背景，避免削弱对比度。
-        if (bg.path != null && tokens.language != SurfaceLanguage.highContrast)
+        // 极简：暖炭纸纹颗粒（细微质感，区别于纯色扁平）。
+        if (tokens.language == SurfaceLanguage.minimal)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _GrainStagePainter(tokens.textFaint, density: 0.6),
+              ),
+            ),
+          ),
+        // Material You：M3 柔光球（跟随动态主色）。
+        if (tokens.language == SurfaceLanguage.materialYou)
+          Positioned(
+            top: -120,
+            right: -80,
+            child: _blob(360, primary.withValues(alpha: 0.16)),
+          ),
+        // 落日：低垂夕阳暖光球 + 顶部暖晕。
+        if (tokens.language == SurfaceLanguage.sunset)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _SunsetStagePainter(tokens.glow, primary),
+              ),
+            ),
+          ),
+        // 林间：冠层微光 + 纸纹颗粒。
+        if (tokens.language == SurfaceLanguage.forest)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _ForestStagePainter(tokens.textFaint)),
+            ),
+          ),
+        // 终端：CRT 扫描线 + 顶部磷光晕。
+        if (tokens.language == SurfaceLanguage.terminal)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _CrtStagePainter(tokens.textPrimary)),
+            ),
+          ),
+        // 高对比/终端主题不叠加用户背景，避免削弱对比度或破坏纯黑审美。
+        if (bg.path != null &&
+            tokens.language != SurfaceLanguage.highContrast &&
+            tokens.language != SurfaceLanguage.terminal)
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
@@ -705,4 +768,120 @@ class _DeepSpaceStagePainter extends CustomPainter {
   @override
   bool shouldRepaint(_DeepSpaceStagePainter oldDelegate) =>
       oldDelegate.primary != primary;
+}
+
+/// 纸纹颗粒：seeded Random 保证每帧点位固定（静态背景不闪烁），density 控密度。
+class _GrainStagePainter extends CustomPainter {
+  const _GrainStagePainter(this.color, {this.density = 1.0});
+
+  final Color color;
+  final double density;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = Random(7);
+    final grain = Paint()..color = color.withValues(alpha: 0.05);
+    final count =
+        (size.width * size.height / 900 * density).clamp(0, 900).toInt();
+    for (var i = 0; i < count; i++) {
+      final x = rand.nextDouble() * size.width;
+      final y = rand.nextDouble() * size.height;
+      canvas.drawCircle(Offset(x, y), 0.7, grain);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GrainStagePainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.density != density;
+}
+
+/// 落日舞台：顶部暖晕 + 低垂夕阳径向光球。
+class _SunsetStagePainter extends CustomPainter {
+  const _SunsetStagePainter(this.glow, this.primary);
+
+  final Color glow;
+  final Color primary;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final washRect = Rect.fromLTWH(0, 0, size.width, size.height * 0.55);
+    final wash = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [primary.withValues(alpha: 0.10), Colors.transparent],
+      ).createShader(washRect);
+    canvas.drawRect(washRect, wash);
+
+    final sunCenter = Offset(size.width * 0.5, size.height * 0.94);
+    final sunRadius = size.width * 0.72;
+    final sun = Paint()
+      ..shader = RadialGradient(
+        colors: [glow.withValues(alpha: 0.55), glow.withValues(alpha: 0.0)],
+      ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius));
+    canvas.drawCircle(sunCenter, sunRadius, sun);
+  }
+
+  @override
+  bool shouldRepaint(_SunsetStagePainter oldDelegate) =>
+      oldDelegate.glow != glow || oldDelegate.primary != primary;
+}
+
+/// 林间舞台：顶部冠层微光 + 纸纹颗粒。
+class _ForestStagePainter extends CustomPainter {
+  const _ForestStagePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final canopyRect = Rect.fromLTWH(0, 0, size.width, size.height * 0.6);
+    final canopy = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [color.withValues(alpha: 0.10), Colors.transparent],
+      ).createShader(canopyRect);
+    canvas.drawRect(canopyRect, canopy);
+
+    final rand = Random(11);
+    final grain = Paint()..color = color.withValues(alpha: 0.05);
+    final count = (size.width * size.height / 1100).clamp(0, 700).toInt();
+    for (var i = 0; i < count; i++) {
+      final x = rand.nextDouble() * size.width;
+      final y = rand.nextDouble() * size.height;
+      canvas.drawCircle(Offset(x, y), 0.7, grain);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ForestStagePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// 终端舞台：CRT 水平扫描线 + 顶部磷光晕。
+class _CrtStagePainter extends CustomPainter {
+  const _CrtStagePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = color.withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    for (var y = 0.0; y < size.height; y += 3.0) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
+    }
+    final glowCenter = Offset(size.width * 0.5, -size.height * 0.08);
+    final glowRadius = size.width * 0.9;
+    final vignette = Paint()
+      ..shader = RadialGradient(
+        colors: [color.withValues(alpha: 0.10), color.withValues(alpha: 0.0)],
+      ).createShader(Rect.fromCircle(center: glowCenter, radius: glowRadius));
+    canvas.drawCircle(glowCenter, glowRadius, vignette);
+  }
+
+  @override
+  bool shouldRepaint(_CrtStagePainter oldDelegate) => oldDelegate.color != color;
 }

@@ -9,6 +9,9 @@ enum SurfaceLanguage {
   deepSpace,
   minimal,
   materialYou,
+  sunset,
+  forest,
+  terminal,
   highContrast,
 }
 
@@ -157,6 +160,78 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     language: SurfaceLanguage.materialYou,
   );
 
+  static const sunset = SkinTokens(
+    // 落日熔金：暖橙玫瑰色温，低垂夕阳光球由舞台绘制
+    background: Color(0xFF1A0E0B),
+    shell: Color(0xFF241310),
+    detailBg: Color(0xFF1F110D),
+    surface: Color(0xFF2E1A14),
+    divider: Color(0x14FFFFFF),
+    glassTint: Color(0xF02E1A14),
+    tintLight: Color(0x14FFB27A),
+    borderTop: Color(0x26FFC08A),
+    borderBottom: Color(0x0AFF8A4C),
+    borderHairline: Color(0x22FFB27A),
+    shadowColor: Color(0x40000000),
+    textDim: Color(0xFFD8B49A),
+    textFaint: Color(0xFF8A6A55),
+    textPrimary: Color(0xFFFFF3EA),
+    glow: Color(0x33FF7A45),
+    blurScale: 0,
+    blurEnabled: false,
+    highlightStrength: 0.15,
+    radiusScale: 1.1, // 暖调柔圆
+    language: SurfaceLanguage.sunset,
+  );
+
+  static const forest = SkinTokens(
+    // 林间苔原：暖绿纸质，冠层微光 + 纸纹颗粒由舞台绘制
+    background: Color(0xFF0E1410),
+    shell: Color(0xFF131A14),
+    detailBg: Color(0xFF101712),
+    surface: Color(0xFF1C261D),
+    divider: Color(0x14FFFFFF),
+    glassTint: Color(0xF01C261D),
+    tintLight: Color(0x0FFFFFFF),
+    borderTop: Color(0x1FFFFFFF),
+    borderBottom: Color(0x0AFFFFFF),
+    borderHairline: Color(0x1FFFFFFF),
+    shadowColor: Color(0x33000000),
+    textDim: Color(0xFFAFC0AE),
+    textFaint: Color(0xFF6E7C6C),
+    textPrimary: Color(0xFFF1F5EE),
+    glow: Color(0x00000000),
+    blurScale: 0,
+    blurEnabled: false,
+    highlightStrength: 0.15,
+    radiusScale: 0.6, // 自然小圆角
+    language: SurfaceLanguage.forest,
+  );
+
+  static const terminal = SkinTokens(
+    // 终端磷光：纯黑底 + 磷光绿文本/描边/发光，CRT 扫描线由舞台绘制
+    background: Color(0xFF000000),
+    shell: Color(0xFF050805),
+    detailBg: Color(0xFF030503),
+    surface: Color(0xFF0A120A),
+    divider: Color(0x3333FF66),
+    glassTint: Color(0xF00A120A),
+    tintLight: Color(0x1433FF66),
+    borderTop: Color(0x4033FF66),
+    borderBottom: Color(0x1433FF66),
+    borderHairline: Color(0x3333FF66),
+    shadowColor: Color(0x00000000),
+    textDim: Color(0xFF7FE08A),
+    textFaint: Color(0xFF3E8A4C),
+    textPrimary: Color(0xFF5CFF8A),
+    glow: Color(0x4033FF66),
+    blurScale: 0,
+    blurEnabled: false,
+    highlightStrength: 0,
+    radiusScale: 0.0, // 终端窗口直角
+    language: SurfaceLanguage.terminal,
+  );
+
   static const highContrast = SkinTokens(
     background: Color(0xFF000000),
     shell: Color(0xFF000000),
@@ -185,6 +260,9 @@ class SkinTokens extends ThemeExtension<SkinTokens> {
     AppSkin.deepSpace => deepSpace,
     AppSkin.minimal => minimal,
     AppSkin.materialYou => materialYou,
+    AppSkin.sunset => sunset,
+    AppSkin.forest => forest,
+    AppSkin.terminal => terminal,
     AppSkin.highContrast => highContrast,
   };
 

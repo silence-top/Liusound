@@ -122,7 +122,7 @@ abstract final class AppTheme {
     }
     final textPrimary = skin == AppSkin.materialYou && materialOnSurface != null
         ? materialOnSurface
-        : Colors.white;
+        : t.textPrimary;
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
