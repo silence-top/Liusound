@@ -175,9 +175,21 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: t.surface,
+        hintStyle: TextStyle(color: t.textFaint),
+        labelStyle: TextStyle(color: t.textDim),
+        // 无边框会在 surface 与容器 tint 同色的皮肤下隐形（极简暖炭实测），
+        // 常态 hairline 微亮描边保证输入框在任何皮肤可辨
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8 * t.radiusScale),
           borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8 * t.radiusScale),
+          borderSide: BorderSide(color: t.borderHairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8 * t.radiusScale),
+          borderSide: BorderSide(color: scheme.primary.withValues(alpha: 0.5)),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,

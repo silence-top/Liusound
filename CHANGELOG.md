@@ -2,6 +2,11 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-08 — 认证两页主题联动 + 输入框可见性（QA 反馈修复）
+- **login_screen / server_select_screen 令牌化**：两页全部硬编码白（标题/标签/副标题/图标容器/Chevron）接入 textPrimary/Dim/Faint + SkinTokens.surface——当初令牌化清扫只覆盖登录后页面，这组认证页漏了
+- **输入框可见性**：InputDecorationTheme 常态加 borderHairline 微亮描边 + focusedBorder（primary×0.5）+ hintStyle textFaint——原先无描边且 fillColor=surface，在极简暖皮下与卡片 tint 同色直接隐形；边框圆角 8×radiusScale 随皮肤
+- 备注：输入框描边是全局主题变更，其余页面 TextField 同步受益
+
 ## 2026-09-08 — 主题阶段1：皮肤圆角档位 + 色温差异化
 - **SkinTokens 新增 `radiusScale`**：玻璃面/弹层/导航基准圆角 × 皮肤缩放（GlassSurface 统一收口，胶囊 999 不缩放；copyWith/lerp 同步支持）。liquidGlass 恒 1.0（播放页冻结不变）、deepSpace 0.7（赛博几何）、minimal 0.55（纸感小圆角）、materialYou 1.3（M3 大圆角）、highContrast 0.0（无障碍直角，替代原先写死的 8px）
 - **色温差异化**（不动 liquidGlass/highContrast）：minimal 冷灰改暖炭纸感（背景/面板/文本阶全部带微暖色温）；materialYou 改 M3 暗色紫调 tonal surface；deepSpace 蓝黑加深——五套皮肤色温+圆角两维同时拉开，肉眼可辨

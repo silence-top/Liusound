@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../settings/servers_screen.dart';
@@ -29,11 +31,11 @@ class ServerSelectScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const Center(
+              Center(
                 child: Text(
                   '选择你的音乐服务',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textPrimaryOf(context),
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -44,7 +46,7 @@ class ServerSelectScreen extends ConsumerWidget {
                 child: Text(
                   '支持 Navidrome / Subsonic / Jellyfin / Emby 等',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: AppTheme.textDimOf(context),
                     fontSize: 14,
                   ),
                 ),
@@ -69,7 +71,7 @@ class ServerSelectScreen extends ConsumerWidget {
                     icon: const Icon(Icons.settings, size: 16),
                     label: const Text('管理服务器'),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white54,
+                      foregroundColor: AppTheme.textDimOf(context),
                       textStyle: const TextStyle(fontSize: 14),
                     ),
                   ),
@@ -101,8 +103,8 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        color: Colors.white38,
+      style: TextStyle(
+        color: AppTheme.textFaintOf(context),
         fontSize: 14,
         fontWeight: FontWeight.bold,
       ),
@@ -138,12 +140,18 @@ class _SavedServerTile extends ConsumerWidget {
               children: [
                 Text(
                   config.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryOf(context),
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${config.serverUrl} · ${config.username}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(
+                    color: AppTheme.textFaintOf(context),
+                    fontSize: 12,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -168,7 +176,11 @@ class _SavedServerTile extends ConsumerWidget {
               ),
             )
           else
-            const Icon(Icons.chevron_right, size: 20, color: Colors.white24),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppTheme.textFaintOf(context),
+            ),
         ],
       ),
     );
@@ -211,8 +223,8 @@ class _BackendTypeCard extends StatelessWidget {
                     children: [
                       Text(
                         type.displayName,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
                           fontSize: 16,
                         ),
                       ),
@@ -224,13 +236,13 @@ class _BackendTypeCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.08),
+                            color: SkinTokens.of(context).surface,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
+                          child: Text(
                             '即将推出',
                             style: TextStyle(
-                              color: Colors.white38,
+                              color: AppTheme.textFaintOf(context),
                               fontSize: 12,
                             ),
                           ),
@@ -241,7 +253,10 @@ class _BackendTypeCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     type.tagline,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textFaintOf(context),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -249,7 +264,7 @@ class _BackendTypeCard extends StatelessWidget {
             Icon(
               Icons.chevron_right,
               size: 22,
-              color: available ? const Color(0xFF666666) : Colors.white12,
+              color: AppTheme.textFaintOf(context),
             ),
           ],
         ),
@@ -276,10 +291,14 @@ class _TypeIcon extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: SkinTokens.of(context).surface,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(type.fallbackIcon, size: size * 0.65, color: Colors.white70),
+      child: Icon(
+        type.fallbackIcon,
+        size: size * 0.65,
+        color: AppTheme.textDimOf(context),
+      ),
     );
   }
 }

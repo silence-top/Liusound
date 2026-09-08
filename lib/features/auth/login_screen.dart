@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/server_type.dart';
 import '../../core/errors/app_error.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
 import 'auth_controller.dart';
 
@@ -91,8 +93,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         Text(
                           '登录 ${type.displayName}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryOf(context),
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
@@ -100,8 +102,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 2),
                         Text(
                           type.tagline,
-                          style: const TextStyle(
-                            color: Colors.white38,
+                          style: TextStyle(
+                            color: AppTheme.textDimOf(context),
                             fontSize: 14,
                           ),
                         ),
@@ -119,8 +121,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _serverController,
                         keyboardType: TextInputType.url,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(hintText: type.urlHint),
@@ -132,8 +134,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _usernameController,
                         autofillHints: const [AutofillHints.username],
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
                           fontSize: 16,
                         ),
                         decoration: const InputDecoration(),
@@ -147,8 +149,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         obscureText: _obscure,
                         autofillHints: const [AutofillHints.password],
                         onFieldSubmitted: (_) => _submit(),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
@@ -170,10 +172,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text(
+                          Text(
                             '启用 HTTPS',
                             style: TextStyle(
-                              color: Colors.white54,
+                              color: AppTheme.textDimOf(context),
                               fontSize: 14,
                             ),
                           ),
@@ -236,7 +238,7 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
       ),
     );
   }
@@ -259,10 +261,14 @@ class _TypeIcon extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: SkinTokens.of(context).surface,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(type.fallbackIcon, size: 22, color: Colors.white70),
+      child: Icon(
+        type.fallbackIcon,
+        size: 22,
+        color: AppTheme.textDimOf(context),
+      ),
     );
   }
 }
