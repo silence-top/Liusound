@@ -6,6 +6,17 @@
 	<true/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+	<!-- 音乐/下载目录访问（下载落盘 ~/Music/流声 + 本地音乐扫描） -->
+	<key>com.apple.security.assets.music</key>
+	<true/>
+	<key>com.apple.security.files.downloads</key>
+	<true/>
+	<!-- file_picker 选目录扫本地音乐（含书签持久化访问） -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- 服务器连接（自建音乐服务端均为客户端角色） -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
 </dict>

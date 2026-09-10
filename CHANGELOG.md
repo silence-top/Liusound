@@ -2,6 +2,15 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 4：macOS 适配（沙盒授权 + 下载落盘 + 本地扫描）
+
+- **沙盒 entitlements**：DebugProfile/Release 补 `network.client`（服务器连接必需，模板默认缺失）；Release 另补 `assets.music`（~/Music 访问，下载落盘）、`files.downloads`（本地扫描）、`files.user-selected.read-write`（file_picker 选目录）；Debug 保留模板的 allow-jit / network.server（调试需要）
+- **下载落盘**：新增 `media_store_macos.dart`——落盘 ~/Music/流声/（path_provider 未在 Dart 顶层暴露音乐目录，取 HOME 环境变量拼路径）；目录不可写时 download_service 既有回退逻辑自动落应用私有 Documents/Music
+- **本地音乐扫描**：macOS 分支扫 ~/Music + ~/Downloads（下载产物按指纹规则排除）
+- **播放链路 audit（无需改动）**：audio_service/audio_session 均有 darwin 实现（GeneratedPluginRegistrant 已注册），锁屏/远程控制走 MPNowPlayingInfoCenter；SQLite 走 sqflite_darwin 平台插件；EQ/悬浮歌词/小部件/刷新率四处 Android-only 门控在 macOS 正确隐藏；边听边存 LockCachingAudioSource darwin 可用不受 web 门控影响
+- **已知局限**：本机为 Windows，无法执行 macOS 编译（需 Xcode）与真机/模拟器 QA——Dart 层验证全过，entitlements 的沙盒行为（尤其 assets.music 对 ~/Music 的授权）待 macOS 环境实测
+- 验证：analyze 5 info（既有基线）、test 38 通过
+
 ## 2026-09-10 — v3 Phase 3：Windows 适配（播放内核 + SQLite ffi + 音频会话守卫）
 
 - **播放内核**：新增 `just_audio_windows`——just_audio 在 Windows 的平台实现，插件注册已验证进 generated_plugins.cmake，Dart 侧零改动自动生效

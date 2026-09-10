@@ -46,6 +46,14 @@ Future<List<Song>> scanLocalLibrary() async {
   if (AppPlatform.isIOS) {
     dirPaths.add((await getApplicationDocumentsDirectory()).path);
   }
+  // macOS：扫真实音乐目录与下载目录（沙盒 assets.music / files.downloads
+  // 授权；下载产物由指纹规则排除）
+  if (AppPlatform.isMacOS) {
+    final home = AppPlatform.env('HOME');
+    if (home != null && home.isNotEmpty) dirPaths.add('$home/Music');
+    final downloads = await getDownloadsDirectory();
+    if (downloads != null) dirPaths.add(downloads.path);
+  }
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库
