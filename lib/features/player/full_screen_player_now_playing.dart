@@ -203,11 +203,9 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     final ok = await ref
         .read(serverAdapterProvider)
         ?.setStar(song.id, newStarred);
-    if (ok != true && mounted) {
+    if (ok != true) {
       ref.read(currentSongProvider.notifier).state = song;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('收藏操作失败'), duration: Duration(seconds: 2)),
-      );
+      showToast('收藏操作失败', error: true);
       return;
     }
     maybeAutoDownload(ref.read);

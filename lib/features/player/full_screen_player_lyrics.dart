@@ -176,11 +176,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     }
                     controller.text = text;
                   } catch (_) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(const SnackBar(content: Text('文件读取失败')));
-                    }
+                    showToast('文件读取失败', error: true);
                   }
                 },
                 icon: const Icon(Icons.folder_open_outlined, size: 18),
@@ -191,9 +187,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                 onPressed: () async {
                   final lines = parseLrcText(controller.text);
                   if (lines.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('未识别到 LRC 时间轴')),
-                    );
+                    showToast('未识别到 LRC 时间轴', error: true);
                     return;
                   }
                   final keys = _lyricsLookupKeys();
@@ -699,12 +693,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                           text: _lyrics.lines.map((l) => l.text).join('\n'),
                         ),
                       );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('歌词已复制'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
+                      showToast('歌词已复制', duration: const Duration(seconds: 1));
                     }),
                   ],
                 ),

@@ -12,6 +12,7 @@ import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
+import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
@@ -574,8 +575,6 @@ class _CreatePlaylistFormState extends ConsumerState<_CreatePlaylistForm> {
     final name = _controller.text.trim();
     if (name.isEmpty || _busy) return;
     final adapter = ref.read(serverAdapterProvider);
-    // 成功路径要先 pop 再提示，Messenger 必须在 pop 之前取到
-    final messenger = ScaffoldMessenger.of(context);
     if (adapter == null) {
       setState(() => _error = '未登录，无法新建歌单');
       return;
@@ -597,12 +596,7 @@ class _CreatePlaylistFormState extends ConsumerState<_CreatePlaylistForm> {
     }
     ref.invalidate(playlistsProvider);
     Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('已创建歌单「$name」'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showToast('已创建歌单「$name」');
   }
 
   @override
@@ -795,12 +789,11 @@ class _PlaylistRow extends StatelessWidget {
   }
 
   Future<void> _onMenuAction(BuildContext context, String action) async {
-    final navigator = ScaffoldMessenger.of(context);
     final adapter = ref.read(serverAdapterProvider);
     if (adapter == null) return;
     final songs = await adapter.fetchPlaylistSongs(playlist.id);
     if (songs.isEmpty) {
-      navigator.showSnackBar(const SnackBar(content: Text('歌单暂无歌曲')));
+      showToast('歌单暂无歌曲');
       return;
     }
     final actions = ref.read(playerActionsProvider);
@@ -809,9 +802,7 @@ class _PlaylistRow extends StatelessWidget {
       await actions.play(songs.first);
     } else {
       actions.addToQueue(songs);
-      navigator.showSnackBar(
-        SnackBar(content: Text('已将 ${songs.length} 首歌曲加入队列')),
-      );
+      showToast('已将 ${songs.length} 首歌曲加入队列');
     }
   }
 }

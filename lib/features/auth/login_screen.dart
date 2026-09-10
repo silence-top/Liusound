@@ -6,6 +6,7 @@ import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -71,9 +72,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('登录失败：${appUserMessage(error)}')));
+      showToast('登录失败：${appUserMessage(error)}', error: true);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

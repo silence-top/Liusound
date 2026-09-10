@@ -6,6 +6,7 @@ import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
@@ -299,24 +300,13 @@ class _ServerCard extends ConsumerWidget {
   }
 
   Future<void> _testConnection(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final ok = await ref
           .read(authControllerProvider.notifier)
           .validateServer(config.id);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(ok ? '连接正常' : '连接失败：会话无效'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      showToast(ok ? '连接正常' : '连接失败：会话无效', error: !ok);
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('连接失败：${appUserMessage(e)}'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      showToast('连接失败：${appUserMessage(e)}', error: true);
     }
   }
 

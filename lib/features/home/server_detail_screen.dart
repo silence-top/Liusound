@@ -5,6 +5,7 @@ import '../../core/api/server_type.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import '../settings/servers_screen.dart';
@@ -242,12 +243,7 @@ class _ManageCard extends ConsumerWidget {
               ref.invalidate(playlistsProvider);
               ref.invalidate(librarySongsProvider);
               ref.invalidate(libraryAlbumsProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('已开始重新同步'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              showToast('已开始重新同步');
             },
           ),
           _divider(context),

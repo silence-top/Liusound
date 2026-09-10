@@ -27,6 +27,7 @@ import 'features/player/album_tint.dart';
 import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
 import 'shared/widgets/glass.dart';
+import 'shared/widgets/toast.dart';
 import 'shell/app_shell.dart';
 
 Future<void> main() async {
@@ -112,7 +113,7 @@ class MusicApp extends ConsumerWidget {
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
-    // 卡片透明度全局系数：SnackBar/Tooltip/PopupMenu 等主题层弹层的透明度
+    // 卡片透明度全局系数：Tooltip/PopupMenu 等主题层弹层的透明度
     // 在 AppTheme.build 接入，滑杆变动随此 watch 整树重建生效
     final tintOpacity = ref.watch(glassTintOpacityProvider);
     // 封面取色皮肤：全局跟随当前播放封面主色（与播放页同一取色 provider）。
@@ -188,6 +189,8 @@ class MusicApp extends ConsumerWidget {
                 : auth.isAuthenticated
                 ? const AppShell()
                 : const ServerSelectScreen(),
+            builder: (context, child) =>
+                AppToaster(key: AppToaster.toasterKey, child: child!),
           );
         },
       ),

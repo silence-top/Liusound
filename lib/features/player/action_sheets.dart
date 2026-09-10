@@ -7,13 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/download/download_service.dart';
 import '../../core/download/auto_download.dart';
-import '../../core/local/local_library.dart'
-    show downloadIndexVersionProvider;
+import '../../core/local/local_library.dart' show downloadIndexVersionProvider;
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
+import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
 import '../home/detail_screen.dart';
 import '../home/home_providers.dart';
@@ -197,21 +197,15 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   }),
                   if (caps?.scrobbling ?? false)
                     _circleItem(Icons.task_alt, '已播放', () async {
-                      // pop 后 sheet 的 context 失效，先抓 navigator/messenger 再发请求
+                      // pop 后 sheet 的 context 失效，先抓 navigator 再发请求
                       final navigator = Navigator.of(context);
-                      final messenger = ScaffoldMessenger.of(context);
                       final ok =
                           await ref
                               .read(serverAdapterProvider)
                               ?.scrobble(song.id) ??
                           false;
                       navigator.pop();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(ok ? '已标记为已播放' : '标记失败'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                      showToast(ok ? '已标记为已播放' : '标记失败', error: !ok);
                     }),
                   _circleItem(Icons.playlist_add, '添加到', () {
                     Navigator.of(context).pop();
@@ -363,9 +357,7 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    showToast(message);
   }
 }
 
@@ -467,12 +459,7 @@ class _SleepTimerContent extends ConsumerWidget {
             onTap: () {
               ref.read(sleepTimerProvider.notifier).start(Duration(minutes: m));
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('将在 $m 分钟后停止播放'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              showToast('将在 $m 分钟后停止播放');
             },
           ),
         if (remain != null)
@@ -608,12 +595,9 @@ Future<void> downloadSongs(
   List<Song> songs,
 ) async {
   if (songs.isEmpty) return;
-  final messenger = ScaffoldMessenger.of(context);
   final adapter = ref.read(serverAdapterProvider);
   if (adapter == null) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('未登录，无法下载'), duration: Duration(seconds: 2)),
-    );
+    showToast('未登录，无法下载', error: true);
     return;
   }
 
@@ -622,12 +606,7 @@ Future<void> downloadSongs(
     ref.read(streamingSettingsProvider),
   );
   if (quality == null) {
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('当前为移动网络，「移动网络传输」已关闭，无法下载'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    showToast('当前为移动网络，「移动网络传输」已关闭，无法下载', error: true);
     return;
   }
   if (!context.mounted) return;
@@ -676,9 +655,8 @@ Future<void> downloadSongs(
               value: v.$3,
               minHeight: 4,
               borderRadius: BorderRadius.circular(2),
-              backgroundColor: AppTheme.textPrimaryOf(
-                dialogCtx,
-              ).withValues(alpha: 0.12),
+              backgroundColor: AppTheme.textPrimaryOf(dialogCtx)
+                  .withValues(alpha: 0.12),
               color: Theme.of(dialogCtx).colorScheme.primary,
             ),
             if (v.$3 != null) ...[
@@ -745,9 +723,7 @@ Future<void> downloadSongs(
       : (done == 0
             ? (networkFail ? '下载失败，请检查网络' : '下载失败')
             : '已下载 $done 首，$failed 首失败');
-  messenger.showSnackBar(
-    SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-  );
+  showToast(message, error: failed > 0);
 }
 
 // ---------- 添加到歌单 ----------
@@ -860,7 +836,6 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                       ),
                       onTap: () async {
                         final navigator = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.of(context);
                         final adapter = ref.read(serverAdapterProvider);
                         final playlist = list[i];
                         var added = 0;
@@ -870,18 +845,12 @@ class _PlaylistPickerSheet extends ConsumerWidget {
                               false;
                           if (ok) added++;
                         }
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              songs.length == 1
-                                  ? (added == 1
-                                        ? '已添加到「${playlist.name}」'
-                                        : '添加失败')
-                                  : '已添加 $added/${songs.length} 首到'
-                                        '「${playlist.name}」',
-                            ),
-                            duration: const Duration(seconds: 2),
-                          ),
+                        showToast(
+                          songs.length == 1
+                              ? (added == 1 ? '已添加到「${playlist.name}」' : '添加失败')
+                              : '已添加 $added/${songs.length} 首到'
+                                    '「${playlist.name}」',
+                          error: songs.length == 1 && added == 0,
                         );
                         navigator.pop();
                       },

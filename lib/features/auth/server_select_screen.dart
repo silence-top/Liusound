@@ -5,6 +5,7 @@ import '../../core/api/server_type.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import '../../shared/widgets/motion.dart';
 import '../settings/servers_screen.dart';
 import 'auth_controller.dart';
@@ -204,12 +205,7 @@ class _BackendTypeCard extends StatelessWidget {
                   Navigator.of(context)
                       .push(fadeRoute<void>(LoginScreen(serverType: type)))
             : () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${type.displayName} 适配器开发中，敬请期待'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                showToast('${type.displayName} 适配器开发中，敬请期待');
               },
         child: Row(
           children: [

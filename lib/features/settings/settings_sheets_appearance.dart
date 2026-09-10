@@ -196,10 +196,7 @@ Future<void> _toggleFloatingLyrics(
   }
   // 先记录用户意图；Android 设置页返回后由 permissionChanged 自动启用或回退。
   await ref.read(floatingLyricsProvider.notifier).setEnabled(true);
-  if (context.mounted) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('授权后将自动启用悬浮歌词')));
-  }
+  showToast('授权后将自动启用悬浮歌词');
   await FloatingLyrics.requestPermission();
 }
 

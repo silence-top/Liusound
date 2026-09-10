@@ -10,6 +10,7 @@ import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/quality_badge.dart';
+import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/full_screen_player.dart';
@@ -128,9 +129,7 @@ mixin _BatchSelect<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   }
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    showToast(message);
   }
 }
 
@@ -222,9 +221,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
         false;
     if (!ok && mounted) {
       setState(() => _rating = before);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('评分提交失败'), duration: Duration(seconds: 2)),
-      );
+      showToast('评分提交失败', error: true);
     }
   }
 
@@ -436,12 +433,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
   void _enqueue(List<Song> songs) {
     if (songs.isEmpty) return;
     ref.read(playerActionsProvider).addToQueue(songs);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已将 ${songs.length} 首歌曲加入队列'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showToast('已将 ${songs.length} 首歌曲加入队列');
   }
 }
 
@@ -593,9 +585,7 @@ class _ListTop extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(GlassTokens.radiusCard),
         ),
-        border: Border(
-          top: BorderSide(color: panelBorder, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: panelBorder, width: 0.5)),
       ),
       child: Column(
         children: [

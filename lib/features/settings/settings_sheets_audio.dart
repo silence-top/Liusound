@@ -198,13 +198,7 @@ Future<void> _showEffectsPanel(BuildContext context) {
                         await Clipboard.setData(
                           ClipboardData(text: jsonEncode(st.gains)),
                         );
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('EQ 曲线已复制到剪贴板'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                        showToast('EQ 曲线已复制到剪贴板');
                       },
                       icon: const Icon(Icons.ios_share, size: 16),
                       label: const Text('导出曲线'),
@@ -225,23 +219,9 @@ Future<void> _showEffectsPanel(BuildContext context) {
                               (e.value as num).round(),
                             );
                           }
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('EQ 曲线已导入'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          showToast('EQ 曲线已导入');
                         } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('剪贴板内容不是有效的 EQ 曲线'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          }
+                          showToast('剪贴板内容不是有效的 EQ 曲线', error: true);
                         }
                       },
                       icon: const Icon(Icons.download, size: 16),

@@ -7,6 +7,7 @@ import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import 'album_tint.dart';
 import 'player_controller.dart';
 
@@ -103,11 +104,9 @@ class _QueueSheet extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
                       ref.read(playerActionsProvider).clearQueue();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('已清空播放队列'),
-                          duration: Duration(seconds: 1),
-                        ),
+                      showToast(
+                        '已清空播放队列',
+                        duration: const Duration(seconds: 1),
                       );
                     },
                     child: Container(

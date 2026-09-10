@@ -26,6 +26,7 @@ import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/cover_style.dart';
@@ -423,7 +424,6 @@ class SettingsScreen extends ConsumerWidget {
 
   /// 清理全部歌词偏移（对标 1.x clearAllLyricOffsets）
   Future<void> _clearLyricOffsets(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final prefs = await SharedPreferences.getInstance();
       final keys = prefs
@@ -433,19 +433,18 @@ class SettingsScreen extends ConsumerWidget {
       for (final key in keys) {
         await prefs.remove(key);
       }
-      _toast(messenger, '已清理 ${keys.length} 条歌词偏移');
+      _toast('已清理 ${keys.length} 条歌词偏移');
     } catch (_) {
-      _toast(messenger, '清理失败');
+      _toast('清理失败', error: true);
     }
   }
 
   Future<void> _clearImageCache(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await DefaultCacheManager().emptyCache();
-      _toast(messenger, '图片缓存已清理');
+      _toast('图片缓存已清理');
     } catch (_) {
-      _toast(messenger, '清理失败');
+      _toast('清理失败', error: true);
     }
   }
 
@@ -477,10 +476,8 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _toast(ScaffoldMessengerState messenger, String message) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+  void _toast(String message, {bool error = false}) {
+    showToast(message, error: error);
   }
 }
 

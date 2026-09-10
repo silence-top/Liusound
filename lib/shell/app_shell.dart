@@ -10,6 +10,7 @@ import '../features/player/mini_player.dart';
 import '../features/player/player_controller.dart';
 import '../features/settings/settings_screen.dart';
 import '../shared/widgets/glass.dart';
+import '../shared/widgets/toast.dart';
 
 /// 主框架（对齐设计图首屏/负一屏）：
 /// 顶部沉浸式导航（首页 / 资料库 / 设置）——无卡片容器，直接延伸进状态栏区域，
@@ -55,13 +56,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       return;
     }
     _lastBackAttempt = now;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('再返回一次退出流声'),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showToast('再返回一次退出流声');
   }
 
   @override
@@ -73,44 +68,44 @@ class _AppShellState extends ConsumerState<AppShell> {
       canPop: false,
       onPopInvokedWithResult: _handleBack,
       child: Scaffold(
-      backgroundColor: AppTheme.shellOf(context),
-      body: AmbientBackground(
-        child: Stack(
-          children: [
-            MediaQuery(
-              data: mq.copyWith(
-                padding: mq.padding.copyWith(
-                  bottom:
-                      mq.padding.bottom +
-                      (hasMiniBar ? kMiniBarOverlaySpace : 0),
+        backgroundColor: AppTheme.shellOf(context),
+        body: AmbientBackground(
+          child: Stack(
+            children: [
+              MediaQuery(
+                data: mq.copyWith(
+                  padding: mq.padding.copyWith(
+                    bottom:
+                        mq.padding.bottom +
+                        (hasMiniBar ? kMiniBarOverlaySpace : 0),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildTopBar(),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (i) => setState(() => _index = i),
+                        children: const [
+                          _KeepAlive(child: HomeScreen()),
+                          _KeepAlive(child: MusicLibraryScreen()),
+                          _KeepAlive(child: SettingsScreen()),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                children: [
-                  _buildTopBar(),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      onPageChanged: (i) => setState(() => _index = i),
-                      children: const [
-                        _KeepAlive(child: HomeScreen()),
-                        _KeepAlive(child: MusicLibraryScreen()),
-                        _KeepAlive(child: SettingsScreen()),
-                      ],
-                    ),
-                  ),
-                ],
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(top: false, child: MiniPlayer()),
               ),
-            ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(top: false, child: MiniPlayer()),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

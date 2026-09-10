@@ -233,12 +233,7 @@ class _SongRow extends ConsumerWidget {
               tooltip: '下一首播放',
               onPressed: () {
                 ref.read(playerActionsProvider).playNextInQueue([song]);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('已设为下一首播放'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
+                showToast('已设为下一首播放', duration: const Duration(seconds: 1));
               },
             ),
           ],

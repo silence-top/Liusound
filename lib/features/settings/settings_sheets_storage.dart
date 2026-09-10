@@ -87,10 +87,7 @@ Future<void> _clearAudioCache(BuildContext context, WidgetRef ref) async {
   if (confirmed != true) return;
   await AudioCache.clear();
   ref.invalidate(audioCacheSizeProvider);
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('播放缓存已清理'), duration: Duration(seconds: 2)),
-  );
+  showToast('播放缓存已清理');
 }
 
 /// 字节数人性化显示
@@ -415,8 +412,7 @@ Future<void> _showNetworkSettings(BuildContext context, WidgetRef ref) {
     _NetworkSettingsForm(
       initial: initial,
       onSave: (s) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('网络设置已更新，切换服务器后生效')));
+        showToast('网络设置已更新，切换服务器后生效');
         ref.read(networkSettingsProvider.notifier).set(s);
       },
     ),

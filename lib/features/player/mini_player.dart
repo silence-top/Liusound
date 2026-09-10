@@ -8,6 +8,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../shared/cover_art.dart';
+import '../../shared/widgets/toast.dart';
 import 'album_tint.dart';
 import 'full_screen_player.dart';
 import 'mini_bar_style.dart';
@@ -36,9 +37,7 @@ class MiniPlayer extends ConsumerWidget {
     ref.listen(resumeNoticeProvider, (_, message) {
       if (message == null) return;
       ref.read(resumeNoticeProvider.notifier).state = null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-      );
+      showToast(message);
     });
 
     final inner = Row(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'app_skin.dart';
-import 'glass_theme.dart';
 import 'skin_tokens.dart';
 
 /// 间距标尺（对齐 2.1 设计系统：8pt 基 + 4 半步）
@@ -84,7 +83,7 @@ abstract final class AppTheme {
   /// 按皮肤 + 主题色构建深色 ThemeData（§8.1 / P1 主题系统化）：
   /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制
   /// 主色等于用户选的色值，保证按钮/激活态颜色与预设完全一致。
-  /// [tintOpacity] 为全局「卡片透明度」系数：SnackBar/Tooltip/PopupMenu 等
+  /// [tintOpacity] 为全局「卡片透明度」系数：Tooltip/PopupMenu 等
   /// Material 默认弹层不经过 GlassSurface，透明度由主题在此统一接入，
   /// 与 GlassSurface 降级路径同公式（tint 压到 surface 实色上再乘系数）。
   static ThemeData build(
@@ -129,13 +128,10 @@ abstract final class AppTheme {
     final textPrimary = skin == AppSkin.materialYou && materialOnSurface != null
         ? materialOnSurface
         : t.textPrimary;
-    // Material 默认弹层（SnackBar/Tooltip/PopupMenu）的玻璃面底色：
+    // Material 默认弹层（Tooltip/PopupMenu）的玻璃面底色：
     // 与 GlassSurface「档位关闭/纯 tint」路径同公式，保证全 app 弹层同一色系
     final popupSurface = Color.alphaBlend(
-      Color.alphaBlend(
-        scheme.primary.withValues(alpha: 0.08),
-        t.glassTint,
-      ),
+      Color.alphaBlend(scheme.primary.withValues(alpha: 0.08), t.glassTint),
       t.surface,
     ).withValues(alpha: tintOpacity.clamp(0.0, 1.0));
     return ThemeData(
@@ -210,19 +206,6 @@ abstract final class AppTheme {
           horizontal: 14,
           vertical: 14,
         ),
-      ),
-      // 全 app 的提示条走玻璃色板：不再是 M3 默认 inverseSurface 半透明底
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: popupSurface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(GlassTokens.radiusCard),
-          side: BorderSide(color: t.borderHairline),
-        ),
-        contentTextStyle: TextStyle(color: textPrimary, fontSize: 14),
-        actionTextColor: scheme.primary,
-        closeIconColor: t.textDim,
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
