@@ -34,6 +34,16 @@
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于选择自定义背景图</string>
+	<!-- 后台播放 + 锁屏/控制中心远程控制（audio_service 要求） -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<!-- 应用 Documents 目录对「文件」App 可见（下载歌曲落盘 Documents/流声/） -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

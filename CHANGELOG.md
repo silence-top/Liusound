@@ -2,6 +2,14 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 1：iOS 适配（播放链路 + 下载落盘 Files.app 可见）
+
+- 播放链路 audit：Info.plist 缺 `UIBackgroundModes: audio`——补上（否则 iOS 后台播放被挂起、锁屏/控制中心不出现远程控制）；音频会话（music 模式）与 audio_service 初始化此前已就位，锁屏/线控链路依赖该键后即为完整
+- 下载落盘：新增 `media_store_ios.dart`——落盘到应用 Documents/流声/，配合 Info.plist 新增 `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace`，「文件」App「我的 iPhone→流声」直接可见可拷贝
+- 本地音乐扫描：iOS 分支扫应用 Documents（用户可从「文件」App 放入音频；下载产物按指纹规则排除不重复入库）
+- 能力位确认：EQ（提示「音效仅在 Android 设备上可用」）、悬浮歌词（入口隐藏）、桌面小部件（推送短路）三处 Android-only 门控已在位，iOS 下正确隐藏
+- 验证：analyze 5 info（既有基线）、test 38 通过、apk debug 构建通过；iOS 编译与真机 QA 需 macOS/Xcode 环境，本机（Windows）无法执行，待后续补
+
 ## 2026-09-10 — v3 Phase 0：全平台兼容架构骨架（平台差异按平台命名分文件）
 
 - 七端目标（Android/iOS/鸿蒙/Windows/macOS/Web/Linux）第一步：`flutter create` 补齐 macos/windows/linux 平台目录，web 从「必然编译失败」变为可构建

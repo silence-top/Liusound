@@ -41,6 +41,11 @@ Future<List<Song>> scanLocalLibrary() async {
           .whereType<String>()
           .map((home) => '$home\\Music'),
   ];
+  // iOS：无公共音乐目录，扫应用 Documents（开启文件共享后用户可从
+  // 「文件」App 放入音频；下载产物由指纹规则排除）
+  if (AppPlatform.isIOS) {
+    dirPaths.add((await getApplicationDocumentsDirectory()).path);
+  }
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库
