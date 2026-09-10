@@ -5,6 +5,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/adapter_provider.dart';
@@ -30,6 +31,9 @@ import 'shell/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Linux 无 just_audio 官方实现 → media_kit(libmpv) 适配。
+  // windows 必须显式关掉：包默认 true 会覆盖 just_audio_windows
+  JustAudioMediaKit.ensureInitialized(linux: true, windows: false);
   FloatingLyrics.initialize();
   // 偏好先于整棵 provider 树加载：所有设置控制器可同步读取，无异步回填竞态
   final prefs = await SharedPreferences.getInstance();

@@ -67,6 +67,8 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.32
   # Windows/Linux 端 AppDb 驱动（ffi）；测试环境同用（DB 迁移/索引测试）
   sqflite_common_ffi: ^2.3.0
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_linux: ^1.2.1
 
 dev_dependencies:
   flutter_test:

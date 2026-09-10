@@ -54,6 +54,13 @@ Future<List<Song>> scanLocalLibrary() async {
     final downloads = await getDownloadsDirectory();
     if (downloads != null) dirPaths.add(downloads.path);
   }
+  // Linux：扫 XDG 音乐目录与下载目录（下载产物由指纹规则排除）
+  if (AppPlatform.isLinux) {
+    final home = AppPlatform.env('HOME');
+    if (home != null && home.isNotEmpty) {
+      dirPaths.addAll(['$home/Music', '$home/Downloads']);
+    }
+  }
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库

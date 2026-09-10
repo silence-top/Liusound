@@ -3,7 +3,8 @@
 /// - Android：MediaStore 贡献式写入 /sdcard/Music/流声/（无需存储权限）
 /// - Windows：用户音乐库下 流声\ 子目录
 /// - macOS：真实音乐目录 ~/Music/流声（沙盒 assets.music 授权）
-/// - web：Phase 2 接浏览器下载；iOS/Documents 已实现；Linux/鸿蒙：待各平台阶段实现
+/// - Linux：XDG 音乐目录 ~/Music/流声
+/// - web：浏览器下载已实现；iOS/Documents 已实现；鸿蒙：待阶段实现
 library;
 
 import 'media_store_web.dart'

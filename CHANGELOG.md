@@ -2,6 +2,15 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 5：Linux 适配（media_kit 播放内核 + 下载落盘 + 本地扫描）
+
+- **播放内核**：Linux 无 just_audio 官方实现——引入 `just_audio_media_kit`（media-kit 社区适配器，把 media_kit/libmpv 注册为 just_audio 的 Linux 平台实现，Dart 层零改动），配套 `media_kit_libs_linux` 打包 libmpv 原生库（已确认注册进 linux generated_plugins）。main.dart 接线 `JustAudioMediaKit.ensureInitialized(linux: true, windows: false)`——**windows 必须显式关掉**：包默认 true 会在 Windows 上覆盖 just_audio_windows。headers 鉴权透传已确认（Media(httpHeaders:)），LockCachingAudioSource 为纯 Dart 本地代理实现、Linux 可用
+- **下载落盘**：新增 `media_store_linux.dart`——XDG 音乐目录 ~/Music/流声（HOME 拼路径，与 macOS 同模式）；不可写时回退私有 Documents/Music
+- **本地音乐扫描**：Linux 分支扫 ~/Music + ~/Downloads（下载产物按指纹规则排除）
+- **数据库/守卫（既有就绪）**：db_factory 已在 isLinux 切 databaseFactoryFfi（Phase 3），sqlite3_flutter_libs 已注册进 linux；audio_session 桌面守卫已覆盖 Linux；audio_service 无 Linux 原生插件（默认实现防崩溃）
+- **已知局限**：① 本机为 Windows，无法执行 Linux 编译与运行 QA——Dart 层验证全过，libmpv 实际播放行为待 Linux 环境实测；② 系统媒体集成（MPRIS）缺（audio_service 无 Linux 插件），同 Windows SMTC 情形
+- 验证：analyze 5 info（既有基线）、test 38 通过
+
 ## 2026-09-10 — v3 Phase 4：macOS 适配（沙盒授权 + 下载落盘 + 本地扫描）
 
 - **沙盒 entitlements**：DebugProfile/Release 补 `network.client`（服务器连接必需，模板默认缺失）；Release 另补 `assets.music`（~/Music 访问，下载落盘）、`files.downloads`（本地扫描）、`files.user-selected.read-write`（file_picker 选目录）；Debug 保留模板的 allow-jit / network.server（调试需要）
