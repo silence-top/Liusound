@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
@@ -10,6 +9,7 @@ import '../api/adapter_provider.dart'
 import '../api/server_adapter.dart';
 import '../models/models.dart';
 import '../storage/app_db.dart';
+import '../platform/isolate_runner.dart';
 
 /// RefReader：统一 Ref / WidgetRef 的 read tear-off
 typedef RefReader = T Function<T>(ProviderListenable<T> provider);
@@ -123,7 +123,7 @@ Future<List<T>> _decodePayload<T>(
   String raw,
 ) async {
   if (raw.length > _payloadIsolateThreshold) {
-    return Isolate.run(() => decode(raw));
+    return runInIsolate(() => decode(raw));
   }
   return decode(raw);
 }
@@ -134,7 +134,7 @@ Future<String> _encodePayload<T>(
 ) async {
   // 编码前无法预知 payload 体积，用条目数近似阈值（>1000 条必然 >256KB）
   if (list.length > 1000) {
-    return Isolate.run(() => encode(list));
+    return runInIsolate(() => encode(list));
   }
   return encode(list);
 }

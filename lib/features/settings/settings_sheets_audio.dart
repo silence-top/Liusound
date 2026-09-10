@@ -26,7 +26,7 @@ Future<void> _showEffectsPanel(BuildContext context) {
                 ),
               ),
             ),
-            if (!Platform.isAndroid)
+            if (!AppPlatform.isAndroid)
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
                 child: Text(

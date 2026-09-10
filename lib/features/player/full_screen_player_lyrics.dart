@@ -169,7 +169,11 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                   final path = files.isEmpty ? null : files.first.path;
                   if (path == null) return;
                   try {
-                    controller.text = await File(path).readAsString();
+                    final text = await localFs.readTextFile(path);
+                    if (text == null) {
+                      throw Exception('文件读取失败');
+                    }
+                    controller.text = text;
                   } catch (_) {
                     if (mounted) {
                       ScaffoldMessenger.of(

@@ -17,7 +17,7 @@ mixin PlayerSourceResolver
     unawaited(_backfillLyrics(song, gen));
     final localPath = localSongPath(song) ?? await findDownloadedSong(song);
     if (gen != _playGeneration) return;
-    if (localPath != null && File(localPath).existsSync()) {
+    if (localPath != null && localFs.fileExists(localPath)) {
       await _playLocal(song, localPath, gen);
       return;
     }

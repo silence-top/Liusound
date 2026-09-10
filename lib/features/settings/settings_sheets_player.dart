@@ -148,14 +148,14 @@ Future<void> _showBackgroundSettings(BuildContext context, WidgetRef ref) {
                                     sigmaX: bg.blur,
                                     sigmaY: bg.blur,
                                   ),
-                                  child: Image.file(
-                                    File(bg.path!),
+                                  child: Image(
+                                    image: localFileImage(bg.path!)!,
                                     fit: BoxFit.cover,
                                     gaplessPlayback: true,
                                   ),
                                 )
-                              : Image.file(
-                                  File(bg.path!),
+                              : Image(
+                                  image: localFileImage(bg.path!)!,
                                   fit: BoxFit.cover,
                                   gaplessPlayback: true,
                                 ),

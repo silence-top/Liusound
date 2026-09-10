@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api/adapter_provider.dart';
 import '../core/api/server_adapter.dart';
+import '../core/platform/local_image.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/motion_tokens.dart';
 
@@ -58,14 +57,14 @@ class CoverArt extends ConsumerWidget {
     );
 
     // 文件缺失（被外部清理等极端情况）由 errorBuilder 兜底回退占位图；
-    // 不在 build 中做 existsSync 同步磁盘 stat（性能红线：本地库列表滚动
+    // 不在 build 中做同步磁盘 stat（性能红线：本地库列表滚动
     // 时每个 item build 都会触发，同步 I/O 阻塞 UI 线程）
-    final coverFile = localCover == null ? null : File(localCover!);
-    if (coverFile != null) {
+    final coverImage = localCover == null ? null : localFileImage(localCover!);
+    if (coverImage != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: Image.file(
-          coverFile,
+        child: Image(
+          image: coverImage,
           width: size,
           height: size,
           fit: BoxFit.cover,

@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +12,7 @@ import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
 import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
+import 'core/platform/display_mode.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/settings/prefs.dart';
 import 'core/theme/accent.dart';
@@ -28,17 +26,6 @@ import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
 import 'shared/widgets/glass.dart';
 import 'shell/app_shell.dart';
-
-/// 省电模式 → Android 刷新率切换（flutter_displaymode；iOS 无公开 API，忽略）
-bool? _lastDisplayPowerSave;
-void _applyDisplayMode(bool powerSave) {
-  if (!Platform.isAndroid || _lastDisplayPowerSave == powerSave) return;
-  _lastDisplayPowerSave = powerSave;
-  (powerSave
-          ? FlutterDisplayMode.setLowRefreshRate()
-          : FlutterDisplayMode.setHighRefreshRate())
-      .catchError((_) {});
-}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,8 +132,8 @@ class MusicApp extends ConsumerWidget {
     ref.listen<ServerAdapter?>(serverAdapterProvider, (prev, next) {
       if (prev == null && next != null) maybeAutoDownload(ref.read);
     });
-    // 省电模式 → 低刷新率（Android）
-    _applyDisplayMode(ref.watch(powerSaveProvider));
+    // 省电模式 → 低刷新率（平台实现见 core/platform/display_mode.dart）
+    applyDisplayPowerSave(ref.watch(powerSaveProvider));
     // 悬浮歌词：当前行变化即推送到 Android 小窗（双行：当前+下一行），null 时隐藏
     ref.listen<({String current, String next})?>(
       floatingLyricsOverlayProvider,

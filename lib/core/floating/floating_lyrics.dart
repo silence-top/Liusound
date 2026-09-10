@@ -1,8 +1,9 @@
-import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../platform/app_platform.dart';
 
 import '../lyrics/lyrics.dart';
 import '../theme/settings_prefs.dart';
@@ -34,7 +35,7 @@ abstract final class FloatingLyrics {
     });
   }
 
-  static bool get supported => Platform.isAndroid;
+  static bool get supported => AppPlatform.isAndroid;
 
   static Future<bool> hasPermission() async {
     if (!supported) return false;

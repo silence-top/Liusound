@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+import '../../core/platform/app_platform.dart';
+import '../../core/platform/local_image.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -349,7 +352,7 @@ class SettingsScreen extends ConsumerWidget {
           _GroupCard(
             title: '系统与账户',
             children: [
-              if (Platform.isAndroid) ...[
+              if (AppPlatform.isAndroid) ...[
                 _SwitchTile(
                   icon: Icons.picture_in_picture_alt,
                   title: '悬浮歌词',

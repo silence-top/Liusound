@@ -1,6 +1,6 @@
-import 'dart:io';
-
 import 'package:home_widget/home_widget.dart';
+
+import '../platform/app_platform.dart';
 
 import '../models/models.dart';
 
@@ -9,7 +9,7 @@ import '../models/models.dart';
 /// coverPath 为封面文件路径（本地内嵌封面或服务端封面缓存文件），
 /// 原生侧解码为 Bitmap；为空时原生回退默认占位图
 class HomeWidgetSync {
-  static bool _supported() => Platform.isAndroid;
+  static bool _supported() => AppPlatform.isAndroid;
 
   static Future<void> push({
     Song? song,

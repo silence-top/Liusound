@@ -1,15 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/download/auto_download.dart';
 import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
+import '../../core/platform/local_fs.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/widget/home_widget_sync.dart';
 import '../auth/auth_controller.dart';
@@ -57,22 +56,17 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<String?> _widgetCoverPath(Song? song) async {
     if (song == null) return null;
     final local = song.localCoverPath;
-    if (local != null && File(local).existsSync()) return local;
+    if (local != null && localFs.fileExists(local)) return local;
     final key = song.albumId.hashCode;
     final cached = _widgetCoverCache[key];
-    if (cached != null && File(cached).existsSync()) return cached;
+    if (cached != null && localFs.fileExists(cached)) return cached;
     final bytes = await _ref
         .read(serverAdapterProvider)
         ?.fetchCoverBytes(song.albumId, size: 256);
     if (bytes == null) return null;
-    try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/widget_cover_$key.png');
-      await file.writeAsBytes(bytes);
-      return _widgetCoverCache[key] = file.path;
-    } catch (_) {
-      return null;
-    }
+    final path = await localFs.writeTempFile('widget_cover_$key.png', bytes);
+    if (path == null) return null;
+    return _widgetCoverCache[key] = path;
   }
 
   // ---------- 系统控制回调 → 全局播放器 ----------

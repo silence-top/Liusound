@@ -1,5 +1,11 @@
 import 'dart:async';
-import 'dart:io';
+
+import 'app_error_web.dart'
+    if (dart.library.io) 'app_error_io.dart'
+    show isNetworkException;
+export 'app_error_web.dart'
+    if (dart.library.io) 'app_error_io.dart'
+    show isNetworkException;
 
 /// 应用错误模型（P1-AppError）：Adapter 层抛类型化错误，Provider 透传为
 /// AsyncError，UI 只读 message / 按类型分支，禁止用 Exception.toString() 判断
@@ -56,7 +62,7 @@ final class ServerError extends AppError {
 /// 安全文案，不把原始异常串（可能含 URL/堆栈细节）暴露给用户
 String appUserMessage(Object error) {
   if (error is AppError) return error.message;
-  if (error is SocketException || error is TimeoutException) {
+  if (isNetworkException(error) || error is TimeoutException) {
     return const NetworkError().message;
   }
   return '操作失败，请稍后重试';

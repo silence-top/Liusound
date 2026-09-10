@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/cache/cache_manager.dart';
+import '../../core/platform/local_fs.dart';
 import '../../core/download/download_service.dart';
 import '../../core/local/local_library.dart';
 import '../../core/lyrics/lyrics.dart';

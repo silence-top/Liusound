@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../platform/app_platform.dart';
 
 import '../../features/player/player_controller.dart';
 
@@ -38,7 +39,7 @@ class AudioEffectsApi {
   static const _channel = MethodChannel(_channelName);
 
   static Future<List<EqBand>> init(int sessionId) async {
-    if (!Platform.isAndroid) return const [];
+    if (!AppPlatform.isAndroid) return const [];
     try {
       final raw = await _channel.invokeMethod<List<Object?>>('init', sessionId);
       return raw?.map(EqBand.fromMap).toList() ?? const [];
@@ -48,7 +49,7 @@ class AudioEffectsApi {
   }
 
   static Future<void> setEq(bool enabled) async {
-    if (!Platform.isAndroid) return;
+    if (!AppPlatform.isAndroid) return;
     try {
       await _channel.invokeMethod('setEq', {'enabled': enabled});
     } on PlatformException {
@@ -57,7 +58,7 @@ class AudioEffectsApi {
   }
 
   static Future<void> setBandLevel(int index, int levelMb) async {
-    if (!Platform.isAndroid) return;
+    if (!AppPlatform.isAndroid) return;
     try {
       await _channel.invokeMethod('setBandLevel', {
         'index': index,
@@ -69,7 +70,7 @@ class AudioEffectsApi {
   }
 
   static Future<void> setBass(int strength) async {
-    if (!Platform.isAndroid) return;
+    if (!AppPlatform.isAndroid) return;
     try {
       await _channel.invokeMethod('setBass', strength);
     } on PlatformException {
@@ -78,7 +79,7 @@ class AudioEffectsApi {
   }
 
   static Future<void> setVirtualizer(int strength) async {
-    if (!Platform.isAndroid) return;
+    if (!AppPlatform.isAndroid) return;
     try {
       await _channel.invokeMethod('setVirtualizer', strength);
     } on PlatformException {
@@ -87,7 +88,7 @@ class AudioEffectsApi {
   }
 
   static Future<void> release() async {
-    if (!Platform.isAndroid) return;
+    if (!AppPlatform.isAndroid) return;
     try {
       await _channel.invokeMethod('release');
     } on PlatformException {
@@ -171,7 +172,7 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
 
   @override
   AudioEffectsState build() {
-    if (Platform.isAndroid) {
+    if (AppPlatform.isAndroid) {
       final player = ref.watch(audioPlayerProvider);
       unawaited(_attachSession(player.androidAudioSessionId));
       _sub = player.androidAudioSessionIdStream.listen((sid) {

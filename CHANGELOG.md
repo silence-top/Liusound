@@ -2,6 +2,16 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 0：全平台兼容架构骨架（平台差异按平台命名分文件）
+
+- 七端目标（Android/iOS/鸿蒙/Windows/macOS/Web/Linux）第一步：`flutter create` 补齐 macos/windows/linux 平台目录，web 从「必然编译失败」变为可构建
+- 新建 `lib/core/platform/` 门面层，平台差异文件统一平台命名后缀（`_android/_ios/_ohos/_windows/_macos/_linux/_web/_stub`），编译期 io/web 条件导出 + 运行期 `AppPlatform` 分流两层结构：
+  - `app_platform.dart`（isAndroid/isIOS/isOhos 等环境判定）、`local_fs.dart`（最小文件系统）、`local_image.dart`（本地文件图）、`isolate_runner.dart`（Isolate.run 的 web 兜底）、`display_mode.dart`（刷新率，非 Android no-op）
+  - `media_store.dart`：公共音乐目录落盘（原 `core/download/public_music.dart`），Android MediaStore / Windows 音乐库 / 其余 stub
+  - `download_service`、`cache_manager`、`local_library`、`http_factory`、`app_error` 各拆门面 + `_io` + `_web` 实现
+- 业务文件清零 `dart:io` / `Platform.` 直引（约 14 个文件，含 4 个 part 文件隐藏消费点），全部改走门面；新增纪律：业务代码禁止直接 import 'dart:io'（web 编译断点）
+- 验证基线重定：analyze 5 条 info（既有）、test 38 通过、`build apk --debug` / `build web` / `build windows --debug` 全通过
+
 ## 2026-09-08 — 封面取色去玻璃残留，玻璃特性液态玻璃独占
 
 - 用户钦定构想「只有液态玻璃才有玻璃特性」：封面取色（albumTint）此前 `blurEnabled: true` 是残留——顶栏在该皮肤下仍走模糊玻璃路径且受液态玻璃档位影响；改为 false，与取色回退色板一致，8 套皮肤中仅液态玻璃挂 BackdropFilter

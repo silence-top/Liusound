@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/platform/local_image.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/glass_theme.dart';
 import '../../core/theme/skin_tokens.dart';
@@ -690,6 +690,8 @@ class AmbientBackground extends ConsumerWidget {
     // 用户自定义背景图最高优先级：设置后跳过所有皮肤舞台装饰，图片即背景
     // （全皮肤生效，包括封面取色/终端）；未设图时才渲染各皮肤专属舞台
     final hasImage = bg.path != null;
+    // 本地文件 → ImageProvider（web 端返回 null，回退皮肤舞台）
+    final bgImage = hasImage ? localFileImage(bg.path!) : null;
     return Stack(
       children: [
         if (!hasImage) ...[
@@ -773,7 +775,7 @@ class AmbientBackground extends ConsumerWidget {
               ),
             ),
         ],
-        if (hasImage)
+        if (bgImage != null)
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
@@ -784,14 +786,14 @@ class AmbientBackground extends ConsumerWidget {
                           sigmaX: bg.blur,
                           sigmaY: bg.blur,
                         ),
-                        child: Image.file(
-                          File(bg.path!),
+                        child: Image(
+                          image: bgImage,
                           fit: BoxFit.cover,
                           gaplessPlayback: true,
                         ),
                       )
-                    : Image.file(
-                        File(bg.path!),
+                    : Image(
+                        image: bgImage,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                       ),

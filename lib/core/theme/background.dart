@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../platform/local_fs.dart';
 import '../settings/prefs.dart';
 
 /// 自定义背景图状态（§8.1）：路径 + 不透明度 + 模糊度，全部持久化。
@@ -71,7 +70,7 @@ class BackgroundController extends Notifier<BackgroundConfig> {
   /// 之后若 state.path 已变化（用户刚设置了新背景）则放弃清理，
   /// 避免异步校验覆盖用户新值
   Future<void> _validateFile(String path) async {
-    if (File(path).existsSync()) return;
+    if (localFs.fileExists(path)) return;
     final prefs = await SharedPreferences.getInstance();
     if (state.path != path) return;
     await prefs.remove(_pathKey);
@@ -81,18 +80,15 @@ class BackgroundController extends Notifier<BackgroundConfig> {
   }
 
   Future<void> setImage(String sourcePath) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final dest = '${dir.path}${Platform.pathSeparator}custom_bg.png';
-    await File(sourcePath).copy(dest);
+    final dest = await localFs.copyToAppDocuments('custom_bg.png', sourcePath);
+    if (dest == null) return;
     await _save(path: dest);
   }
 
   Future<void> clearImage() async {
     final cfg = state;
     if (cfg.path != null) {
-      try {
-        await File(cfg.path!).delete();
-      } catch (_) {}
+      await localFs.deleteFile(cfg.path!);
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pathKey);
