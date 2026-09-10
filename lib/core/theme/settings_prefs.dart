@@ -93,6 +93,28 @@ final floatingLyricsProvider = NotifierProvider<FloatingLyricsController, bool>(
   FloatingLyricsController.new,
 );
 
+/// 卡片展示开关：开启后内容卡（设置分组/服务器卡/入口/歌单/搜索分组等）
+/// 按卡片呈现；关闭后全部裸排（封面与列表行直接落在页面上）
+class CardDisplayController extends Notifier<bool> {
+  static const _key = 'card_display';
+
+  @override
+  bool build() {
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(_key) ?? false;
+  }
+
+  Future<void> setEnabled(bool v) async {
+    state = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, v);
+  }
+}
+
+final cardDisplayProvider = NotifierProvider<CardDisplayController, bool>(
+  CardDisplayController.new,
+);
+
 /// 耳机线控按键动作映射（§9.2）：单击/双击/三击可自定义
 enum HeadsetAction { playPause, next, previous, toggleStar }
 

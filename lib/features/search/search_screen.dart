@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
@@ -316,35 +317,69 @@ class _ResultList extends ConsumerWidget {
       );
     }
 
+    final cardsOn = ref.watch(cardDisplayProvider);
+    Widget group(Widget rows) => cardsOn
+        ? GlassContainer(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: rows,
+          )
+        : rows;
+
     return CustomScrollView(
       slivers: [
-        if (artists.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: _SectionTitle('艺人')),
-          SliverList.builder(
-            itemCount: artists.length,
-            itemBuilder: (context, i) => _ArtistRow(artist: artists[i]),
-          ),
-        ],
-        if (albums.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: _SectionTitle('专辑')),
-          SliverList.builder(
-            itemCount: albums.length,
-            itemBuilder: (context, i) => _AlbumRowCard(album: albums[i]),
-          ),
-        ],
-        if (results.songs.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: _SectionTitle('歌曲')),
-          SliverList.builder(
-            itemCount: results.songs.length,
-            itemBuilder: (context, i) => FadeSlideIn(
-              child: SongRow(
-                song: results.songs[i],
-                index: i,
-                songs: results.songs,
-              ),
+        if (artists.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const _SectionTitle('艺人'),
+                group(
+                  Column(
+                    children: [
+                      for (final artist in artists) _ArtistRow(artist: artist),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        if (albums.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const _SectionTitle('专辑'),
+                group(
+                  Column(
+                    children: [
+                      for (final album in albums) _AlbumRowCard(album: album),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (results.songs.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const _SectionTitle('歌曲'),
+                group(
+                  Column(
+                    children: [
+                      for (var i = 0; i < results.songs.length; i++)
+                        FadeSlideIn(
+                          child: SongRow(
+                            song: results.songs[i],
+                            index: i,
+                            songs: results.songs,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SliverToBoxAdapter(child: SizedBox(height: 96)),
       ],
     );

@@ -364,6 +364,15 @@ class GlassCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 卡片展示关：内容卡降级为裸排（保留内外边距，去掉卡面/描边/投影）
+    if (!ref.watch(cardDisplayProvider)) {
+      return _bare(
+        onTap: onTap,
+        padding: padding,
+        margin: margin,
+        child: child,
+      );
+    }
     final effectiveTint = imageBgAwareTint(
       ref,
       tint ?? GlassTokens.tint(context),
@@ -388,6 +397,26 @@ class GlassCard extends ConsumerWidget {
     }
     return card;
   }
+}
+
+/// 卡片展示关时的裸排降级：只保留边距，不画任何卡面
+Widget _bare({
+  VoidCallback? onTap,
+  EdgeInsetsGeometry? padding,
+  EdgeInsetsGeometry? margin,
+  required Widget child,
+}) {
+  Widget bare = child;
+  if (padding != null) bare = Padding(padding: padding, child: bare);
+  if (margin != null) bare = Padding(padding: margin, child: bare);
+  if (onTap != null) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: bare,
+    );
+  }
+  return bare;
 }
 
 class GlassPill extends StatelessWidget {
@@ -457,6 +486,15 @@ class GlassContainer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 卡片展示关：容器降级为裸排（保留内外边距，去掉模糊/卡面/描边/投影）
+    if (!ref.watch(cardDisplayProvider)) {
+      return _bare(
+        onTap: onTap,
+        padding: padding,
+        margin: margin,
+        child: child,
+      );
+    }
     final container = GlassSurface(
       radius: radius,
       blur: blur,

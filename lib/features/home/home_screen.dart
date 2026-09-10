@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
+import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
@@ -333,12 +335,23 @@ class _SongListSection extends ConsumerWidget {
               ),
             ),
           ),
-          child: Column(
-            children: list
-                .take(3)
-                .map((song) => _SongCardRow(song: song, queue: list))
-                .toList(),
-          ),
+          child: ref.watch(cardDisplayProvider)
+              ? GlassContainer(
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: list
+                        .take(3)
+                        .map((song) => _SongCardRow(song: song, queue: list))
+                        .toList(),
+                  ),
+                )
+              : Column(
+                  children: list
+                      .take(3)
+                      .map((song) => _SongCardRow(song: song, queue: list))
+                      .toList(),
+                ),
         );
       },
     );

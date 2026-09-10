@@ -64,6 +64,7 @@ class SettingsScreen extends ConsumerWidget {
     final coverStyle = ref.watch(coverStyleProvider);
     final accent = ref.watch(appAccentProvider);
     final skin = ref.watch(appSkinProvider);
+    final cardsOn = ref.watch(cardDisplayProvider);
     final bgConfig = ref.watch(backgroundProvider);
     final barStyle = ref.watch(miniBarStyleProvider);
     final barOffset = ref.watch(miniBarOffsetProvider);
@@ -266,6 +267,15 @@ class SettingsScreen extends ConsumerWidget {
             title: '外观',
             children: [
               const _SkinPickerTile(),
+              _divider,
+              _SwitchTile(
+                icon: Icons.dashboard_outlined,
+                title: '卡片展示',
+                subtitle: '开启后内容用卡片呈现，关闭则封面与列表裸排',
+                value: cardsOn,
+                onChanged: (v) =>
+                    ref.read(cardDisplayProvider.notifier).setEnabled(v),
+              ),
               if (skin == AppSkin.liquidGlass) ...[
                 _divider,
                 _ActionTile(

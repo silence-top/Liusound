@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
@@ -72,7 +73,8 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
     final config = ref.watch(authControllerProvider).activeConfig;
     final type = config?.type;
     final primary = Theme.of(context).colorScheme.primary;
-    return Column(
+    final cardsOn = ref.watch(cardDisplayProvider);
+    final content = Column(
       children: [
         InkWell(
           onTap: config == null
@@ -188,6 +190,13 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
         ),
       ],
     );
+    return cardsOn
+        ? GlassContainer(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.zero,
+            child: content,
+          )
+        : content;
   }
 }
 
@@ -316,7 +325,7 @@ class _EntryGrid extends ConsumerWidget {
   }
 }
 
-class _Entry extends StatelessWidget {
+class _Entry extends ConsumerWidget {
   const _Entry(this.icon, this.label, this.onTap);
 
   final IconData icon;
@@ -324,36 +333,37 @@ class _Entry extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.m),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppTheme.textDimOf(context),
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 12),
         ),
-      ),
+      ],
     );
+    final inner = ref.watch(cardDisplayProvider)
+        ? GlassCard(
+            onTap: onTap,
+            radius: AppRadius.m,
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+            child: content,
+          )
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppRadius.m),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+              child: content,
+            ),
+          );
+    return Expanded(child: inner);
   }
 }
 
@@ -523,9 +533,16 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
               ],
       );
     }
-    return Column(
+    final rows = Column(
       children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
     );
+    return ref.watch(cardDisplayProvider)
+        ? GlassContainer(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: rows,
+          )
+        : rows;
   }
 }
 
