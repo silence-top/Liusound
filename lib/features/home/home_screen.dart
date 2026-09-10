@@ -6,7 +6,6 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
-import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
@@ -261,7 +260,7 @@ class _AlbumCard extends StatelessWidget {
 }
 
 /// 歌曲列表分区（每日推荐 / 最近播放 / 最常播放共用）：
-/// GlassCard 内 3 行歌曲 + 「查看更多」进入全屏列表
+/// 3 行歌曲裸排 + 「查看更多」进入全屏列表
 class _SongListSection extends ConsumerWidget {
   const _SongListSection({
     required this.title,
@@ -334,15 +333,11 @@ class _SongListSection extends ConsumerWidget {
               ),
             ),
           ),
-          child: GlassContainer(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: list
-                  .take(3)
-                  .map((song) => _SongCardRow(song: song, queue: list))
-                  .toList(),
-            ),
+          child: Column(
+            children: list
+                .take(3)
+                .map((song) => _SongCardRow(song: song, queue: list))
+                .toList(),
           ),
         );
       },
