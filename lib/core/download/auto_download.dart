@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/adapter_provider.dart'
     show activeServerIdProvider, serverAdapterProvider;
 import '../cache/cache_manager.dart' show cacheSettingsProvider;
+import '../local/local_library.dart' show downloadIndexVersionProvider;
 import '../models/models.dart';
 import '../settings/streaming_prefs.dart';
 import 'download_service.dart';
@@ -49,6 +50,8 @@ class AutoDownload {
             serverId: serverId,
             networkSettings: read(networkSettingsProvider),
           );
+          // 下载完成即时刷新「本地音乐」合并展示
+          read(downloadIndexVersionProvider.notifier).state++;
         } catch (_) {
           continue; // 单曲失败继续下一首
         }

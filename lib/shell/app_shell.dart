@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
@@ -26,6 +27,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   // 对齐设计图首屏：首页（搜索/发现内容）/ 资料库（负一屏）/ 设置，默认首页
   int _index = 0;
   final _pageController = PageController();
+  DateTime? _lastBackAttempt;
 
   static const _icons = [Icons.search, Icons.music_note, Icons.settings];
 
@@ -38,8 +40,27 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _goTo(int index) {
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
+      duration: MotionTokens.durationTransition,
       curve: MotionTokens.curveStandard,
+    );
+  }
+
+  /// 根页返回拦截：全面屏侧滑/返回键第一次给出提示，2 秒内第二次才真正退出
+  void _handleBack(bool didPop, Object? _) {
+    if (didPop) return;
+    final now = DateTime.now();
+    final last = _lastBackAttempt;
+    if (last != null && now.difference(last) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBackAttempt = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('再返回一次退出流声'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -48,7 +69,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     // 只在「有无播放歌曲」这一维度重建（开始/停止播放各一次），切歌不触发
     final hasMiniBar = ref.watch(currentSongProvider.select((s) => s != null));
     final mq = MediaQuery.of(context);
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handleBack,
+      child: Scaffold(
       backgroundColor: AppTheme.shellOf(context),
       body: AmbientBackground(
         child: Stack(
@@ -86,6 +110,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -125,7 +150,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                       const SizedBox(height: 4),
                       // 下划线指示条：激活项展开，未激活收起
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
+                        duration: MotionTokens.durationSnappy,
                         curve: Curves.easeOut,
                         width: _index == i ? 22 : 0,
                         height: 3,

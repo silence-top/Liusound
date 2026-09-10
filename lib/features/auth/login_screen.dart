@@ -20,6 +20,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverController = TextEditingController();
+  final _portController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
@@ -29,6 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void dispose() {
     _serverController.dispose();
+    _portController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -50,6 +52,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       while (host.endsWith('/')) {
         host = host.substring(0, host.length - 1);
+      }
+      // 独立端口输入框（选填）：粘贴的完整 URL 已带端口时以域名框为准，不重复拼接
+      final port = _portController.text.trim();
+      if (port.isNotEmpty && !host.contains(':')) {
+        host = '$host:$port';
       }
       if (https != _https) _https = https;
       await ref
@@ -117,17 +124,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _FieldLabel('服务器地址'),
-                      TextFormField(
-                        controller: _serverController,
-                        keyboardType: TextInputType.url,
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryOf(context),
-                          fontSize: 16,
-                        ),
-                        decoration: InputDecoration(hintText: type.urlHint),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? '请输入服务器地址' : null,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _FieldLabel('服务器地址'),
+                                TextFormField(
+                                  controller: _serverController,
+                                  keyboardType: TextInputType.url,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryOf(context),
+                                    fontSize: 16,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: type.urlHint,
+                                  ),
+                                  validator: (v) =>
+                                      (v == null || v.trim().isEmpty)
+                                      ? '请输入服务器地址'
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _FieldLabel('端口'),
+                                TextFormField(
+                                  controller: _portController,
+                                  keyboardType: TextInputType.number,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryOf(context),
+                                    fontSize: 16,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: '选填',
+                                  ),
+                                  validator: (v) {
+                                    final s = v?.trim() ?? '';
+                                    if (s.isEmpty) return null; // 选填
+                                    final p = int.tryParse(s);
+                                    return (p == null || p < 1 || p > 65535)
+                                        ? '1-65535'
+                                        : null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       const _FieldLabel('用户名'),

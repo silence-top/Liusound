@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/download/download_service.dart';
 import '../../core/download/auto_download.dart';
+import '../../core/local/local_library.dart'
+    show downloadIndexVersionProvider;
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
@@ -28,6 +30,7 @@ void showSongActionSheet(BuildContext context, Song song) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.black38,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
@@ -630,9 +633,10 @@ Future<void> downloadSongs(
   if (!context.mounted) return;
 
   final total = songs.length;
-  // 标签与进度合成一个 record：ValueNotifier 按结构相等判定，任一变化都会重建
-  final state = ValueNotifier<(String, double?)>((
-    '正在下载「${songs.first.title}」',
+  // (歌名, 批量进度段, 整体进度)：ValueNotifier 按结构相等判定，任一变化都会重建
+  final state = ValueNotifier<(String, String, double?)>((
+    songs.first.title,
+    '',
     null,
   ));
   var dialogOpen = true;
@@ -640,7 +644,8 @@ Future<void> downloadSongs(
     glassDialog<void>(
       context,
       barrierDismissible: false,
-      content: ValueListenableBuilder<(String, double?)>(
+      title: '正在下载',
+      content: ValueListenableBuilder<(String, String, double?)>(
         valueListenable: state,
         builder: (dialogCtx, v, _) => Column(
           mainAxisSize: MainAxisSize.min,
@@ -648,18 +653,47 @@ Future<void> downloadSongs(
           children: [
             Text(
               v.$1,
-              style: const TextStyle(
-                color: Colors.white,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(dialogCtx),
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
+            if (v.$2.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                v.$2,
+                style: TextStyle(
+                  color: AppTheme.textFaintOf(dialogCtx),
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             LinearProgressIndicator(
-              value: v.$2,
-              backgroundColor: Colors.white12,
+              value: v.$3,
+              minHeight: 4,
+              borderRadius: BorderRadius.circular(2),
+              backgroundColor: AppTheme.textPrimaryOf(
+                dialogCtx,
+              ).withValues(alpha: 0.12),
               color: Theme.of(dialogCtx).colorScheme.primary,
             ),
+            if (v.$3 != null) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${((v.$3! * 100).round()).clamp(0, 100)}%',
+                  style: TextStyle(
+                    color: AppTheme.textFaintOf(dialogCtx),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -673,9 +707,8 @@ Future<void> downloadSongs(
   for (var i = 0; i < total; i++) {
     final song = songs[i];
     state.value = (
-      total == 1
-          ? '正在下载「${song.title}」'
-          : '正在下载（${i + 1}/$total）「${song.title}」',
+      song.title,
+      total == 1 ? '' : '${i + 1}/$total',
       total == 1 ? null : i / total,
     );
     try {
@@ -688,11 +721,14 @@ Future<void> downloadSongs(
           if (size <= 0) return;
           state.value = (
             state.value.$1,
+            state.value.$2,
             total == 1 ? received / size : (i + received / size) / total,
           );
         },
       );
       done++;
+      // 下载完成即时刷新「本地音乐」合并展示（downloadIndexVersionProvider）
+      ref.read(downloadIndexVersionProvider.notifier).state++;
       lastName = Uri.file(path).pathSegments.last;
     } on DioException {
       failed++;
@@ -723,6 +759,7 @@ Future<void> showAddToPlaylistSheet(BuildContext context, List<Song> songs) {
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.black38,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(

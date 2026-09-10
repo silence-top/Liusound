@@ -117,6 +117,9 @@ class MusicApp extends ConsumerWidget {
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
+    // 卡片透明度全局系数：SnackBar/Tooltip/PopupMenu 等主题层弹层的透明度
+    // 在 AppTheme.build 接入，滑杆变动随此 watch 整树重建生效
+    final tintOpacity = ref.watch(glassTintOpacityProvider);
     // 封面取色皮肤：全局跟随当前播放封面主色（与播放页同一取色 provider）。
     // select 只在专辑变化时重建组合根，歌曲其它字段更新不触发整页换肤
     final currentAlbumId = ref.watch(
@@ -183,6 +186,7 @@ class MusicApp extends ConsumerWidget {
               materialOnSurface: darkDynamic?.onSurface,
               materialOnSurfaceVariant: darkDynamic?.onSurfaceVariant,
               albumDominant: albumDominant,
+              tintOpacity: tintOpacity,
             ),
             home: !auth.initialized
                 ? const _Splash()

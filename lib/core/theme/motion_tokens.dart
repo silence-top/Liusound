@@ -13,4 +13,17 @@ abstract final class MotionTokens {
   static const Curve curveStandard = Curves.easeOutCubic;
   static const Curve curveEmphasized = Curves.easeInOutCubicEmphasized;
   static const Curve curveDecelerated = Curves.easeOutCirc;
+
+  // ---------- 场景时长 ----------
+  /// 页面转场（fadeRoute）/ 跟手落位 / 歌词自动滚动 / 封面淡入（300ms 档）
+  static const Duration durationTransition = Duration(milliseconds: 300);
+
+  /// 快速反馈类小动画（转场退场 / 导航指示条）
+  static const Duration durationSnappy = Duration(milliseconds: 220);
+
+  /// 封面切换淡入（全屏唱片 350ms 档）
+  static const Duration durationCoverFade = Duration(milliseconds: 350);
+
+  /// 氛围/背景类大渐变过渡
+  static const Duration durationAmbient = Duration(milliseconds: 600);
 }

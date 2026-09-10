@@ -644,8 +644,8 @@ Future<T?> glassDialog<T>(
             if (title != null) ...[
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: SkinTokens.of(context).textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
                 ),

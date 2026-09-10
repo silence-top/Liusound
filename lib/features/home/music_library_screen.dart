@@ -260,7 +260,12 @@ class _EntryGrid extends ConsumerWidget {
               _Entry(
                 Icons.smartphone,
                 '本地音乐',
-                () => _openSongs(context, '本地音乐', localSongsProvider),
+                () => _openSongs(
+                  context,
+                  '本地音乐',
+                  localSongsProvider,
+                  onRefresh: forceLocalRescan,
+                ),
               ),
               _Entry(Icons.album, '专辑', () => _openAlbums(context)),
             ],
@@ -277,11 +282,18 @@ class _EntryGrid extends ConsumerWidget {
   void _openSongs(
     BuildContext context,
     String title,
-    FutureProvider<List<Song>> provider,
-  ) {
+    FutureProvider<List<Song>> provider, {
+    Future<void> Function()? onRefresh,
+  }) {
     // 复用专辑式歌曲列表（头部 + 顶部操作条 + 批量选择）
     Navigator.of(context).push(
-      fadeRoute<void>(SongListScreen(title: title, songsProvider: provider)),
+      fadeRoute<void>(
+        SongListScreen(
+          title: title,
+          songsProvider: provider,
+          onRefresh: onRefresh,
+        ),
+      ),
     );
   }
 
@@ -1023,7 +1035,10 @@ class ListSearchBar extends ConsumerWidget {
                           color: AppTheme.textFaintOf(context),
                           fontSize: 16,
                         ),
+                        // 玻璃面板内输入框：三层显式全 none，防止主题描边套进来
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         isCollapsed: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 0,

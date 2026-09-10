@@ -105,7 +105,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           color: AppTheme.textDimOf(context),
                           fontSize: 16,
                         ),
+                        // 玻璃胶囊自带描边：主题 enabledBorder/focusedBorder 会在
+                        // 空位自动补描边（applyDefaults），必须三层显式全 none，
+                        // 否则胶囊里再套一层输入框边框
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         filled: false,
                         contentPadding: EdgeInsets.symmetric(vertical: 16),
                       ),

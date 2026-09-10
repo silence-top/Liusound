@@ -13,12 +13,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
-import '../../core/settings/prefs.dart';
 import '../../core/local/local_library.dart' show localSongFingerprint;
 import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
 import 'action_sheets.dart';
 import 'album_tint.dart';
@@ -134,10 +135,13 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     initialIndex: 1,
   );
 
-  double _dragOffset = 0; // 下滑收起：跟手位移（px）
+  /// 下滑收起：跟手位移（px）。ValueNotifier 局部化：拖拽/落位每帧
+  /// 只经 ValueListenableBuilder 重建 Transform 变换壳，
+  /// 顶栏 / TabBar / TabBarView 子树零重建（性能红线）
+  final ValueNotifier<double> _dragOffset = ValueNotifier(0);
   late final AnimationController _settleCtrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 300),
+    duration: MotionTokens.durationTransition,
   );
   Animation<double>? _settleAnim;
   bool _dismissPending = false;
@@ -147,7 +151,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     super.initState();
     _settleCtrl.addListener(() {
       final a = _settleAnim;
-      if (a != null) setState(() => _dragOffset = a.value);
+      if (a != null) _dragOffset.value = a.value;
     });
     _settleCtrl.addStatusListener((status) {
       if (status == AnimationStatus.completed && _dismissPending) {
@@ -160,6 +164,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
   void dispose() {
     _tab.dispose();
     _settleCtrl.dispose();
+    _dragOffset.dispose();
     super.dispose();
   }
 
@@ -170,8 +175,13 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     bool dismiss = false,
   }) {
     _dismissPending = dismiss;
+    // 省电模式压缩落位时长（§8.5 AppMotion）：触发时求值，切开关即时生效
+    _settleCtrl.duration = AppMotion.duration(
+      context,
+      MotionTokens.durationTransition,
+    );
     _settleAnim = Tween<double>(
-      begin: _dragOffset,
+      begin: _dragOffset.value,
       end: target,
     ).animate(CurvedAnimation(parent: _settleCtrl, curve: curve));
     _settleCtrl
@@ -204,32 +214,38 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
         // 歌词/歌曲列表等纵向滚动区由内层滚动手势优先命中，不受影响。
         onVerticalDragUpdate: (d) {
           _settleCtrl.stop();
-          setState(
-            () => _dragOffset = (_dragOffset + d.delta.dy).clamp(
-              0.0,
-              double.infinity,
-            ),
+          _dragOffset.value = (_dragOffset.value + d.delta.dy).clamp(
+            0.0,
+            double.infinity,
           );
         },
         onVerticalDragEnd: _handleDragEnd,
         onVerticalDragCancel: () => _beginSettle(0, curve: Curves.easeOutCubic),
-        child: Transform.translate(
-          offset: Offset(0, _dragOffset),
-          child: Transform.scale(
-            // 跟手下移时轻微缩小 + 变暗，收起更有层次
-            scale: 1 - (_dragOffset / 2400).clamp(0.0, 0.06),
-            child: Opacity(
-              opacity: (1 - _dragOffset / 900).clamp(0.4, 1.0),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [top, bottom],
-                  ),
-                ),
+        child: ValueListenableBuilder<double>(
+          valueListenable: _dragOffset,
+          // 拖拽/落位每帧只重建 Transform 变换壳；AnimatedContainer 子树
+          // 作为 child 缓存，不随手势重建
+          builder: (_, dragOffset, child) => Transform.translate(
+            offset: Offset(0, dragOffset),
+            child: Transform.scale(
+              // 跟手下移时轻微缩小 + 变暗，收起更有层次
+              scale: 1 - (dragOffset / 2400).clamp(0.0, 0.06),
+              child: Opacity(
+                opacity: (1 - dragOffset / 900).clamp(0.4, 1.0),
+                child: child,
+              ),
+            ),
+          ),
+          child: AnimatedContainer(
+            duration: MotionTokens.durationAmbient,
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [top, bottom],
+              ),
+            ),
                 child: SafeArea(
                   child: Column(
                     children: [
@@ -340,8 +356,6 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                     ],
                   ),
                 ),
-              ),
-            ),
           ),
         ),
       ),
@@ -351,7 +365,7 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
   /// 松手判定：快速下滑（>900px/s）或拖动超过 120px → 滑出屏幕收起，否则回弹
   void _handleDragEnd(DragEndDetails d) {
     final fling = d.velocity.pixelsPerSecond.dy > 900;
-    if (fling || _dragOffset > 120) {
+    if (fling || _dragOffset.value > 120) {
       _beginSettle(
         MediaQuery.sizeOf(context).height.toDouble(),
         curve: Curves.easeInCubic,

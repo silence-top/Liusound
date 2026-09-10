@@ -156,6 +156,7 @@ class SongListScreen extends ConsumerStatefulWidget {
     this.subtitle,
     this.rating = 0,
     this.rateTargetId,
+    this.onRefresh,
   }) : assert(
          songs != null ||
              pagedSongsProvider != null ||
@@ -180,6 +181,8 @@ class SongListScreen extends ConsumerStatefulWidget {
   final String? subtitle;
   final int rating;
   final String? rateTargetId; // 非 null 且后端支持评分时显示五星评分（专辑）
+  /// 下拉刷新回调（本地音乐等本地数据源启用）；null 则不启用下拉刷新
+  final Future<void> Function()? onRefresh;
 
   @override
   ConsumerState<SongListScreen> createState() => _SongListScreenState();
@@ -277,8 +280,11 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
                 onDownload: () => batchDownload(songs),
               )
             : const MiniPlayer(),
-        body: _pagedLoader(
-          child: CustomScrollView(
+        body: _bodyWithRefresh(
+          CustomScrollView(
+            physics: widget.onRefresh != null
+                ? const AlwaysScrollableScrollPhysics()
+                : null,
             slivers: [
               _detailAppBar(
                 context: context,
@@ -317,6 +323,21 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// 下拉刷新包装（仅传入 onRefresh 的数据源启用，如本地音乐）：
+  /// 刷新动作完成后 invalidate 数据源，列表重读最新缓存
+  Widget _bodyWithRefresh(Widget child) {
+    final onRefresh = widget.onRefresh;
+    if (onRefresh == null) return _pagedLoader(child: child);
+    return RefreshIndicator(
+      onRefresh: () async {
+        await onRefresh();
+        final p = widget.songsProvider;
+        if (p != null) ref.invalidate(p);
+      },
+      child: _pagedLoader(child: child),
     );
   }
 
@@ -531,7 +552,7 @@ class _CoverPlaceholder extends StatelessWidget {
 }
 
 /// 列表顶部：全部播放栏（右三图标功能化）+ 可收纳过滤框，_bar 圆角容器
-class _ListTop extends StatelessWidget {
+class _ListTop extends ConsumerWidget {
   const _ListTop({
     required this.count,
     required this.onPlayAll,
@@ -551,25 +572,29 @@ class _ListTop extends StatelessWidget {
   final bool expanded;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 列表头面板白玻璃微透明：乘全局「卡片透明度」系数联动
+    final panel = Colors.white.withValues(alpha: 0.08);
+    final panelFaint = Colors.white.withValues(alpha: 0.03);
+    final panelBorder = withGlassTintOpacity(
+      ref,
+      Colors.white.withValues(alpha: 0.12),
+    );
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.white.withValues(alpha: 0.08),
-            Colors.white.withValues(alpha: 0.03),
+            withGlassTintOpacity(ref, panel),
+            withGlassTintOpacity(ref, panelFaint),
           ],
         ),
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(GlassTokens.radiusCard),
         ),
         border: Border(
-          top: BorderSide(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 0.5,
-          ),
+          top: BorderSide(color: panelBorder, width: 0.5),
         ),
       ),
       child: Column(
@@ -807,7 +832,10 @@ class _FilterBar extends StatelessWidget {
                   color: AppTheme.textFaintOf(context),
                   fontSize: 16,
                 ),
+                // 玻璃 AppBar 内输入框：三层显式全 none，防止主题描边套进来
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 filled: false,
                 isDense: true,
               ),

@@ -18,7 +18,6 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   List<String?> _displayTranslations = const []; // 与展示行对齐的译文（无则 null）
   double _rowHeight = _lyricRowHeight;
   bool _hasTranslation = false;
-  bool _showBilingual = true; // 双语歌词开关（默认开，全局持久化）
   double _offset = 0;
   bool _manualScrolling = false;
   // 程序化 animateTo 计数：滚动通知监听据此排除自动滚动，避免误设 _manualScrolling
@@ -51,7 +50,6 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     _parseLyrics();
     _loadLocalLyrics();
     _loadOffset();
-    _loadBilingual();
     _volume = ref.read(audioPlayerProvider).volume;
   }
 
@@ -260,7 +258,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       for (var i = 0; i < merged.length; i++) inline[i] ?? aligned[i],
     ];
     _hasTranslation = _displayTranslations.any((t) => t != null);
-    _rowHeight = _showBilingual && _hasTranslation
+    _rowHeight = ref.read(bilingualLyricsProvider) && _hasTranslation
         ? _lyricDualHeight
         : _lyricRowHeight;
     _currentIndex.value = -2;
@@ -272,38 +270,10 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     if (mounted) setState(() => _offset = v);
   }
 
-  /// 读取双语歌词开关（全局，默认开）；main() 已预载 prefs，这里同步读取，
-  /// 避免异步回读覆盖用户刚切换的值
-  void _loadBilingual() {
-    final prefs = ref.read(sharedPrefsProvider);
-    final v = prefs.getBool(bilingualLyricsKey) ?? true;
-    if (mounted) {
-      setState(() {
-        _showBilingual = v;
-        _rowHeight = v && _hasTranslation ? _lyricDualHeight : _lyricRowHeight;
-      });
-    }
-  }
-
-  /// 切换双语歌词并持久化（保持当前行居中）
-  Future<void> _toggleBilingual(bool v) async {
-    setState(() {
-      _showBilingual = v;
-      _rowHeight = v && _hasTranslation ? _lyricDualHeight : _lyricRowHeight;
-    });
-    SharedPreferences.getInstance().then(
-      (p) => p.setBool(bilingualLyricsKey, v),
-    );
-    if (!_controller.hasClients) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final idx = _currentIndex.value;
-      if (idx < 0 || !_controller.hasClients) return;
-      final target = (idx * _rowHeight + _rowHeight / 2).clamp(
-        0.0,
-        _controller.position.maxScrollExtent,
-      );
-      _controller.jumpTo(target);
-    });
+  /// 切换双语歌词：状态与持久化由 [bilingualLyricsProvider] 统一负责，
+  /// 行高联动与居中保持由 build 中的 ref.listen 处理（MiniBar 同步刷新）
+  void _toggleBilingual(bool v) {
+    ref.read(bilingualLyricsProvider.notifier).set(v);
   }
 
   /// 保存偏移（0 表示清除该歌曲的偏移记录，对标 1.x handleSaveLyricOffset）
@@ -398,7 +368,11 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       _controller
           .animateTo(
             target,
-            duration: const Duration(milliseconds: 300),
+            // 省电模式压缩滚动时长（§8.5 AppMotion）：触发时求值
+            duration: AppMotion.duration(
+              context,
+              MotionTokens.durationTransition,
+            ),
             curve: Curves.easeOut,
           )
           .whenComplete(() => _autoScrollCount--);
@@ -411,6 +385,26 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
 
     ref.listen(positionProvider, (_, _) => _scheduleSyncIndex());
     ref.listen(sliderDragValueProvider, (_, _) => _scheduleSyncIndex());
+
+    // 双语开关（响应式，MiniBar 双语副标题同源）：变化时行高联动 +
+    // 保持当前行居中（原 _toggleBilingual 逻辑）
+    final showBilingual = ref.watch(bilingualLyricsProvider);
+    ref.listen(bilingualLyricsProvider, (_, v) {
+      if (!mounted) return;
+      setState(() {
+        _rowHeight = v && _hasTranslation ? _lyricDualHeight : _lyricRowHeight;
+      });
+      if (!_controller.hasClients) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final idx = _currentIndex.value;
+        if (idx < 0 || !_controller.hasClients) return;
+        final target = (idx * _rowHeight + _rowHeight / 2).clamp(
+          0.0,
+          _controller.position.maxScrollExtent,
+        );
+        _controller.jumpTo(target);
+      });
+    });
 
     // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色毛玻璃底（底色近实色不透底）
     final current = ref.watch(currentSongProvider);
@@ -472,7 +466,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                               valueListenable: _currentIndex,
                               builder: (_, current, _) => _LyricRowTile(
                                 text: _displayLines[i].text,
-                                translation: _showBilingual
+                                translation: showBilingual
                                     ? _displayTranslations[i]
                                     : null,
                                 // 与当前行的距离驱动景深衰减（§4.3）：
@@ -484,7 +478,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                                 onTap: () => _handleRowTap(i),
                                 onPreviewTap: () => _seekToLine(i),
                                 onDoubleTap: () =>
-                                    _toggleBilingual(!_showBilingual),
+                                    _toggleBilingual(!showBilingual),
                               ),
                             ),
                           ),
@@ -549,8 +543,8 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
                     const SizedBox(width: 10),
                     _lyricBadge(
                       '译',
-                      active: _showBilingual,
-                      onTap: () => _toggleBilingual(!_showBilingual),
+                      active: showBilingual,
+                      onTap: () => _toggleBilingual(!showBilingual),
                     ),
                   ],
                   IconButton(
@@ -799,8 +793,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
 
   /// 双语歌词菜单行：开启时文字高亮、关闭时置灰，点击整行切换（菜单保持展开）
   Widget _menuBilingualItem() {
+    final showBilingual = ref.watch(bilingualLyricsProvider);
     return InkWell(
-      onTap: () => _toggleBilingual(!_showBilingual),
+      onTap: () => _toggleBilingual(!showBilingual),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -808,7 +803,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             Icon(
               Icons.translate,
               size: 18,
-              color: _showBilingual
+              color: showBilingual
                   ? Theme.of(context).colorScheme.primary
                   : Colors.white38,
             ),
@@ -816,7 +811,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             Text(
               '双语歌词',
               style: TextStyle(
-                color: _showBilingual ? Colors.white : Colors.white38,
+                color: showBilingual ? Colors.white : Colors.white38,
                 fontSize: 16,
               ),
             ),
@@ -939,7 +934,7 @@ class _LyricRowTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
+                  duration: MotionTokens.durationNormal,
                   curve: Curves.easeOut,
                   style: TextStyle(
                     fontSize: size,

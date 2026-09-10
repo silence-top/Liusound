@@ -327,14 +327,14 @@ class _ArtistRow extends StatelessWidget {
   }
 }
 
-class _LetterIndexBar extends StatelessWidget {
+class _LetterIndexBar extends ConsumerWidget {
   const _LetterIndexBar({required this.letters, required this.onTap});
 
   final List<String> letters;
   final void Function(int index) onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapUp: (d) {
@@ -347,7 +347,11 @@ class _LetterIndexBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.15),
+          // 浮层底乘全局「卡片透明度」系数联动
+          color: withGlassTintOpacity(
+            ref,
+            Colors.black.withValues(alpha: 0.15),
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
@@ -421,7 +425,11 @@ class GenrePage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(AppRadius.m),
               child: Container(
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.85),
+                  // 瓷砖填充乘全局「卡片透明度」系数联动
+                  color: withGlassTintOpacity(
+                    ref,
+                    color.withValues(alpha: 0.85),
+                  ),
                   borderRadius: BorderRadius.circular(AppRadius.m),
                 ),
                 padding: const EdgeInsets.all(AppSpacing.m),

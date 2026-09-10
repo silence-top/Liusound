@@ -256,6 +256,27 @@ const lyricOffsetKeyPrefix = 'lyricOffset_';
 /// 双语歌词开关持久化 key（全局，默认开启）
 const bilingualLyricsKey = 'lyrics_bilingual_enabled';
 
+/// 双语歌词开关（响应式）：MiniBar 副标题与全屏歌词页共用同一状态源，
+/// 切换即时刷新所有消费端（此前 MiniBar 非响应式读 prefs，切开关不刷新）
+class BilingualLyricsNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final prefs = ref.watch(sharedPrefsProvider);
+    return prefs.getBool(bilingualLyricsKey) ?? true;
+  }
+
+  void set(bool v) {
+    state = v;
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool(bilingualLyricsKey, v),
+    );
+  }
+}
+
+final bilingualLyricsProvider = NotifierProvider<BilingualLyricsNotifier, bool>(
+  BilingualLyricsNotifier.new,
+);
+
 /// 播放控制动作集合（P1 渐进式拆分后的门面：类体与职责块在 player_actions.dart，
 /// 本文件保留全部 Provider 状态源与构造入口，外部导入路径不变）
 final playerActionsProvider = Provider<PlayerActions>(

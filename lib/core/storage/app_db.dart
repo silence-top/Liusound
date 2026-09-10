@@ -15,7 +15,7 @@ abstract final class AppDb {
     final dir = await getDatabasesPath();
     final db = await openDatabase(
       p.join(dir, 'liusound.db'),
-      version: 4,
+      version: 5,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE scrobble_queue(
@@ -47,7 +47,8 @@ abstract final class AppDb {
             path TEXT NOT NULL,
             size INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
-            last_accessed_at INTEGER NOT NULL
+            last_accessed_at INTEGER NOT NULL,
+            payload TEXT
           )
         ''');
         await db.execute(
@@ -80,6 +81,12 @@ abstract final class AppDb {
           );
           await _createDownloadIndex(db);
         }
+        if (oldVersion < 5) {
+          // 下载索引增加 Song 元数据快照（本地音乐列表合并展示已下载歌曲用）
+          await db.execute(
+            'ALTER TABLE download_index ADD COLUMN payload TEXT',
+          );
+        }
         await _createLyricsLocal(db);
       },
     );
@@ -99,6 +106,8 @@ abstract final class AppDb {
     ''');
   }
 
+  /// 仅 onUpgrade v2→v4 路径使用：建 v4 时代的旧 schema（无 payload），
+  /// payload 列由 v5 迁移统一 ALTER 补齐（避免重复加列）
   static Future<void> _createDownloadIndex(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS download_index(

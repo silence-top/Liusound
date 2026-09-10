@@ -1,10 +1,12 @@
 package com.silencetop.liusound
 
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
+import android.provider.MediaStore
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -14,6 +16,7 @@ import android.widget.TextView
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 /// 悬浮歌词（Android）：SYSTEM_ALERT_WINDOW 小窗显示当前歌词行，
 /// 支持拖动 + 点击关闭按钮隐藏；iOS 无对应能力，Dart 侧入口已隐藏
@@ -96,6 +99,77 @@ class MainActivity : AudioServiceActivity() {
                 result.error("EFFECT_ERROR", e.message, null)
             }
         }
+        // 下载歌曲落公共音乐目录（MediaStore 贡献式写入，无需存储权限）
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.silencetop.liusound/media_store",
+        ).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "saveToMusic" -> {
+                        val args = call.arguments as? Map<*, *>
+                        result.success(args?.let { saveToPublicMusic(it) })
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("MEDIA_STORE_ERROR", e.message, null)
+            }
+        }
+    }
+
+    /// 下载歌曲落公共音乐目录（Android 10+）：MediaStore 贡献式写入
+    /// /sdcard/Music/流声/<fileName>，无需存储权限，文件管理器/其他播放器可见。
+    /// 成功返回系统落盘的物理路径（自己贡献的媒体文件在 10/11+ 可 File 直读）；
+    /// Android 9 及以下返回 null（Dart 侧回退应用私有目录）；写入失败抛异常。
+    private fun saveToPublicMusic(args: Map<*, *>): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val srcPath = args["sourcePath"] as? String ?: return null
+        val fileName = args["fileName"] as? String ?: return null
+        val relativePath = args["relativePath"] as? String ?: "Music/流声"
+        val src = File(srcPath)
+        if (!src.exists() || src.length() == 0L) return null
+
+        val resolver = contentResolver
+        val collection =
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Audio.Media.RELATIVE_PATH, relativePath)
+            put(MediaStore.Audio.Media.IS_PENDING, 1)
+            // 写入媒体元数据：系统播放器/媒体库展示正确的歌名歌手，而非解析文件名
+            (args["title"] as? String)?.takeIf { it.isNotEmpty() }?.let {
+                put(MediaStore.Audio.Media.TITLE, it)
+            }
+            (args["artist"] as? String)?.takeIf { it.isNotEmpty() }?.let {
+                put(MediaStore.Audio.Media.ARTIST, it)
+            }
+            (args["album"] as? String)?.takeIf { it.isNotEmpty() }?.let {
+                put(MediaStore.Audio.Media.ALBUM, it)
+            }
+            (args["durationMs"] as? Number)?.takeIf { it.toLong() > 0 }?.let {
+                put(MediaStore.Audio.Media.DURATION, it.toLong())
+            }
+        }
+        val uri = resolver.insert(collection, values)
+            ?: throw IllegalStateException("MediaStore insert 返回 null")
+        try {
+            resolver.openOutputStream(uri)?.use { out ->
+                src.inputStream().use { it.copyTo(out) }
+            } ?: throw IllegalStateException("MediaStore 输出流不可用")
+            values.clear()
+            values.put(MediaStore.Audio.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            // 半截条目清理：失败时不留下占位的无效媒体记录
+            try {
+                resolver.delete(uri, null, null)
+            } catch (_: Exception) {}
+            throw e
+        }
+        resolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) return c.getString(0) }
+        return null
     }
 
     override fun onResume() {

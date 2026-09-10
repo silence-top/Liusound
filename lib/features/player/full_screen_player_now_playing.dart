@@ -407,7 +407,7 @@ Widget _fadeCover(
   double radius, [
   String? localCover,
 ]) => AnimatedSwitcher(
-  duration: const Duration(milliseconds: 350),
+  duration: MotionTokens.durationCoverFade,
   child: KeyedSubtree(
     key: ValueKey(albumId),
     child: CoverArt(

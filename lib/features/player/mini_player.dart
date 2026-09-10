@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/lyrics/lyrics.dart';
 import '../../core/models/models.dart';
-import '../../core/settings/prefs.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../shared/cover_art.dart';
 import 'album_tint.dart';
 import 'full_screen_player.dart';
@@ -154,6 +154,25 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
   );
 
   @override
+  void initState() {
+    super.initState();
+    // 初始播放态同步（恢复播放等冷启动场景），后续变化由 build 中的 listen 驱动
+    _syncRotation(ref.read(isPlayingProvider).valueOrNull ?? false);
+  }
+
+  /// 同步旋转动画：播放循环、暂停停止并复位（对齐 1.x）。
+  /// 副作用集中在 listen 驱动（与 _NowPlayingTab 同款范式），
+  /// 不在 build 中操作控制器（build 副作用反模式）
+  void _syncRotation(bool isPlaying) {
+    if (isPlaying && !_rotation.isAnimating) {
+      _rotation.repeat();
+    } else if (!isPlaying && _rotation.isAnimating) {
+      _rotation.stop();
+      _rotation.value = 0;
+    }
+  }
+
+  @override
   void dispose() {
     _rotation.dispose();
     super.dispose();
@@ -162,13 +181,9 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
   @override
   Widget build(BuildContext context) {
     final isPlaying = ref.watch(isPlayingProvider).valueOrNull ?? false;
-    // 同步旋转动画：播放循环、暂停停止并复位（对齐 1.x）
-    if (isPlaying && !_rotation.isAnimating) {
-      _rotation.repeat();
-    } else if (!isPlaying && _rotation.isAnimating) {
-      _rotation.stop();
-      _rotation.value = 0;
-    }
+    ref.listen(isPlayingProvider, (_, next) {
+      _syncRotation(next.valueOrNull ?? false);
+    });
 
     return GestureDetector(
       onTap: () => ref.read(playerActionsProvider).toggle(),
@@ -182,7 +197,7 @@ class _SpinCoverState extends ConsumerState<_SpinCover>
               turns: _rotation,
               child: ClipOval(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
+                  duration: MotionTokens.durationTransition,
                   child: KeyedSubtree(
                     key: ValueKey(widget.song.albumId),
                     child: CoverArt(
@@ -319,8 +334,7 @@ class _MiniTextBlockState extends ConsumerState<_MiniTextBlock> {
   @override
   Widget build(BuildContext context) {
     final isPlaying = ref.watch(isPlayingProvider).valueOrNull ?? false;
-    final showBilingual =
-        ref.watch(sharedPrefsProvider).getBool(bilingualLyricsKey) ?? true;
+    final showBilingual = ref.watch(bilingualLyricsProvider);
 
     String? main;
     String? sub;

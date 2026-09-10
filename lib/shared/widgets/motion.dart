@@ -1,30 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 
-/// 统一页面转场：淡入 + 轻微上移（300ms easeOutCubic）。
+/// 统一页面转场：不透明底色 + 内容淡入上移（300ms easeOutCubic）。
 /// 全应用二级页一律用 `Navigator.push(context, fadeRoute(Page()))`，
-/// 替代默认 MaterialPageRoute，获得一致的现代播放器质感。
+/// 替代默认 MaterialPageRoute。
+/// 底色在前 30% 转场内快速到位：正转期间下层不再透出（修复弹出页
+/// 「透明的」观感），反向整页淡出露出下层，dismiss 手感自然。
 PageRoute<T> fadeRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionDuration: MotionTokens.durationTransition,
+    reverseTransitionDuration: MotionTokens.durationSnappy,
     pageBuilder: (_, _, _) => page,
-    transitionsBuilder: (_, animation, _, child) {
+    transitionsBuilder: (context, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
         curve: MotionTokens.curveStandard,
+        reverseCurve: Curves.easeInCubic,
+      );
+      final bg = CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0, 0.3, curve: Curves.easeOut),
+        reverseCurve: Curves.linear,
       );
       return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 0.03),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
+        opacity: bg,
+        child: ColoredBox(
+          color: AppTheme.shellOf(context),
+          child: FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          ),
         ),
       );
     },

@@ -30,6 +30,19 @@ String? localSongPath(Song song) =>
 
 const _audioExts = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav'};
 
+/// 下载产物命名标记（download_service：`歌手 - 标题--<16位指纹>.<ext>`，
+/// 指纹为 sha256(songId) 前 16 位十六进制）：下载落盘目录（Android 公共
+/// Music/流声、Windows 音乐库\流声）与本地扫描目录重叠，按文件名标记排除，
+/// 避免同一首歌既作为服务器歌曲离线副本、又以 local: 身份重复入库。
+/// 用户自放文件几乎不会匹配该模式，误伤概率可忽略。
+final RegExp _downloadArtifactPattern = RegExp(
+  r'--[0-9a-f]{16}\.[A-Za-z0-9]+$',
+);
+
+/// 是否应用自身下载产物（扫描排除用；公开以便测试与排查）
+bool isDownloadedArtifact(String path) =>
+    _downloadArtifactPattern.hasMatch(p.basename(path));
+
 /// 指纹参与的头部分块大小（固定小块，禁止整文件 hash——大 FLAC/APE 曲库不可接受）
 const _fingerprintHeadBytes = 16 * 1024;
 
@@ -92,9 +105,12 @@ _ScanResult _scanIsolate(List<String> dirPaths, String coverDirPath) {
     try {
       for (final entry in dir.listSync(recursive: true, followLinks: false)) {
         if (entry is! File) continue;
-        if (_audioExts.contains(p.extension(entry.path).toLowerCase())) {
-          files.add(entry);
+        if (!_audioExts.contains(p.extension(entry.path).toLowerCase())) {
+          continue;
         }
+        // 排除自身下载产物（落公共 Music/流声 的离线副本，身份是服务器歌曲）
+        if (isDownloadedArtifact(entry.path)) continue;
+        files.add(entry);
       }
     } catch (_) {
       continue; // 单目录不可读不阻断整体扫描
@@ -229,22 +245,68 @@ String _fileFingerprint(
 /// 后台重扫发现文件变化时 bump，驱动 localSongsProvider 重读快照
 final localScanVersionProvider = StateProvider<int>((ref) => 0);
 
+/// 下载完成信号：downloadSongFile 落盘并登记索引后由调用方 bump，
+/// 驱动 localSongsProvider 的「已下载」段实时进入列表（与本地音乐合并展示）
+final downloadIndexVersionProvider = StateProvider<int>((ref) => 0);
+
 DateTime? _lastScanFinishedAt;
 
+/// 已下载的服务器歌曲（download_index.payload 快照反序列化）：
+/// 身份保持服务器 id——列表点播经 player_source_resolver 自动命中离线文件，
+/// 收藏/评分/歌词等继续命中服务器歌曲，与扫描的 local: 歌曲天然不重。
+/// payload 为空的历史下载（旧版本所下）无法还原元数据，跳过。
+Future<List<Song>> loadDownloadedSongs() async {
+  try {
+    final db = await AppDb.instance();
+    final rows = await db.query(
+      'download_index',
+      columns: ['payload'],
+      orderBy: 'created_at DESC',
+    );
+    final songs = <Song>[];
+    for (final row in rows) {
+      final raw = row['payload'] as String?;
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        songs.add(Song.fromJson(jsonDecode(raw) as Map<String, dynamic>));
+      } catch (_) {
+        // 单条快照损坏跳过，不影响其余
+      }
+    }
+    return songs;
+  } catch (_) {
+    return const [];
+  }
+}
+
 /// 本地音乐列表（资料库「本地音乐」入口）：
+/// 扫描的本地歌曲 + 已下载的服务器歌曲合并展示；
 /// 首次进页面同步扫描；之后读 SQLite 快照秒开，后台限流重扫（5 分钟内不重复），
-/// 文件有增删时 bump 版本自动刷新列表。
+/// 文件有增删时 bump 版本自动刷新列表；下载完成由调用方 bump
+/// downloadIndexVersionProvider 实时补入已下载段。
 final localSongsProvider = FutureProvider<List<Song>>((ref) async {
   ref.watch(localScanVersionProvider);
+  ref.watch(downloadIndexVersionProvider);
   final cached = await loadLocalSongsCache();
+  final List<Song> local;
   if (cached != null && cached.isNotEmpty) {
     _rescanInBackground(ref, cached);
-    return cached;
+    local = cached;
+  } else {
+    local = await scanLocalLibrary();
+    _lastScanFinishedAt = DateTime.now();
   }
-  final scanned = await scanLocalLibrary();
-  _lastScanFinishedAt = DateTime.now();
-  return scanned;
+  final downloaded = await loadDownloadedSongs();
+  return [...local, ...downloaded];
 });
+
+/// 强制重扫磁盘（本地音乐下拉刷新）：绕过 5 分钟限流直扫文件系统，
+/// 结果直接覆盖 SQLite 快照；调用方随后 invalidate localSongsProvider
+/// 重读缓存即可拿到最新数据。
+Future<void> forceLocalRescan() async {
+  await scanLocalLibrary();
+  _lastScanFinishedAt = DateTime.now();
+}
 
 void _rescanInBackground(Ref ref, List<Song> served) {
   final last = _lastScanFinishedAt;
