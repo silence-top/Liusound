@@ -2,11 +2,17 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — 切换服务器体验修复：路由栈退回首屏 + 歌词偏移按服隔离
+
+- **换服退回首屏**：切换服务器（或登出后重登其他服）时路由栈自动退回首屏——修复停留在旧服专辑/歌单详情页换服后，返回时拿着旧服务器 id 向新服查询得到空态/报错、看起来像「数据没切换」的问题；实现为 MaterialApp 挂 rootNavigatorKey + 换服监听（与清空播放器队列同处）在帧末 popUntil 首屏
+- **切服行为澄清（顺带梳理）**：内存层数据 provider 全部随 adapter 重建失效重取；磁盘缓存天然按服务器隔离不清理——曲库快照按 server_key 存（切回旧服且版本未变秒开）、边听边存按完整音频 URL、封面按 URL、歌词按 serverId+songId、Scrobble 队列按 serverId
+- **歌词偏移按服隔离**：歌词偏移偏好 key 由 songId 升级为 serverId:songId，不同服务器的同 id 歌曲偏移不再串扰（本地歌曲归 local）
+
 ## 2026-09-10 — 歌曲列表排序：全字段排序 + 全局记忆
 
 - **排序入口**：歌曲列表（曲库歌曲/我喜欢的/歌单/艺人歌曲/流派/本地音乐，SongListScreen 全站共用页）AppBar 新增排序按钮（启用时染主色）→ 玻璃弹层选字段 + 升降序，实时生效
 - **可排字段**：加入时间/标题/歌手/专辑/时长/评分/播放次数/最近播放，默认升序策略按字段类型区分（文本升序、时间热度降序）；「默认」恢复各列表原始顺序（歌单服务端编排、曲库加入时间倒序）
-- **中文按拼音排序**：文本字段比较走 lpinyin 拼音键（与艺人列表索引同一策略），主键预计算避免比较器内重复转拼音
+- **中文按拼音排序**：文本字段比较走 lpinyin 拼音键（与艺人列表索引同一策略），主键预计算避免比较器内重复转拼音；修复拼音键 separator 传空格把英文逐字拆开（"Always"→"a l w"）导致中英混排顺序失真的问题
 - **服务端排序映射补齐**：SongSort 新增 artist/album/duration，Navidrome（_sort）/ Jellyfin·Emby（SortBy Artist/Album/RunTime）/ Plex（artistSort/albumSort/duration）/ Audio Station（sort_by）映射补齐；列表取数均为全量快照，展示层 sortSongs 与服务端排序结果等价
 - **偏好持久化**：songSortPrefProvider 应用级记忆 + SharedPreferences（songList.sort.v1），跨页面/重启保持；歌单在未选择排序时保持服务端编排顺序不被破坏
 - 验证：analyze 5 info（既有基线）、test 38 通过

@@ -30,6 +30,9 @@ import 'shared/widgets/glass.dart';
 import 'shared/widgets/toast.dart';
 import 'shell/app_shell.dart';
 
+/// 根导航 key：换服时把路由栈退回首屏（旧服务器的详情页 id 在新服无意义）
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Linux 无 just_audio 官方实现 → media_kit(libmpv) 适配。
@@ -128,11 +131,18 @@ class MusicApp extends ConsumerWidget {
         : null;
     // 从一个已激活服务器切换到另一台（登出/换服）→ 同步清空播放器与持久化
     // 播放状态。prev 的 serverId 必须非 null——否则冷启动 auth 从「未就绪」
-    // 解析为「已登录」也会命中，stop() 把刚恢复的队列/迷你播放条清掉
+    // 解析为「已登录」也会命中，stop() 把刚恢复的队列/迷你播放条清掉。
+    // 换服同时把路由栈退回首屏：停留在旧服详情页时其 id 在新服不存在，
+    // 返回后会拿旧 id 向新服查询得到空态/报错（登出走 home: 整树换载，无需 pop）
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       final prevServer = prev?.activeServerId;
       if (prevServer != null && prevServer != next.activeServerId) {
         ref.read(playerActionsProvider).stop();
+        if (next.activeServerId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            rootNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+          });
+        }
       }
     });
     // 自动下载补跑（P1-AutoDownload：触发归 auth/业务层，播放器不负责）：
@@ -171,6 +181,7 @@ class MusicApp extends ConsumerWidget {
           return MaterialApp(
             title: '流声',
             debugShowCheckedModeBanner: false,
+            navigatorKey: rootNavigatorKey,
             theme: AppTheme.build(
               skin,
               effectiveAccent,

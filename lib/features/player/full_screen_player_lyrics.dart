@@ -263,9 +263,15 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
     _currentIndex.value = -2;
   }
 
+  /// 偏移 key 带服务器 id：不同服务器的同名/同 id 歌曲偏移互不串扰
+  String get _offsetKey =>
+      '$lyricOffsetKeyPrefix'
+      '${ref.read(authControllerProvider).activeServerId ?? 'local'}:'
+      '${widget.song.id}';
+
   Future<void> _loadOffset() async {
     final prefs = await SharedPreferences.getInstance();
-    final v = prefs.getDouble('$lyricOffsetKeyPrefix${widget.song.id}') ?? 0;
+    final v = prefs.getDouble(_offsetKey) ?? 0;
     if (mounted) setState(() => _offset = v);
   }
 
@@ -278,7 +284,7 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
   /// 保存偏移（0 表示清除该歌曲的偏移记录，对标 1.x handleSaveLyricOffset）
   Future<void> _persistOffset(double v) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = '$lyricOffsetKeyPrefix${widget.song.id}';
+    final key = _offsetKey;
     if (v == 0) {
       await prefs.remove(key);
     } else {
