@@ -2,6 +2,18 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 6：鸿蒙（OpenHarmony）适配（守卫补全 + ArkTS 通道 + 依赖映射）
+
+- **生态研究结论**（开工核实）：① 官方库 SIG 分叉 gitee.com/openharmony-sig/flutter_packages 已核实含 path_provider_ohos / shared_preferences_ohos（packages/<插件>/<插件>_ohos）；② 播放内核：just_audio 有社区 ohos 移植（fluttertpc_just_audio，社区文章确认可用），media_kit 已适配鸿蒙（备选内核）；③ audio_service / audio_session 未证实有 ohos 移植；④ 原 SIG 部分仓库有停止更新信号，需在 DevEco 环境实测校准
+- **audio_session 守卫补全（真实缺口）**：鸿蒙无 audio_session 实现，原守卫只挡 Windows/Linux——main.dart 音频焦点配置与 audio_handler becomingNoisy 监听把 isOhos 纳入守卫，防鸿蒙启动即崩；audio_service 无 ohos 插件时走 Flutter 工具默认 no-op（不崩，仅缺系统媒体控制）
+- **下载落盘**：新增 `media_store_ohos.dart`——ArkTS MethodChannel（com.silencetop.liusound/media_store_ohos）查公共音乐目录，通道协议对齐 Android；ArkTS 原生侧待 ohos/ 目录生成后补齐，未实现时自动回退私有 Documents/Music
+- **本地音乐扫描**：ohos 分支扫应用沙箱 Documents（依赖 path_provider ohos 移植经 overrides 提供）
+- **file_picker 兜底**：LRC 导入的 pickFiles 调用纳入异常捕获（无文件选择器实现的平台走统一错误提示，不再裸抛）
+- **依赖映射**：新增 `pubspec_overrides_ohos.yaml` 模板——鸿蒙构建前复制为 pubspec_overrides.yaml 生效（已核实 path_provider/shared_preferences 的 SIG 仓库路径；just_audio/sqflite 地址标 TODO 待 DevEco 环境校准）；常规构建零影响
+- **鸿蒙构建步骤**（待有 DevEco/OpenHarmony SDK 环境执行）：切 OpenHarmony SIG flutter_flutter 分叉 SDK → `flutter create --platforms ohos .` 生成 ohos/ 目录 → 复制 overrides 模板 → 补 ArkTS 原生侧（media_store_ohos 通道 / 可选 EQ / 悬浮歌词）→ hvigor 构建上真机
+- **本阶段限制**：本机无鸿蒙工具链，ohos/ 目录、ArkTS 原生侧与真机 QA 待环境就绪后补齐；EQ/悬浮歌词/桌面小部件/刷新率四处能力位维持 Android-only 门控（鸿蒙按需 ArkTS 重写）
+- 验证：analyze 5 info（既有基线）、test 38 通过、APK debug 构建通过（守卫改动复验 Android 无回归）
+
 ## 2026-09-10 — v3 Phase 5：Linux 适配（media_kit 播放内核 + 下载落盘 + 本地扫描）
 
 - **播放内核**：Linux 无 just_audio 官方实现——引入 `just_audio_media_kit`（media-kit 社区适配器，把 media_kit/libmpv 注册为 just_audio 的 Linux 平台实现，Dart 层零改动），配套 `media_kit_libs_linux` 打包 libmpv 原生库（已确认注册进 linux generated_plugins）。main.dart 接线 `JustAudioMediaKit.ensureInitialized(linux: true, windows: false)`——**windows 必须显式关掉**：包默认 true 会在 Windows 上覆盖 just_audio_windows。headers 鉴权透传已确认（Media(httpHeaders:)），LockCachingAudioSource 为纯 Dart 本地代理实现、Linux 可用

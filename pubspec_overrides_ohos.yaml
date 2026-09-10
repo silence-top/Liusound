@@ -1,0 +1,33 @@
+# 鸿蒙（OpenHarmony）构建专用依赖映射——模板文件，不参与任何常规构建。
+#
+# 用法：在鸿蒙工具链（OpenHarmony SIG flutter_flutter 分叉 SDK）下构建前，
+# 把本文件复制为根目录 pubspec_overrides.yaml（flutter 工具仅在该文件名存在
+# 时读取，常规 Android/iOS/桌面/web 构建不受影响）：
+#   cp pubspec_overrides_ohos.yaml pubspec_overrides.yaml
+#
+# 生态现状（2026-09 核实）：
+# - 官方库分叉：gitee.com/openharmony-sig/flutter_packages（path_provider /
+#   shared_preferences 的 *_ohos 实现已核实存在于 packages/<插件>/<插件>_ohos）
+# - 社区插件鸿蒙移植：just_audio 有 ohos 移植（fluttertpc_just_audio，社区
+#   文章确认可用）；media_kit 已适配鸿蒙（备选播放内核）
+# - ⚠️ 原SIG部分仓库有停止更新信号，构建前以 DevEco 环境实测校准下列 TODO 地址
+#
+# dependency_overrides:
+#   # —— 已核实仓库/路径 ——
+#   path_provider:
+#     git:
+#       url: https://gitee.com/openharmony-sig/flutter_packages.git
+#       path: packages/path_provider/path_provider
+#   shared_preferences:
+#     git:
+#       url: https://gitee.com/openharmony-sig/flutter_packages.git
+#       path: packages/shared_preferences/shared_preferences
+#   # —— TODO：地址待 DevEco 环境校准（社区移植，非 openharmony-sig 官方）——
+#   just_audio:
+#     git:
+#       url: https://gitee.com/<TODO-fluttertpc_just_audio 仓库>.git
+#       path: <TODO>
+#   sqflite:
+#     git:
+#       url: https://gitee.com/<TODO-sqflite_ohos 仓库>.git
+#       path: <TODO>

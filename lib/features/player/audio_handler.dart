@@ -26,8 +26,8 @@ class AppAudioHandler extends BaseAudioHandler {
     // 播放事件 → 系统播放状态广播（通知栏进度/按钮态）
     player.playbackEventStream.listen(_broadcastState);
     // 拔出耳机/断开蓝牙 → 自动暂停（避免突然外放）。
-    // audio_session 无 Windows/Linux 实现，桌面端跳过
-    if (!AppPlatform.isWindows && !AppPlatform.isLinux) {
+    // audio_session 无 Windows/Linux/鸿蒙 实现，这些平台跳过
+    if (!AppPlatform.isWindows && !AppPlatform.isLinux && !AppPlatform.isOhos) {
       AudioSession.instance.then((session) {
         session.becomingNoisyEventStream.listen((_) => _player.pause());
       });

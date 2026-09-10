@@ -86,8 +86,8 @@ Future<void> main() async {
     ),
   );
   // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）。
-  // audio_session 无 Windows/Linux 实现，桌面端跳过（不参与系统音频焦点竞争）
-  if (!AppPlatform.isWindows && !AppPlatform.isLinux) {
+  // audio_session 无 Windows/Linux/鸿蒙 实现，这些平台跳过（不参与系统音频焦点竞争）
+  if (!AppPlatform.isWindows && !AppPlatform.isLinux && !AppPlatform.isOhos) {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
   }

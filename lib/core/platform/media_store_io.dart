@@ -4,6 +4,7 @@ import 'media_store_android.dart';
 import 'media_store_ios.dart';
 import 'media_store_linux.dart';
 import 'media_store_macos.dart';
+import 'media_store_ohos.dart';
 import 'media_store_stub.dart';
 import 'media_store_windows.dart';
 
@@ -13,5 +14,6 @@ MediaStore createMediaStore() {
   if (AppPlatform.isWindows) return MediaStoreWindows();
   if (AppPlatform.isMacOS) return MediaStoreMacos();
   if (AppPlatform.isLinux) return MediaStoreLinux();
+  if (AppPlatform.isOhos) return MediaStoreOhos();
   return MediaStoreStub();
 }

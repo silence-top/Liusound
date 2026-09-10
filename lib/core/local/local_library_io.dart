@@ -61,6 +61,11 @@ Future<List<Song>> scanLocalLibrary() async {
       dirPaths.addAll(['$home/Music', '$home/Downloads']);
     }
   }
+  // 鸿蒙：扫应用沙箱 Documents（path_provider 经 ohos 移植提供；
+  // 下载产物由指纹规则排除）
+  if (AppPlatform.isOhos) {
+    dirPaths.add((await getApplicationDocumentsDirectory()).path);
+  }
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库

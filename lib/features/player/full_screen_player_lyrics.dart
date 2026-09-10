@@ -162,13 +162,14 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
             children: [
               TextButton.icon(
                 onPressed: () async {
-                  final files = await FilePicker.pickFiles(
-                    type: FileType.custom,
-                    allowedExtensions: ['lrc', 'txt'],
-                  );
-                  final path = files.isEmpty ? null : files.first.path;
-                  if (path == null) return;
                   try {
+                    // pickFiles 一并捕获：无文件选择器实现的平台（鸿蒙等）走同一错误提示
+                    final files = await FilePicker.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['lrc', 'txt'],
+                    );
+                    final path = files.isEmpty ? null : files.first.path;
+                    if (path == null) return;
                     final text = await localFs.readTextFile(path);
                     if (text == null) {
                       throw Exception('文件读取失败');

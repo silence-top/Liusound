@@ -4,7 +4,7 @@
 /// - Windows：用户音乐库下 流声\ 子目录
 /// - macOS：真实音乐目录 ~/Music/流声（沙盒 assets.music 授权）
 /// - Linux：XDG 音乐目录 ~/Music/流声
-/// - web：浏览器下载已实现；iOS/Documents 已实现；鸿蒙：待阶段实现
+/// - web：浏览器下载已实现；iOS/Documents 已实现；鸿蒙经 ArkTS 通道（原生侧待补）
 library;
 
 import 'media_store_web.dart'
