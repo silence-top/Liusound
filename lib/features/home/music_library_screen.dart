@@ -53,7 +53,7 @@ class MusicLibraryScreen extends ConsumerWidget {
   }
 }
 
-/// 服务器大卡片（设计图）：头部（后端 Logo + 类型名 + 「别名 · 歌曲数」副行，
+/// 服务器区（裸排）：头部（后端 Logo + 类型名 + 「别名 · 歌曲数」副行，
 /// 点击进服务器详情页）→ 分隔线 → 内嵌八入口网格（可折叠）→ 底部折叠箭头。
 class _ServerPanel extends ConsumerStatefulWidget {
   const _ServerPanel({required this.total});
@@ -72,128 +72,121 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
     final config = ref.watch(authControllerProvider).activeConfig;
     final type = config?.type;
     final primary = Theme.of(context).colorScheme.primary;
-    return GlassContainer(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          InkWell(
-            onTap: config == null
-                ? null
-                : () =>
-                      Navigator.of(context)
-                          .push(fadeRoute<void>(ServerDetailScreen())),
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppRadius.l),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Row(
-                children: [
-                  if (type != null && type.hasLogoAsset)
-                    ClipRRect(
+    return Column(
+      children: [
+        InkWell(
+          onTap: config == null
+              ? null
+              : () =>
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(ServerDetailScreen())),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                if (type != null && type.hasLogoAsset)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.m),
+                    child: Image.asset(type.iconAsset, width: 44, height: 44),
+                  )
+                else
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(AppRadius.m),
-                      child: Image.asset(type.iconAsset, width: 44, height: 44),
-                    )
-                  else
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: primary.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(AppRadius.m),
-                      ),
-                      child: Icon(
-                        type?.fallbackIcon ?? Icons.album,
-                        color: primary,
-                        size: 26,
-                      ),
                     ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          type?.displayName ?? '未连接服务器',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryOf(context),
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    child: Icon(
+                      type?.fallbackIcon ?? Icons.album,
+                      color: primary,
+                      size: 26,
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        type?.displayName ?? '未连接服务器',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.alt_route,
-                              size: 13,
-                              color: AppTheme.textFaintOf(context),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                config?.name ?? '点击设置添加服务器',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: AppTheme.textFaintOf(context),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(
-                              Icons.music_note,
-                              size: 13,
-                              color: AppTheme.textFaintOf(context),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${widget.total}',
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.alt_route,
+                            size: 13,
+                            color: AppTheme.textFaintOf(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              config?.name ?? '点击设置添加服务器',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: AppTheme.textFaintOf(context),
                                 fontSize: 12,
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.music_note,
+                            size: 13,
+                            color: AppTheme.textFaintOf(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${widget.total}',
+                            style: TextStyle(
+                              color: AppTheme.textFaintOf(context),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          Divider(height: 1, color: SkinTokens.of(context).divider),
-          // 入口网格可折叠：收起时高度压缩为 0，箭头随状态翻转
-          ClipRect(
-            child: AnimatedAlign(
-              alignment: Alignment.topCenter,
-              heightFactor: _expanded ? 1 : 0,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              child: const _EntryGrid(),
+        ),
+        Divider(height: 1, color: SkinTokens.of(context).divider),
+        // 入口网格可折叠：收起时高度压缩为 0，箭头随状态翻转
+        ClipRect(
+          child: AnimatedAlign(
+            alignment: Alignment.topCenter,
+            heightFactor: _expanded ? 1 : 0,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            child: const _EntryGrid(),
+          ),
+        ),
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: SizedBox(
+            height: 30,
+            width: double.infinity,
+            child: Icon(
+              _expanded
+                  ? Icons.keyboard_double_arrow_up
+                  : Icons.keyboard_double_arrow_down,
+              size: 20,
+              color: AppTheme.textFaintOf(context),
             ),
           ),
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: SizedBox(
-              height: 30,
-              width: double.infinity,
-              child: Icon(
-                _expanded
-                    ? Icons.keyboard_double_arrow_up
-                    : Icons.keyboard_double_arrow_down,
-                size: 20,
-                color: AppTheme.textFaintOf(context),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -333,25 +326,31 @@ class _Entry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GlassCard(
+      child: InkWell(
         onTap: onTap,
-        radius: AppRadius.m,
-        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-        child: Column(
-          children: [
-            Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppTheme.textDimOf(context),
-                fontSize: 12,
+        borderRadius: BorderRadius.circular(AppRadius.m),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppTheme.textDimOf(context),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -524,12 +523,8 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
               ],
       );
     }
-    return GlassCard(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
-      ),
+    return Column(
+      children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
     );
   }
 }

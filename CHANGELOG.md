@@ -2,6 +2,14 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — 去卡片化：首页/资料库裸排（网易云式封面即元素）
+
+- 设计方向调整：浏览类页面（首页/资料库）从「玻璃卡片包内容」改为裸排——封面与列表行直接落在页面上，靠留白与字号做层级；玻璃保留给真正悬浮的表面（迷你条/弹层/对话框/底部导航）
+- **首页**：每日推荐 / 最近播放 / 最常播放三个歌曲分区去掉外层 GlassContainer，3 行歌曲直接裸排；专辑横滑行本就裸排不动
+- **资料库**：服务器大卡（GlassContainer）拆为裸排头部一行 + 分隔线 + 八入口网格去 GlassCard（图标+文字直排，折叠交互保留）；歌单区 GlassCard 改裸排歌单行
+- **搜索页**：结果行（艺人/专辑/歌曲）核实已是裸排，无需改动；搜索框胶囊与分段 Tab 属输入控件，保留
+- 明确不动：播放页（黑胶冻结）、迷你条、弹层、设置页/服务器管理页（表单类页面卡片保留）
+
 ## 2026-09-10 — v3 Phase 6：鸿蒙（OpenHarmony）适配（守卫补全 + ArkTS 通道 + 依赖映射）
 
 - **生态研究结论**（开工核实）：① 官方库 SIG 分叉 gitee.com/openharmony-sig/flutter_packages 已核实含 path_provider_ohos / shared_preferences_ohos（packages/<插件>/<插件>_ohos）；② 播放内核：just_audio 有社区 ohos 移植（fluttertpc_just_audio，社区文章确认可用），media_kit 已适配鸿蒙（备选内核）；③ audio_service / audio_session 未证实有 ohos 移植；④ 原 SIG 部分仓库有停止更新信号，需在 DevEco 环境实测校准
