@@ -102,10 +102,10 @@ mixin PlayerSourceResolver
     );
   }
 
-  /// 按边听边存开关选择磁盘缓存源或直连源
+  /// 按边听边存开关选择磁盘缓存源或直连源（web 无磁盘缓存，恒直连）
   Future<void> _setStreamSource(PlaybackSource source) async {
     final cache = _ref.read(cacheSettingsProvider);
-    if (cache.cacheWhileListen) {
+    if (cache.cacheWhileListen && !AppPlatform.isWeb) {
       // 边听边存：走磁盘缓存源，断网可续播已缓存段落
       // LockCachingAudioSource 在 0.10 仍标记 experimental，API 或随版本变动
       await _player.setAudioSource(

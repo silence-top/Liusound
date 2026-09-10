@@ -2,6 +2,15 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 2：Web 适配（SQLite WASM + 浏览器下载 + 缓存门控）
+
+- **数据库**：新增 `sqflite_common_ffi_web`——web 端 SQLite 切 `databaseFactoryFfiWeb`（WASM sqlite 在 dedicated worker 执行），AppDb 建表/迁移脚本原样运行不分叉；worker 文件（web/sqflite_sw.js + sqlite3.wasm）由 `dart run sqflite_common_ffi_web:setup` 生成并随仓库提交。接线走 `db_factory` 门面（io 端 no-op），AppDb.instance 前幂等调用
+- **下载**：download_service_web 从抛 UnsupportedError 改为真实实现——Dio 拉 bytes（带鉴权头）→ Blob → a[download] 触发浏览器保存，文件名规则与 io 端一致（歌手 - 标题.容器后缀）；反查仍恒 null（浏览器无本地离线文件，web 播放恒走服务端流）
+- **边听边存**：web 端跳过 LockCachingAudioSource（浏览器无磁盘缓存源），恒直连流
+- **审计确认**：密钥存储 flutter_secure_storage 11.x web 原生支持（加密落 localStorage），无需改动；audio_service/just_audio 官方支持 web（MediaSession 锁屏控制）
+- **web 端已知局限**（后续阶段视需求补）：① CORS——自建服务端须放行跨域（或经反向代理），否则 web 端无法访问；② just_audio web 无法携带鉴权头播放（浏览器 audio 元素限制），依赖 header 鉴权的后端（Jellyfin/Emby/Plex）需服务端支持 query 参数鉴权；③ 自定义背景图/本地扫描依赖文件路径，web 端静默降级；④ 代理/自签证书/hosts 映射仅原生端生效
+- 验证：analyze 5 info（既有基线）、test 38 通过、build web / build apk --debug 通过
+
 ## 2026-09-10 — v3 Phase 1：iOS 适配（播放链路 + 下载落盘 Files.app 可见）
 
 - 播放链路 audit：Info.plist 缺 `UIBackgroundModes: audio`——补上（否则 iOS 后台播放被挂起、锁屏/控制中心不出现远程控制）；音频会话（music 模式）与 audio_service 初始化此前已就位，锁屏/线控链路依赖该键后即为完整

@@ -1,6 +1,8 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'db_factory.dart';
+
 /// 应用级 SQLite（Scrobble 离线队列 / 曲库版本快照 / 本地导入歌词 / 下载索引）。
 /// 懒初始化单例；表结构随 version 升级在 onUpgrade 迁移。
 ///
@@ -12,6 +14,8 @@ abstract final class AppDb {
   static Future<Database> instance() async {
     final existing = _db;
     if (existing != null) return existing;
+    // web 端切 WASM 工厂（io 端 no-op），须在 openDatabase 前接线
+    await configureDbFactory();
     final dir = await getDatabasesPath();
     final db = await openDatabase(
       p.join(dir, 'liusound.db'),
