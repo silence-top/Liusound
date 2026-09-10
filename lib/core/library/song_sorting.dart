@@ -93,9 +93,10 @@ String _textField(Song s, SongSort field) => switch (field) {
 /// ISO8601 字符串同源可直接比较；无时间视为空串（恒排最后）
 int _timeCmp(String? a, String? b) => (a ?? '').compareTo(b ?? '');
 
-/// 文本键：中文转拼音（与艺人列表索引同一策略），忽略大小写
+/// 文本键：中文转拼音（与艺人列表索引同一策略），忽略大小写。
+/// separator 必须为空串：传空格会把英文逐字拆开（"Always"→"a l w"），键序失真
 String _pinyinKey(String text) {
   final t = text.trim().toLowerCase();
   if (t.isEmpty) return '';
-  return PinyinHelper.getPinyin(t, separator: ' ').toLowerCase();
+  return PinyinHelper.getPinyin(t, separator: '').toLowerCase();
 }
