@@ -36,7 +36,13 @@ enum ServerType {
     ServerType.emby => '例如 192.168.1.10:8096',
     ServerType.audioStation => '例如 192.168.1.10:5000',
     ServerType.plex => '例如 192.168.1.10:32400',
-    ServerType.fnos => '例如 192.168.1.10:5666/music',
+    ServerType.fnos => '例如 192.168.1.10:5666',
+  };
+
+  /// 子路径提示（fnOS 音乐固定挂载在 /music 子路径，其余后端无子路径）
+  String get pathHint => switch (this) {
+    ServerType.fnos => '/music',
+    _ => '选填',
   };
 
   String get tagline => switch (this) {

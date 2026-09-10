@@ -22,6 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverController = TextEditingController();
   final _portController = TextEditingController();
+  final _pathController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
@@ -32,6 +33,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void dispose() {
     _serverController.dispose();
     _portController.dispose();
+    _pathController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -48,8 +50,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         https = true;
         host = host.substring(8);
       } else if (host.startsWith('http://')) {
-        https = false;
         host = host.substring(7);
+      }
+      // 地址框里粘贴的子路径（如 ip:5666/music）转移到路径位
+      final slash = host.indexOf('/');
+      var pastedPath = '';
+      if (slash >= 0) {
+        pastedPath = host.substring(slash);
+        host = host.substring(0, slash);
       }
       while (host.endsWith('/')) {
         host = host.substring(0, host.length - 1);
@@ -59,12 +67,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (port.isNotEmpty && !host.contains(':')) {
         host = '$host:$port';
       }
+      // 路径位（选填）优先于地址框带出的子路径
+      var path = _pathController.text.trim();
+      if (path.isEmpty) path = pastedPath;
+      while (path.startsWith('/')) {
+        path = path.substring(1);
+      }
+      while (path.endsWith('/')) {
+        path = path.substring(0, path.length - 1);
+      }
       if (https != _https) _https = https;
       await ref
           .read(authControllerProvider.notifier)
           .login(
             widget.serverType,
-            '${https ? 'https' : 'http'}://$host',
+            '${https ? 'https' : 'http'}://$host${path.isEmpty ? '' : '/$path'}',
             _usernameController.text.trim(),
             _passwordController.text,
           );
@@ -118,6 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 32),
+                const _GroupLabel('服务器'),
                 GlassCard(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -182,6 +200,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      const _FieldLabel('路径'),
+                      TextFormField(
+                        controller: _pathController,
+                        keyboardType: TextInputType.url,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
+                          fontSize: 16,
+                        ),
+                        decoration: InputDecoration(hintText: type.pathHint),
+                      ),
+                      // HTTPS 开关（默认 HTTP，局域网直连无需开启）
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            '启用 HTTPS',
+                            style: TextStyle(
+                              color: AppTheme.textDimOf(context),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Switch(
+                            value: _https,
+                            activeThumbColor: Theme.of(context)
+                                .colorScheme
+                                .primary,
+                            onChanged: (v) => setState(() => _https = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const _GroupLabel('登录信息'),
+                GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       const _FieldLabel('用户名'),
                       TextFormField(
                         controller: _usernameController,
@@ -219,28 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         validator: (v) =>
                             (v == null || v.isEmpty) ? '请输入密码' : null,
                       ),
-                      const SizedBox(height: 8),
-                      // 登录按钮右上方：HTTPS 开关（默认 HTTP，局域网直连无需开启）
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            '启用 HTTPS',
-                            style: TextStyle(
-                              color: AppTheme.textDimOf(context),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Switch(
-                            value: _https,
-                            activeThumbColor: Theme.of(context)
-                                .colorScheme
-                                .primary,
-                            onChanged: (v) => setState(() => _https = v),
-                          ),
-                        ],
-                      ),
+                      const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
@@ -291,6 +329,29 @@ class _FieldLabel extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
+      ),
+    );
+  }
+}
+
+/// 输入分组标题（服务器 / 登录信息）
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: AppTheme.textDimOf(context),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1,
+        ),
       ),
     );
   }
