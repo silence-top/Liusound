@@ -176,6 +176,9 @@ class AlbumQuery {
 
 enum SongSort {
   title,
+  artist,
+  album,
+  duration,
   random,
   rating,
   recentlyAdded,

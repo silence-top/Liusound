@@ -2,6 +2,15 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — 歌曲列表排序：全字段排序 + 全局记忆
+
+- **排序入口**：歌曲列表（曲库歌曲/我喜欢的/歌单/艺人歌曲/流派/本地音乐，SongListScreen 全站共用页）AppBar 新增排序按钮（启用时染主色）→ 玻璃弹层选字段 + 升降序，实时生效
+- **可排字段**：加入时间/标题/歌手/专辑/时长/评分/播放次数/最近播放，默认升序策略按字段类型区分（文本升序、时间热度降序）；「默认」恢复各列表原始顺序（歌单服务端编排、曲库加入时间倒序）
+- **中文按拼音排序**：文本字段比较走 lpinyin 拼音键（与艺人列表索引同一策略），主键预计算避免比较器内重复转拼音
+- **服务端排序映射补齐**：SongSort 新增 artist/album/duration，Navidrome（_sort）/ Jellyfin·Emby（SortBy Artist/Album/RunTime）/ Plex（artistSort/albumSort/duration）/ Audio Station（sort_by）映射补齐；列表取数均为全量快照，展示层 sortSongs 与服务端排序结果等价
+- **偏好持久化**：songSortPrefProvider 应用级记忆 + SharedPreferences（songList.sort.v1），跨页面/重启保持；歌单在未选择排序时保持服务端编排顺序不被破坏
+- 验证：analyze 5 info（既有基线）、test 38 通过
+
 ## 2026-09-10 — 弹窗提示优化：顶部玻璃 toast 全站替换
 
 - **AppToaster 顶部提示层**：新组件挂在 MaterialApp.builder 的页面栈之上——玻璃胶囊提示条从屏幕顶部滑入淡出（280ms），不再占据底部空间、不遮内容，`showToast()` 无需 BuildContext，异步间隙/弹窗关闭/路由切换后均可安全弹出

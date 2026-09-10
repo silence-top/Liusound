@@ -134,6 +134,9 @@ class NavidromeAdapter extends SubsonicProtocolAdapter {
     if (query.sort != null) {
       final sort = switch (query.sort!) {
         SongSort.title => 'title',
+        SongSort.artist => 'artist',
+        SongSort.album => 'album',
+        SongSort.duration => 'duration',
         SongSort.random => 'random',
         SongSort.rating => 'rating',
         SongSort.recentlyAdded => 'recently_added',

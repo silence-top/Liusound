@@ -193,6 +193,9 @@ abstract class MediaBrowserAdapter
     if (query.sort != null) {
       params['SortBy'] = switch (query.sort!) {
         SongSort.title => 'SortName',
+        SongSort.artist => 'Artist',
+        SongSort.album => 'Album',
+        SongSort.duration => 'RunTime',
         SongSort.random => 'Random',
         SongSort.rating => 'CommunityRating',
         SongSort.recentlyAdded => 'DateCreated',

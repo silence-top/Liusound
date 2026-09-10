@@ -137,6 +137,9 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
     }
     final sortBy = switch (query.sort ?? SongSort.title) {
       SongSort.title => 'title',
+      SongSort.artist => 'artist',
+      SongSort.album => 'album',
+      SongSort.duration => 'duration',
       SongSort.random => 'random',
       SongSort.rating => 'rating',
       SongSort.recentlyAdded => 'createtime',

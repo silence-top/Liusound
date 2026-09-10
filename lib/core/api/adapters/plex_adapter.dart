@@ -222,6 +222,9 @@ class PlexAdapter with SecretsUpdatable implements ServerAdapter {
     if (query.sort != null) {
       params['sort'] = switch (query.sort!) {
         SongSort.title => 'titleSort:asc',
+        SongSort.artist => 'artistSort:asc',
+        SongSort.album => 'albumSort:asc',
+        SongSort.duration => 'duration:asc',
         SongSort.random => 'random',
         SongSort.rating => 'rating:desc',
         SongSort.recentlyAdded => 'addedAt:desc',

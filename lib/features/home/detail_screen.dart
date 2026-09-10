@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/library/song_sorting.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
@@ -243,7 +244,8 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
       async = null;
     }
     final all = paged?.songs ?? async?.value ?? const <Song>[];
-    final songs = _filterSongs(all, _search);
+    final sorted = sortSongs(all, ref.watch(songSortPrefProvider));
+    final songs = _filterSongs(sorted, _search);
     final canRate =
         widget.rateTargetId != null &&
         (ref.watch(serverAdapterProvider)?.capabilities.ratings ?? false);
@@ -293,6 +295,8 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
                 onSelectAll: () => toggleSelectAll(songs),
                 filterExpanded: _filterExpanded,
                 onToggleFilter: _toggleFilter,
+                sortActive: ref.watch(songSortPrefProvider) != null,
+                onToggleSort: () => _showSortSheet(context),
                 primaryColor: Theme.of(context).colorScheme.primary,
               ),
               SliverToBoxAdapter(
@@ -659,6 +663,8 @@ SliverAppBar _detailAppBar({
   required VoidCallback onSelectAll,
   required bool filterExpanded,
   required VoidCallback onToggleFilter,
+  required bool sortActive,
+  required VoidCallback onToggleSort,
   required Color primaryColor,
 }) {
   // 空列表没得选，入口直接禁用并置灰，省得点进去是一个空的选择态
@@ -692,6 +698,18 @@ SliverAppBar _detailAppBar({
           ]
         : [
             IconButton(
+              onPressed: totalCount > 0 ? onToggleSort : null,
+              tooltip: '排序',
+              icon: Icon(
+                Icons.swap_vert,
+                color: sortActive
+                    ? primaryColor
+                    : totalCount > 0
+                    ? AppTheme.textDimOf(context)
+                    : AppTheme.textFaintOf(context),
+              ),
+            ),
+            IconButton(
               onPressed: canSelect ? onToggleSelectMode : null,
               tooltip: '批量选择',
               icon: Icon(
@@ -708,6 +726,125 @@ SliverAppBar _detailAppBar({
               primaryColor: primaryColor,
             ),
           ],
+  );
+}
+
+/// 排序弹层：字段单选 + 升降序切换，实时生效（列表在弹层后即时更新）。
+/// 「默认」= 恢复各列表原始顺序（歌单的服务端编排、曲库的加入时间倒序等）
+Future<void> _showSortSheet(BuildContext context) {
+  return glassBottomSheet<void>(
+    context,
+    Consumer(
+      builder: (context, ref, _) {
+        final pref = ref.watch(songSortPrefProvider);
+        final controller = ref.read(songSortPrefProvider.notifier);
+        final primary = Theme.of(context).colorScheme.primary;
+        Widget row({
+          required String label,
+          required bool selected,
+          required VoidCallback onTap,
+        }) => InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: selected
+                          ? primary
+                          : AppTheme.textPrimaryOf(context),
+                      fontSize: 15,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  Icon(Icons.check_rounded, size: 20, color: primary),
+              ],
+            ),
+          ),
+        );
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Text(
+                '排序方式',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            row(
+              label: '默认（原始顺序）',
+              selected: pref == null,
+              onTap: () => controller.set(null),
+            ),
+            for (final field in kSortableSongFields)
+              row(
+                label: songSortLabel(field),
+                selected: pref?.field == field,
+                onTap: () => controller.set(
+                  pref?.field == field
+                      ? pref
+                      : SongSortPref(
+                          field: field,
+                          ascending:
+                              field == SongSort.title ||
+                              field == SongSort.artist ||
+                              field == SongSort.album,
+                        ),
+                ),
+              ),
+            if (pref != null) ...[
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  children: [
+                    Text(
+                      '方向',
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: true,
+                            label: Text('升序'),
+                            icon: Icon(Icons.arrow_upward, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: false,
+                            label: Text('降序'),
+                            icon: Icon(Icons.arrow_downward, size: 16),
+                          ),
+                        ],
+                        selected: {pref.ascending},
+                        onSelectionChanged: (v) => controller.set(
+                          SongSortPref(field: pref.field, ascending: v.first),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    ),
   );
 }
 

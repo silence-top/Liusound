@@ -1,9 +1,11 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/library/library_sync.dart';
+import '../../core/library/song_sorting.dart';
 import '../../core/models/models.dart';
 import '../auth/auth_controller.dart';
 
@@ -129,6 +131,48 @@ final librarySongsProvider = FutureProvider<List<Song>>((ref) async {
   });
   return songs;
 });
+
+/// 歌曲列表排序偏好（全局记忆，应用级存活）：
+/// null = 各列表保持原始顺序（歌单的服务端编排顺序等）；选择后全列表生效并持久化
+class SongSortController extends Notifier<SongSortPref?> {
+  static const _key = 'songList.sort.v1';
+
+  @override
+  SongSortPref? build() {
+    // 持久化读取推迟到 build 完成后（build 期同步改 state 会被 Riverpod 拒绝）；
+    // Notifier 与 App 同生命周期，异步回来直接赋值安全
+    Future.microtask(() async {
+      final raw = (await SharedPreferences.getInstance()).getString(_key);
+      if (raw == null) return;
+      final parts = raw.split(':');
+      final field = SongSort.values
+          .where((v) => v.name == parts[0])
+          .firstOrNull;
+      if (field == null || !kSortableSongFields.contains(field)) return;
+      state = SongSortPref(
+        field: field,
+        ascending: parts.elementAtOrNull(1) == 'asc',
+      );
+    });
+    return null;
+  }
+
+  Future<void> set(SongSortPref? pref) async {
+    state = pref;
+    final prefs = await SharedPreferences.getInstance();
+    if (pref == null) {
+      await prefs.remove(_key);
+      return;
+    }
+    await prefs.setString(
+      _key,
+      '${pref.field.name}:${pref.ascending ? 'asc' : 'desc'}',
+    );
+  }
+}
+
+final songSortPrefProvider =
+    NotifierProvider<SongSortController, SongSortPref?>(SongSortController.new);
 
 /// 专辑列表（负一屏「专辑」入口；走增量同步快照）
 final libraryAlbumsProvider = FutureProvider<List<Album>>((ref) async {
