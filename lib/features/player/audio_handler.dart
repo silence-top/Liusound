@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/local/local_library.dart';
 import '../../core/models/models.dart';
+import '../../core/platform/app_platform.dart';
 import '../../core/platform/local_fs.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/widget/home_widget_sync.dart';
@@ -24,10 +25,13 @@ class AppAudioHandler extends BaseAudioHandler {
     _player = player;
     // 播放事件 → 系统播放状态广播（通知栏进度/按钮态）
     player.playbackEventStream.listen(_broadcastState);
-    // 拔出耳机/断开蓝牙 → 自动暂停（避免突然外放）
-    AudioSession.instance.then((session) {
-      session.becomingNoisyEventStream.listen((_) => _player.pause());
-    });
+    // 拔出耳机/断开蓝牙 → 自动暂停（避免突然外放）。
+    // audio_session 无 Windows/Linux 实现，桌面端跳过
+    if (!AppPlatform.isWindows && !AppPlatform.isLinux) {
+      AudioSession.instance.then((session) {
+        session.becomingNoisyEventStream.listen((_) => _player.pause());
+      });
+    }
     // 当前歌曲 → 通知栏元数据 + 桌面小部件（切歌即刷新）
     _ref.listen<Song?>(currentSongProvider, (_, song) => _syncMediaItem(song));
     _syncMediaItem(_ref.read(currentSongProvider));

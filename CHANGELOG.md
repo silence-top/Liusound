@@ -2,6 +2,15 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — v3 Phase 3：Windows 适配（播放内核 + SQLite ffi + 音频会话守卫）
+
+- **播放内核**：新增 `just_audio_windows`——just_audio 在 Windows 的平台实现，插件注册已验证进 generated_plugins.cmake，Dart 侧零改动自动生效
+- **数据库**：`sqflite_common_ffi` 移到主依赖；db_factory io 侧按 isWindows/isLinux 切 `databaseFactoryFfi`（sqfliteFfiInit），原生 sqlite 库由新增 `sqlite3_flutter_libs` 打包（Windows/Linux 通用，Linux 阶段直接受益）；Android/iOS/macOS 平台插件工厂不变
+- **音频会话守卫**：audio_session 无 Windows/Linux 实现——main.dart 的 AudioSession.instance/configure 与 audio_handler 的 becomingNoisy 监听加桌面守卫，防启动崩溃
+- **既有就绪项**：下载落盘 %USERPROFILE%\Music\流声\（Phase 0 已实现）、本地扫描扫 %USERPROFILE%\Music、EQ/悬浮歌词/小部件 Android-only 门控、AudioCache 走 path_provider 桌面可用
+- **已知局限**：① Windows 系统媒体控制（SMTC）：audio_service 0.18.19 无 Windows 原生插件（仅有防崩溃默认实现），锁屏/任务栏媒体控制暂缺，后续可自写 WinRT 通道补；② Windows 原生编译验证被环境阻塞——本机 Visual Studio 于当日构建间隙被卸载（doctor 报 not installed），Dart 层验证已全过，原生编译待 VS 重装后补跑
+- 验证：analyze 5 info（既有基线）、test 38 通过、build apk --debug 通过并装机 2e8f85f5 启动无崩溃（顺带补上此前 pending 的 v2 内容装机）
+
 ## 2026-09-10 — v3 Phase 2：Web 适配（SQLite WASM + 浏览器下载 + 缓存门控）
 
 - **数据库**：新增 `sqflite_common_ffi_web`——web 端 SQLite 切 `databaseFactoryFfiWeb`（WASM sqlite 在 dedicated worker 执行），AppDb 建表/迁移脚本原样运行不分叉；worker 文件（web/sqflite_sw.js + sqlite3.wasm）由 `dart run sqflite_common_ffi_web:setup` 生成并随仓库提交。接线走 `db_factory` 门面（io 端 no-op），AppDb.instance 前幂等调用

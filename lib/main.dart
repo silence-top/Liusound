@@ -12,6 +12,7 @@ import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
 import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
+import 'core/platform/app_platform.dart';
 import 'core/platform/display_mode.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/settings/prefs.dart';
@@ -80,9 +81,12 @@ Future<void> main() async {
       androidNotificationOngoing: true,
     ),
   );
-  // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）
-  final session = await AudioSession.instance;
-  await session.configure(const AudioSessionConfiguration.music());
+  // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）。
+  // audio_session 无 Windows/Linux 实现，桌面端跳过（不参与系统音频焦点竞争）
+  if (!AppPlatform.isWindows && !AppPlatform.isLinux) {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+  }
   runApp(
     UncontrolledProviderScope(container: container, child: const MusicApp()),
   );
