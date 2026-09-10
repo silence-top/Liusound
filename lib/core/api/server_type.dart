@@ -8,6 +8,7 @@ import 'adapters/jellyfin_adapter.dart';
 import 'adapters/emby_adapter.dart';
 import 'adapters/plex_adapter.dart';
 import 'adapters/audio_station_adapter.dart';
+import 'adapters/fnos_adapter.dart';
 
 enum ServerType {
   navidrome,
@@ -15,7 +16,8 @@ enum ServerType {
   jellyfin,
   emby,
   audioStation,
-  plex;
+  plex,
+  fnos;
 
   String get displayName => switch (this) {
     ServerType.navidrome => 'Navidrome',
@@ -24,6 +26,7 @@ enum ServerType {
     ServerType.emby => 'Emby',
     ServerType.audioStation => 'Audio Station',
     ServerType.plex => 'Plex',
+    ServerType.fnos => '飞牛音乐',
   };
 
   String get urlHint => switch (this) {
@@ -33,6 +36,7 @@ enum ServerType {
     ServerType.emby => '例如 192.168.1.10:8096',
     ServerType.audioStation => '例如 192.168.1.10:5000',
     ServerType.plex => '例如 192.168.1.10:32400',
+    ServerType.fnos => '例如 192.168.1.10:5666/music',
   };
 
   String get tagline => switch (this) {
@@ -42,6 +46,7 @@ enum ServerType {
     ServerType.emby => '个人媒体服务器',
     ServerType.audioStation => 'Synology NAS 音乐',
     ServerType.plex => '流媒体平台',
+    ServerType.fnos => '飞牛 fnOS 音乐',
   };
 
   IconData get fallbackIcon => switch (this) {
@@ -51,6 +56,7 @@ enum ServerType {
     ServerType.emby => Icons.live_tv,
     ServerType.audioStation => Icons.storage,
     ServerType.plex => Icons.play_circle_outline,
+    ServerType.fnos => Icons.music_note,
   };
 
   bool get hasLogoAsset => true;
@@ -95,6 +101,11 @@ enum ServerType {
         secrets: secrets,
         networkSettings: networkSettings,
       ),
+      ServerType.fnos => FnOsAdapter(
+        config: config,
+        secrets: secrets,
+        networkSettings: networkSettings,
+      ),
     };
   }
 
@@ -106,6 +117,7 @@ enum ServerType {
       ServerType.emby => EmbyAdapter.signIn(request),
       ServerType.plex => PlexAdapter.signIn(request),
       ServerType.audioStation => AudioStationAdapter.signIn(request),
+      ServerType.fnos => FnOsAdapter.signIn(request),
     };
   }
 }

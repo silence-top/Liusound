@@ -2,6 +2,16 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-10 — 新增音乐源：飞牛 fnOS 音乐（第 7 后端）
+
+- **ServerType.fnos 接入**：新增 FnOsAdapter 实现 ServerAdapter 全接口——歌曲/专辑/歌手/流派/歌单/收藏/搜索/歌词/流播放/下载/封面；登录页与服务器管理页自动出现「飞牛音乐」选项（遍历 ServerType.values，新增 fnos.png logo 资产）
+- **认证**：`POST /music/api/v1/user/password-login`，密码客户端 SHA256（小写 hex）后提交 + 随机 deviceId；token 经 Cookie `music-token=<32hex>` 携带（服务端不认请求头形式）；token 失效（code 99999）静默重登重试一次并回写新凭证，复用 SecretsUpdatable 通道
+- **API 对齐**（全部在真服务上验证）：统一信封 `{code,msg,data}`，分页 1-based（page/size/sort=`字段,方向`）；track/album/artist 列表嵌套 album/artists/audioSpec/isFavorite；地址填 host:port 即可（自动补 /music 子路径）
+- **能力矩阵如实降级**：无评分接口（setRating 恒 false）、无相似歌曲、无曲库变更标记（每次全量刷新）、无显式 Scrobble（服务端在流播放时自动记录播放历史）；转码不做（原文件流带 Accept-Ranges，与 Navidrome 无 ffmpeg 现状一致）
+- **歌词**：`/lyric/list?trackGUID=` LRC 原文直出，复用 parseLrcText 转成 Navidrome 结构化 JSON 供统一歌词管线
+- **封面**：fnOS 封面按 coverId 寻址而调用方只有实体 id——解析列表响应时顺路缓存 guid→coverId（track/album/artist 全覆盖），未命中时后台补拉专辑详情，coverImage 保持同步签名
+- 测试：fnos_adapter_test（本地 HttpServer 模拟信封接口：字段映射/封面缓存/密码 SHA256 契约/token 失效重登/LRC 转换）；analyze 5 info（既有基线）、test 40 通过
+
 ## 2026-09-10 — 切换服务器体验修复：路由栈退回首屏 + 歌词偏移按服隔离
 
 - **换服退回首屏**：切换服务器（或登出后重登其他服）时路由栈自动退回首屏——修复停留在旧服专辑/歌单详情页换服后，返回时拿着旧服务器 id 向新服查询得到空态/报错、看起来像「数据没切换」的问题；实现为 MaterialApp 挂 rootNavigatorKey + 换服监听（与清空播放器队列同处）在帧末 popUntil 首屏
