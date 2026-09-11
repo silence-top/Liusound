@@ -12,6 +12,7 @@ import '../models/models.dart';
 import '../platform/app_platform.dart';
 import '../storage/app_db.dart';
 import 'local_library.dart';
+import 'local_scan_dirs.dart';
 
 const _audioExts = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav'};
 
@@ -32,40 +33,7 @@ Future<List<Song>> scanLocalLibrary() async {
   if (!await ensureAudioPermission()) {
     throw StateError('未授予音乐文件访问权限，请到系统设置开启');
   }
-  final dirPaths = <String>[
-    if (AppPlatform.isAndroid) ...[
-      '/storage/emulated/0/Music',
-      '/storage/emulated/0/Download',
-    ] else if (AppPlatform.isWindows)
-      ...[AppPlatform.env('USERPROFILE')]
-          .whereType<String>()
-          .map((home) => '$home\\Music'),
-  ];
-  // iOS：无公共音乐目录，扫应用 Documents（开启文件共享后用户可从
-  // 「文件」App 放入音频；下载产物由指纹规则排除）
-  if (AppPlatform.isIOS) {
-    dirPaths.add((await getApplicationDocumentsDirectory()).path);
-  }
-  // macOS：扫真实音乐目录与下载目录（沙盒 assets.music / files.downloads
-  // 授权；下载产物由指纹规则排除）
-  if (AppPlatform.isMacOS) {
-    final home = AppPlatform.env('HOME');
-    if (home != null && home.isNotEmpty) dirPaths.add('$home/Music');
-    final downloads = await getDownloadsDirectory();
-    if (downloads != null) dirPaths.add(downloads.path);
-  }
-  // Linux：扫 XDG 音乐目录与下载目录（下载产物由指纹规则排除）
-  if (AppPlatform.isLinux) {
-    final home = AppPlatform.env('HOME');
-    if (home != null && home.isNotEmpty) {
-      dirPaths.addAll(['$home/Music', '$home/Downloads']);
-    }
-  }
-  // 鸿蒙：扫应用沙箱 Documents（path_provider 经 ohos 移植提供；
-  // 下载产物由指纹规则排除）
-  if (AppPlatform.isOhos) {
-    dirPaths.add((await getApplicationDocumentsDirectory()).path);
-  }
+  final dirPaths = await localScanDirs.getScanDirectories();
   final coverPath = (await _coverDir()).path;
   final result = await Isolate.run(() => _scanIsolate(dirPaths, coverPath));
   // sqflite 走平台通道，只能在主 isolate 写库
