@@ -1,5 +1,4 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/api/adapter_provider.dart';
 import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
+import 'core/audio/audio_session.dart';
 import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
-import 'core/platform/app_platform.dart';
 import 'core/platform/display_mode.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/settings/prefs.dart';
@@ -90,11 +89,8 @@ Future<void> main() async {
     ),
   );
   // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）。
-  // audio_session 无 Windows/Linux/鸿蒙 实现，这些平台跳过（不参与系统音频焦点竞争）
-  if (!AppPlatform.isWindows && !AppPlatform.isLinux && !AppPlatform.isOhos) {
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
-  }
+  // 平台不支持时（Windows/Linux/鸿蒙/Web）自动跳过
+  await audioSession.configureAsMusic();
   runApp(
     UncontrolledProviderScope(container: container, child: const MusicApp()),
   );
