@@ -2,6 +2,13 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-11 — 历史重写：清除凭据 + test//UI/ 全面退库
+
+- **git filter-repo 重写全部历史**：明文口令（fnOS 测试文件）与 `test/`、`UI/` 目录从所有 commit 中剔除；仓库体积 25MB → 8.8MiB。全部 commit hash 已变更，远端强推覆盖
+- **入库策略变更**：`test/`、`UI/`、`vibe_images/`、`pubspec_overrides.yaml` 加入 `.gitignore`，仅本地保留、永不入库；测试仍在本地运行（40/40 通过），CI/协作场景后续以私有方式分发
+- 本地 `test/` 与 `UI/` 已从重写前备份恢复，工作区文件无损失；重写前完整备份见仓库外 `liusound-backup-20260911.bundle`
+- 仍需在 fnOS 服务端轮换密码：GitHub 等平台可能缓存旧对象
+
 ## 2026-09-11 — 测试凭据清理：移除 fnOS 测试中的明文口令
 
 - **test/fnos_adapter_test.dart 明文口令替换为假值常量** `_testPassword = 'unit-test-password'`（secrets 与 SHA256 断言同步引用常量）；真实凭据不再出现在仓库工作区。注意：明文已随历史 commit 进入 git 历史，需在 fnOS 服务端轮换该账号密码方为彻底止损

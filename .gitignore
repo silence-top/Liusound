@@ -50,3 +50,9 @@ node_modules/
 
 # 本地环境
 .env*.local
+
+# 测试脚本与设计素材：仅本地保留，永不入库（2026-09-11 起从历史中一并清除）
+/test/
+/UI/
+vibe_images/
+pubspec_overrides.yaml
