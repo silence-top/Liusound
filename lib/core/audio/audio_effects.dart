@@ -2,100 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../platform/app_platform.dart';
+import 'audio_effects_api.dart';
 
 import '../../features/player/player_controller.dart';
-
-const _channelName = 'com.silencetop.liusound/audio_effects';
-
-/// 设备 EQ 波段信息（center 单位 Hz，min/max 单位毫贝，通常 -1500..1500）
-class EqBand {
-  const EqBand({
-    required this.centerHz,
-    required this.minMb,
-    required this.maxMb,
-  });
-
-  final int centerHz;
-  final int minMb;
-  final int maxMb;
-
-  static EqBand fromMap(Object? raw) {
-    final m = raw! as Map<Object?, Object?>;
-    return EqBand(
-      centerHz: (m['centerHz'] as num).round(),
-      minMb: (m['minMb'] as num).round(),
-      maxMb: (m['maxMb'] as num).round(),
-    );
-  }
-}
-
-/// 原生音效链通道封装（仅 Android；iOS 无 just_audio 可挂载的 EQ 入口，不可行）
-class AudioEffectsApi {
-  static const _channel = MethodChannel(_channelName);
-
-  static Future<List<EqBand>> init(int sessionId) async {
-    if (!AppPlatform.isAndroid) return const [];
-    try {
-      final raw = await _channel.invokeMethod<List<Object?>>('init', sessionId);
-      return raw?.map(EqBand.fromMap).toList() ?? const [];
-    } on PlatformException {
-      return const [];
-    }
-  }
-
-  static Future<void> setEq(bool enabled) async {
-    if (!AppPlatform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('setEq', {'enabled': enabled});
-    } on PlatformException {
-      // 设备不支持时静默降级
-    }
-  }
-
-  static Future<void> setBandLevel(int index, int levelMb) async {
-    if (!AppPlatform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('setBandLevel', {
-        'index': index,
-        'level': levelMb,
-      });
-    } on PlatformException {
-      // 同上
-    }
-  }
-
-  static Future<void> setBass(int strength) async {
-    if (!AppPlatform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('setBass', strength);
-    } on PlatformException {
-      // 同上
-    }
-  }
-
-  static Future<void> setVirtualizer(int strength) async {
-    if (!AppPlatform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('setVirtualizer', strength);
-    } on PlatformException {
-      // 同上
-    }
-  }
-
-  static Future<void> release() async {
-    if (!AppPlatform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('release');
-    } on PlatformException {
-      // 同上
-    }
-  }
-}
 
 /// 预设曲线：按 10 个标准频点（Hz）给出 dB 值，设备波段按频点线性插值映射
 const standardFreqs = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -172,7 +84,7 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
 
   @override
   AudioEffectsState build() {
-    if (AppPlatform.isAndroid) {
+    if (audioEffectsApi.isAvailable) {
       final player = ref.watch(audioPlayerProvider);
       unawaited(_attachSession(player.androidAudioSessionId));
       _sub = player.androidAudioSessionIdStream.listen((sid) {
@@ -180,7 +92,7 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
       });
       ref.onDispose(() {
         _sub?.cancel();
-        AudioEffectsApi.release();
+        audioEffectsApi.release();
       });
     }
     _loadPrefs();
@@ -210,7 +122,7 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
   Future<void> _attachSession(int? sessionId) async {
     if (sessionId == null || sessionId == _sessionId) return;
     _sessionId = sessionId;
-    final bands = await AudioEffectsApi.init(sessionId);
+    final bands = await audioEffectsApi.init(sessionId);
     if (bands.isEmpty) {
       _sessionId = null;
       return;
@@ -220,21 +132,21 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
   }
 
   Future<void> _pushAll() async {
-    await AudioEffectsApi.setEq(state.enabled);
+    await audioEffectsApi.setEq(state.enabled);
     for (final band in state.bands.indexed) {
       final level = state.gains[band.$1] ?? 0;
-      await AudioEffectsApi.setBandLevel(
+      await audioEffectsApi.setBandLevel(
         band.$1,
         level.clamp(band.$2.minMb, band.$2.maxMb),
       );
     }
-    await AudioEffectsApi.setBass(state.bass);
-    await AudioEffectsApi.setVirtualizer(state.virtualizer);
+    await audioEffectsApi.setBass(state.bass);
+    await audioEffectsApi.setVirtualizer(state.virtualizer);
   }
 
   Future<void> setEnabled(bool v) async {
     state = state.copyWith(enabled: v);
-    await AudioEffectsApi.setEq(v);
+    await audioEffectsApi.setEq(v);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyEnabled, v);
   }
@@ -245,7 +157,7 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
         ? levelMb
         : levelMb.clamp(band.minMb, band.maxMb);
     state = state.copyWith(gains: {...state.gains, index: clamped});
-    await AudioEffectsApi.setBandLevel(index, clamped);
+    await audioEffectsApi.setBandLevel(index, clamped);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyGains, jsonEncode(state.gains));
   }
@@ -262,14 +174,14 @@ class AudioEffectsController extends Notifier<AudioEffectsState> {
 
   Future<void> setBass(int v) async {
     state = state.copyWith(bass: v.clamp(0, 1000));
-    await AudioEffectsApi.setBass(state.bass);
+    await audioEffectsApi.setBass(state.bass);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyBass, state.bass);
   }
 
   Future<void> setVirtualizer(int v) async {
     state = state.copyWith(virtualizer: v.clamp(0, 1000));
-    await AudioEffectsApi.setVirtualizer(state.virtualizer);
+    await audioEffectsApi.setVirtualizer(state.virtualizer);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyVirtualizer, state.virtualizer);
   }
