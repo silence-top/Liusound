@@ -34,5 +34,22 @@ final class MediaStoreAndroid implements MediaStore {
   }
 
   @override
+  Future<bool> deleteFromPublicMusic({
+    required String fileName,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('deleteFromMusic', {
+        'fileName': fileName,
+        'relativePath': 'Music/$publicMusicDirName',
+      });
+      return result ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  @override
   Future<String?> publicMusicDir() async => null;
 }

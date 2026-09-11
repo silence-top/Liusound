@@ -34,6 +34,22 @@ final class MediaStoreIos implements MediaStore {
   }
 
   @override
+  Future<bool> deleteFromPublicMusic({
+    required String fileName,
+  }) async {
+    final dirPath = await publicMusicDir();
+    if (dirPath == null) return false;
+    try {
+      final target = File(p.join(dirPath, fileName));
+      if (!await target.exists()) return false;
+      await target.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
   Future<String?> publicMusicDir() async {
     try {
       final docs = await getApplicationDocumentsDirectory();
