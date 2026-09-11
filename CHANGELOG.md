@@ -2,6 +2,10 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-11 — 测试凭据清理：移除 fnOS 测试中的明文口令
+
+- **test/fnos_adapter_test.dart 明文口令替换为假值常量** `_testPassword = 'unit-test-password'`（secrets 与 SHA256 断言同步引用常量）；真实凭据不再出现在仓库工作区。注意：明文已随历史 commit 进入 git 历史，需在 fnOS 服务端轮换该账号密码方为彻底止损
+
 ## 2026-09-10 — 登录页分组重构：路径输入框 + 服务器/登录信息两组
 
 - **新增「路径」输入框**：服务器地址之外独立子路径位（选填）——飞牛音乐等挂载在子路径的服务不再需要把 `/music` 混进地址框；地址框里粘贴完整 URL（含路径/协议）时仍自动拆解：协议归 HTTPS 开关、路径归路径位
