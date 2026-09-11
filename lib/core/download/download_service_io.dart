@@ -10,7 +10,6 @@ import 'package:sqflite/sqflite.dart';
 import '../api/server_adapter.dart';
 import '../models/models.dart';
 import '../network/http_factory.dart';
-import '../platform/app_platform.dart';
 import '../platform/media_store.dart';
 import '../settings/streaming_prefs.dart';
 import '../storage/app_db.dart';
@@ -76,48 +75,19 @@ Future<String> downloadSongFile({
   // 落盘目标：优先公共音乐目录（对用户可见），失败回退私有 Documents/Music
   // finalPath 兜底初值即私有路径，公共分支成功时才覆盖
   var finalPath = path;
-  var placed = false;
-  if (AppPlatform.isAndroid) {
-    final saved = await mediaStore.saveToPublicMusic(
-      sourcePath: tmpPath,
-      fileName: fileName,
-      title: song.title,
-      artist: song.artist,
-      album: song.album,
-      durationMs: song.duration.toInt(),
-    );
-    if (saved != null) {
-      finalPath = saved;
-      placed = true;
-      // MediaStore 已复制内容，临时文件就地清理
-      try {
-        await tmp.delete();
-      } catch (_) {}
-    }
+  final saved = await mediaStore.saveToPublicMusic(
+    sourcePath: tmpPath,
+    fileName: fileName,
+    title: song.title,
+    artist: song.artist,
+    album: song.album,
+    durationMs: song.duration.toInt(),
+  );
+  if (saved != null) {
+    finalPath = saved;
   } else {
-    final publicDirPath = await mediaStore.publicMusicDir();
-    if (publicDirPath != null) {
-      try {
-        final publicDir = Directory(publicDirPath);
-        if (!await publicDir.exists()) {
-          await publicDir.create(recursive: true);
-        }
-        final target = File(p.join(publicDir.path, fileName));
-        if (await target.exists()) {
-          try {
-            await target.delete();
-          } catch (_) {}
-        }
-        await tmp.rename(target.path);
-        finalPath = target.path;
-        placed = true;
-      } catch (_) {
-        // 公共目录不可写等场景回退私有目录
-      }
-    }
-  }
-  if (!placed) {
-    // 原子提交：rename 覆盖旧文件（Windows 上 rename 不能覆盖已存在目标）
+    // 公共目录不可用/失败，原子提交到私有目录：rename 覆盖旧文件
+    // （Windows 上 rename 不能覆盖已存在目标）
     final target = File(path);
     if (await target.exists()) {
       try {

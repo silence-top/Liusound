@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
 import 'app_platform.dart';
 import 'media_store.dart';
 
@@ -14,7 +18,21 @@ final class MediaStoreMacos implements MediaStore {
     required String artist,
     String album = '',
     int durationMs = 0,
-  }) async => null; // 文件复制由 download_service 统一处理（本地文件系统）
+  }) async {
+    final dirPath = await publicMusicDir();
+    if (dirPath == null) return null;
+    try {
+      final dir = Directory(dirPath);
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final target = File(p.join(dir.path, fileName));
+      if (await target.exists()) await target.delete();
+      final source = File(sourcePath);
+      await source.rename(target.path);
+      return target.path;
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Future<String?> publicMusicDir() async {
