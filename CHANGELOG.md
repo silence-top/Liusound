@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-11 — 仓库清理：过时文档退库 + README 重写
+
+- **删除过时过程文档**：`LIU_SOUND_AI_FIX_PLAN*.md`（AI 整改计划，已全部执行完毕）、`待办清单.md`、`修改内容.md`、`优化内容.md` 从索引与本地一并移除；根目录现仅保留 README / FEATURES / CHANGELOG 三个产品文档
+- **删除遗留物**：`node_modules/`（遗留 RN 产物 1.9MB）、空目录 `tool/`
+- **README 重写**：对齐现状——7 后端矩阵（含飞牛 fnOS）+ 6 平台支持状态（鸿蒙标注实验性）、当前功能集（皮肤/排序/下载/本地曲库/EQ 等）、CI 闸门说明、web 生成物再生成命令
+
 ## 2026-09-11 — 质量闸门：analyzer 清零 + 首个 CI
 
 - **analyzer 基线清零**：修复长期挂账的 5 条 info——Emby/Jellyfin 构造器改 super 参数（连带删除两处失效 import）、MediaBrowser/Subsonic 构造器经 `dart fix` 转 initializing formal（Dart private named parameters）、GlassAppBar actions 改 null-aware spread（`...?`）；fnos_adapter 一处格式归一。`flutter analyze` 达成 No issues found

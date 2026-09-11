@@ -1,22 +1,22 @@
 # 流声 Liu Sound
 
-支持 **Navidrome / Subsonic / Jellyfin / Emby / Plex / Audio Station** 六种后端的跨平台音乐客户端，一套代码同时运行在 **Android / iOS / Web** 三端。使用 Flutter 构建，液态玻璃 UI，支持流媒体播放、逐行歌词同步、后台播放与系统通知栏媒体控制、播放队列管理与多数据维度浏览。
+多后端自建音乐服务客户端，支持 **Navidrome / Subsonic / Jellyfin / Emby / Plex / 群晖 Audio Station / 飞牛 fnOS 音乐** 七种后端，一套代码运行在 **Android / iOS / Web / Windows / macOS / Linux**。使用 Flutter 构建，液态玻璃 UI（8 套可换肤），支持流媒体播放、逐行歌词同步、下载离线、本地音乐回放、桌面小部件与系统媒体控制。
 
-> 版本历史：v1.0（React Native / Expo 实现）已归档至 git tag `v1.0`；v2.0 为 Flutter 全量重构版本；v2.1 新增多后端适配与液态玻璃 UI。
+> 版本历史：v1.0（React Native / Expo 实现）已归档至 git tag `v1.0`；v2.0 为 Flutter 全量重构；v2.1 新增多后端适配与液态玻璃 UI。架构细节见 [FEATURES.md](FEATURES.md)，逐次变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 功能特性
 
-- **多后端支持**：统一适配 Navidrome、Subsonic、Jellyfin、Emby、Plex、Synology Audio Station 六种音乐服务器，一套 UI 无缝切换
-- **多服务器管理**：添加/切换/删除多台服务器，会话持久化，冷启动自动恢复（凭证加密存储）
-- **首页多维浏览**：最新专辑 / 最近播放 / 最常播放 / 随机专辑 / 每日推荐（随机 50 首），下拉刷新
-- **播放内核**：`just_audio` 事件驱动（positionStream 替代轮询）；`audio_service` 后台播放、系统通知栏媒体控制、耳机线控
-- **全屏播放器**：相似歌曲推荐 / 播放队列 / 歌词同步三 Tab（功能按后端能力自适应显隐）
-- **逐行歌词同步**：解析 JSON 歌词（第一音轨、毫秒转秒、滤空行、排序），二分查找定位当前行，自动跟随滚动；支持 ±0.05s 偏移微调并逐歌持久化、一键复制歌词
-- **播放队列**：添加 / 移除 / 清空、点击跳播；三种播放模式（顺序 / 随机 / 单曲循环）；队列与播放进度持久化（冷启动恢复，不自动播放，登出清除）
-- **全局搜索**：300ms 防抖搜索，歌曲 / 专辑 / 歌手分区展示，点击歌曲即播
-- **液态玻璃 UI**：毛玻璃模糊、渐变边框、半透明层叠，Material 3 深色主题
-- **能力自适应**：根据后端能力自动显隐功能入口（如 Jellyfin/Emby 隐藏星级评分、相似歌曲）
-- **设置页**：服务器信息、歌词偏移缓存清理、图片缓存清理、玻璃效果质量切换、退出登录（二次确认）
+- **多后端 + 多服务器**：七种音乐服务器统一适配，多台服务器并存管理、一键切换（切换自动退回首屏），会话持久化、token 失效静默重登，凭证加密存储
+- **能力自适应**：按后端能力矩阵自动显隐功能入口（评分 / 相似歌曲 / 歌词 / 转码等）
+- **首页多维浏览**：最新专辑 / 最近播放 / 最常播放 / 随机专辑 / 每日推荐；资料库四入口（专辑 / 歌手 / 流派 / 歌单）+ 拼音索引；歌曲列表多维排序（含中文拼音序）
+- **播放内核**：`just_audio` 事件驱动；`audio_service` 后台播放、通知栏媒体控制、AVRCP 线控；Crossfade / Gapless / 断点续播
+- **全屏播放器**：封面取色材质、黑胶 / 歌词 / 队列三 Tab；逐行歌词同步 + LRC 双语 + 悬浮歌词；±0.05s 偏移微调逐歌持久化（按服务器隔离）
+- **音效**：10 段 / 31 段 EQ、空间音频近似（按平台能力门控）
+- **下载离线**：边听边存缓存、手动下载落盘（系统音乐目录 / MediaStore）
+- **本地音乐**：扫描设备本地曲库（文件 picker 选目录），ID3 读取，与在线曲库统一播放
+- **桌面小部件**：Android 小部件（封面 + 控制按钮）；Scrobble 上报；Android Auto 资源就绪
+- **个性化**：8 套皮肤（色温 / 圆角 / 材质差异化）、自定义背景图（最高优先级）、卡片展示开关（裸排 / 卡片双形态）、玻璃效果三档
+- **全局搜索**：防抖搜索，歌曲 / 专辑 / 歌手分区展示，点击即播
 
 ## 后端支持矩阵
 
@@ -28,109 +28,84 @@
 | Emby | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
 | Plex | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | Audio Station | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| 飞牛 fnOS | ✅ | ✅ | ✅ | — | — | ✅（LRC） | ✅ |
+
+> 飞牛 fnOS 音乐为私有 API（`/music/api/v1/*`），Cookie-only token + SHA256 密码；地址填 `host:port` 即可，路径 `/music` 自动补全。
 
 ## 技术栈
 
-| 分类 | 选型 | 说明 |
-| --- | --- | --- |
-| 框架 | Flutter 3.47 stable / Dart 3.13 | Impeller 渲染（Android/iOS 默认） |
-| 状态 | flutter_riverpod 2.6 | 细粒度 provider 拆分播放状态 |
-| 播放 | just_audio + audio_service | 事件驱动播放内核；后台播放与媒体通知 |
-| 网络 | dio 5 | 拦截器附加认证头，凭证内存化 |
-| 存储 | flutter_secure_storage / shared_preferences | 敏感凭证加密存储；会话/播放状态/歌词偏移 |
-| 图片 | cached_network_image | 磁盘 LRU + `memCacheWidth` 限制解码 |
-| 加密 | crypto 3 | Subsonic/Emby 认证 MD5 哈希 |
+| 分类 | 选型 |
+| --- | --- |
+| 框架 | Flutter 3.47 stable / Dart 3.13 |
+| 状态 | flutter_riverpod 2.6 |
+| 播放 | just_audio（+ windows / media_kit 桌面端）+ audio_service |
+| 网络 | dio 5（拦截器认证头 + token 静默重登） |
+| 存储 | sqflite（曲库快照 / 播放状态）+ flutter_secure_storage（凭证）+ shared_preferences |
+| 加密 | crypto 3（Subsonic / Emby / fnOS 认证哈希） |
+| 图片 | cached_network_image（磁盘 LRU + 解码尺寸限制） |
 
 ## 架构
 
 ```
 lib/
-├── main.dart                       # 入口：imageCache 上限、AudioService.init、认证分流
+├── main.dart                  # 入口：AudioService.init、认证分流
 ├── core/
 │   ├── api/
-│   │   ├── server_adapter.dart     # ServerAdapter 统一接口 + 数据类
-│   │   ├── server_type.dart        # ServerType 枚举 + 工厂 + ServerConfig
-│   │   ├── navidrome_client.dart   # Navidrome REST 客户端（被 NavidromeAdapter 组合）
-│   │   └── adapters/
-│   │       ├── navidrome_adapter.dart      # Navidrome 适配器
-│   │       ├── subsonic_adapter.dart       # Subsonic 适配器
-│   │       ├── mediabrowser_adapter.dart   # Jellyfin/Emby 共享基类
-│   │       ├── jellyfin_adapter.dart       # Jellyfin 适配器
-│   │       ├── emby_adapter.dart           # Emby 适配器
-│   │       ├── plex_adapter.dart           # Plex 适配器
-│   │       └── audio_station_adapter.dart  # Synology Audio Station 适配器
-│   ├── lyrics/lyrics.dart          # 歌词解析 + 二分查找（纯函数）
-│   ├── models/models.dart          # Song/Album/Artist/SearchResult（容错解析）
-│   ├── storage/
-│   │   ├── auth_store.dart         # StoredSession 数据类
-│   │   └── server_repository.dart  # 多服务器持久化（prefs + secure_storage）
-│   ├── subsonic/subsonic.dart      # Subsonic 直链构建与认证参数
-│   └── theme/
-│       ├── app_theme.dart          # Material 3 深色主题
-│       └── glass_theme.dart        # 液态玻璃设计令牌
+│   │   ├── server_adapter.dart    # ServerAdapter 统一接口 + 能力矩阵
+│   │   ├── server_type.dart       # ServerType 枚举 + 工厂
+│   │   └── adapters/              # 七后端适配器（MediaBrowser 共享基类、Subsonic 协议基类）
+│   ├── audio/ cache/ download/    # 音效 / 边听边存 / 下载落盘
+│   ├── library/ lyrics/           # 排序比较器（拼音）/ 歌词解析
+│   ├── local/ platform/           # 本地曲库 / 平台门面层
+│   ├── models/ network/ scrobble/ settings/ storage/ theme/
 ├── features/
-│   ├── auth/                       # 服务器选择 / 登录 / 会话恢复
-│   ├── home/                       # 首页五分区（keepAlive FutureProvider）
-│   ├── player/                     # 播放控制器 / 音频handler / Mini/全屏播放器
-│   ├── search/                     # 搜索页
-│   └── settings/                   # 设置页 / 服务器管理
+│   ├── auth/ home/ player/ search/ settings/
 ├── shared/
-│   ├── cover_art.dart              # 统一封面加载（adapter.coverImage）
-│   └── widgets/glass.dart          # 液态玻璃组件库
-└── shell/app_shell.dart            # IndexedStack 保活 + MiniPlayer 常驻
+│   ├── cover_art.dart         # 统一封面加载
+│   └── widgets/glass.dart     # 液态玻璃组件库（皮肤感知）
+└── shell/app_shell.dart       # IndexedStack 保活 + MiniPlayer 常驻
 ```
 
-性能红线：
-
-- 播放状态按 `currentSong / queue / isPlaying / position / duration` 拆分为独立 provider，切歌与高频进度互不干扰
-- **播放期间首页/搜索页零重建**：高频流仅在最小叶子组件内订阅（进度条、播放按钮）
-- 播放进度走 `just_audio` 事件流（内部节流），无定时器轮询
-- 封面：服务端裁剪 300px + 客户端 `memCacheWidth: 300` 限制解码尺寸 + 全局 imageCache 64MB 上限
-- 页面保活：底部导航 IndexedStack，切换零重挂载、滚动位置保留
-- 播放状态持久化 500ms 防抖，队列仅落盘前 100 首且剔除内嵌歌词大字段
-- 液态玻璃：同一可见路由最多 2 个 BackdropFilter，列表滚动项内禁止模糊（仅 tint），低端设备自动降级
+性能要点：播放状态细粒度 provider 拆分（播放期间首页零重建）、进度走事件流无轮询、封面服务端裁剪 + 客户端解码限制、同一可见路由最多 2 个 BackdropFilter、低端设备自动降级。
 
 ## 快速开始
 
-### 环境要求
-
-- Flutter SDK 3.47+（含 Dart 3.13）
-- Android：Android Studio / SDK（已含 `android/` 原生工程）
-- iOS：Xcode（macOS）
-- 一台可访问的音乐服务器（Navidrome / Subsonic / Jellyfin / Emby / Plex / Audio Station 任选）
-
-### 安装与运行
-
 ```bash
-# 拉取依赖
 flutter pub get
-
-# 开发运行
 flutter run                 # 选择目标设备
-flutter run -d chrome       # Web 端
-
-# 静态检查
-flutter analyze
+flutter run -d chrome       # Web
+flutter analyze             # 静态检查（CI 闸门：format + analyze + gitleaks）
 ```
 
-### 构建发布
+构建发布：
 
 ```bash
-flutter build web                        # Web（构建产物 build/web）
 flutter build apk --release              # Android APK
 flutter build appbundle --release        # Android AAB
+flutter build web                        # Web（build/web）
+flutter build windows / macos / linux    # 桌面端
 flutter build ipa                        # iOS（需 macOS + 签名配置）
 ```
 
-> Android 首次构建前需接受许可：`flutter doctor --android-licenses`
+> 仓库不含 `test/`（仅本地保留）；`web/sqlite3.wasm`、`web/sqflite_sw.js` 为 `sqflite_common_ffi_web` 的生成物，依赖升级后执行 `dart run sqflite_common_ffi_web:setup` 重新生成。
 
 ## 服务端要求
 
 | 后端 | 最低版本 | 备注 |
 |------|----------|------|
-| Navidrome | 0.50+ | 含 `/api/song` 歌词字段与 Subsonic 兼容接口 |
-| Subsonic | 任意 | 支持 Subsonic REST 协议（Madsonic/Navidrome/Airsonic 等） |
+| Navidrome | 0.50+ | 含歌词字段与 Subsonic 兼容接口 |
+| Subsonic | 任意 | Madsonic / Airsonic 等兼容实现均可 |
 | Jellyfin | 10.8+ | `/Users/AuthenticateByName` 登录 |
 | Emby | 4.7+ | MD5 密码哈希登录 |
 | Plex | 任意 | `plex.tv` 账号认证 + 音乐分区发现 |
 | Audio Station | DSM 7+ | `SYNO.AudioStation.*` API |
+| 飞牛 fnOS | fnOS 音乐应用 | 私有 API，见上；歌词为 LRC 格式 |
+
+## 平台说明
+
+| 平台 | 状态 |
+|------|------|
+| Android / Web | ✅ 完整支持（真机 / 真浏览器验证） |
+| Windows / macOS / Linux | ✅ 已支持（部分环境受限：Windows 需 VS 桌面开发负载，iOS / macOS 需 Apple 机器） |
+| iOS | ✅ 已支持（真机验证需 macOS + Xcode） |
+| 鸿蒙 | ⚠️ 实验性，不可构建（守卫层已就位，原生工程未生成） |
