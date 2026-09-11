@@ -1,0 +1,27 @@
+# 默认：文本文件统一 LF（仓库内与检出均为 LF，跨平台一致）
+* text=auto eol=lf
+
+# 二进制：禁止行尾转换与 diff
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.wasm binary
+*.jar  binary
+*.ttf  binary
+*.otf  binary
+*.mp3  binary
+*.flac binary
+
+# 平台脚本行尾
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+*.sh      text eol=lf
+gradlew   text eol=lf
+*.pbxproj text eol=lf
+*.xcconfig text eol=lf
+*.plist   text eol=lf
+*.entitlements text eol=lf
