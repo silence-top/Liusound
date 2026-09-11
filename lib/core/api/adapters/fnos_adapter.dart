@@ -74,10 +74,7 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
 
   static String _newDeviceId() {
     final rnd = Random.secure();
-    return List.generate(
-      32,
-      (_) => rnd.nextInt(16).toRadixString(16),
-    ).join();
+    return List.generate(32, (_) => rnd.nextInt(16).toRadixString(16)).join();
   }
 
   static Future<AdapterSession> signIn(AuthRequest request) async {
@@ -129,9 +126,11 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
     if (code == 0) {
       return body['data'] as Map<String, dynamic>? ?? const {};
     }
-    throw ServerError(body['msg']?.toString().isEmpty ?? true
-        ? '飞牛音乐请求失败'
-        : body['msg'].toString());
+    throw ServerError(
+      body['msg']?.toString().isEmpty ?? true
+          ? '飞牛音乐请求失败'
+          : body['msg'].toString(),
+    );
   }
 
   Future<Map<String, dynamic>> _get(
@@ -330,7 +329,8 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
   Future<String?> fetchArtistBio(String artistId) async => null;
 
   @override
-  Future<List<Artist>?> fetchArtists() => _fetchArtistList('/api/v1/artist/list');
+  Future<List<Artist>?> fetchArtists() =>
+      _fetchArtistList('/api/v1/artist/list');
 
   /// fnOS 只有统一歌手视角（无 ID3 专辑艺术家区分），两个入口共用
   @override
@@ -342,10 +342,7 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
       final result = <Artist>[];
       var page = 1;
       while (true) {
-        final data = await _get(path, {
-          'page': '$page',
-          'size': '500',
-        });
+        final data = await _get(path, {'page': '$page', 'size': '500'});
         final items = _listOf(data);
         result.addAll(items.map(_toArtist));
         final total = _i(data, 'total');
@@ -362,13 +359,13 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
   @override
   Future<List<Genre>?> fetchGenres() async {
     try {
-      final data = await _get('/api/v1/genre/list', {'page': '1', 'size': '500'});
+      final data = await _get('/api/v1/genre/list', {
+        'page': '1',
+        'size': '500',
+      });
       return _listOf(data)
           .map(
-            (e) => Genre(
-              value: _s(e, 'name'),
-              songCount: _i(e, 'trackCount'),
-            ),
+            (e) => Genre(value: _s(e, 'name'), songCount: _i(e, 'trackCount')),
           )
           .toList();
     } catch (err, st) {
@@ -563,10 +560,13 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
   void _prefetchCoverId(String guid) {
     if (guid.isEmpty || _prefetching.contains(guid)) return;
     _prefetching.add(guid);
-    _get('/api/v1/album/detail', {'albumGUID': guid}).then((data) {
-      final coverId = data['coverId']?.toString();
-      if (coverId != null && coverId.isNotEmpty) _coverIds[guid] = coverId;
-    }).catchError((_) {}).whenComplete(() => _prefetching.remove(guid));
+    _get('/api/v1/album/detail', {'albumGUID': guid})
+        .then((data) {
+          final coverId = data['coverId']?.toString();
+          if (coverId != null && coverId.isNotEmpty) _coverIds[guid] = coverId;
+        })
+        .catchError((_) {})
+        .whenComplete(() => _prefetching.remove(guid));
   }
 
   final Set<String> _prefetching = {};
@@ -589,10 +589,7 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
       final resp = await _dio.get<List<int>>(
         '/api/v1/static/cover',
         queryParameters: {'coverId': coverId},
-        options: Options(
-          responseType: ResponseType.bytes,
-          headers: _headers,
-        ),
+        options: Options(responseType: ResponseType.bytes, headers: _headers),
       );
       return Uint8List.fromList(resp.data ?? const []);
     } catch (err, st) {
@@ -721,10 +718,10 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
     final v = j[key]?.toString() ?? '';
     return v.isEmpty ? null : v;
   }
+
   static int _i(Map<String, dynamic> j, String key) => Json.intOf(j, key);
   static int? _iOrNull(Map<String, dynamic> j, String key) =>
       Json.intOfOrNull(j, key);
-  static double _n(Map<String, dynamic> j, String key) =>
-      Json.doubleOf(j, key);
+  static double _n(Map<String, dynamic> j, String key) => Json.doubleOf(j, key);
   static int? _positiveInt(int? v) => v == null || v <= 0 ? null : v;
 }

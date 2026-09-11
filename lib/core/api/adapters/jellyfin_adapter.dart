@@ -1,6 +1,5 @@
 import '../../errors/app_error.dart';
 
-import '../../settings/streaming_prefs.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
 import 'mediabrowser_adapter.dart';
@@ -10,14 +9,9 @@ import 'mediabrowser_adapter.dart';
 class JellyfinAdapter extends MediaBrowserAdapter {
   JellyfinAdapter({
     required ServerConfig config,
-    required Map<String, String> secrets,
-    NetworkSettings networkSettings = const NetworkSettings(),
-  }) : super(
-         serverUrl: config.serverUrl,
-         username: config.username,
-         secrets: secrets,
-         networkSettings: networkSettings,
-       );
+    required super.secrets,
+    super.networkSettings,
+  }) : super(serverUrl: config.serverUrl, username: config.username);
 
   @override
   ServerType get type => ServerType.jellyfin;

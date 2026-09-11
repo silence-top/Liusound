@@ -2,6 +2,11 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-11 — 质量闸门：analyzer 清零 + 首个 CI
+
+- **analyzer 基线清零**：修复长期挂账的 5 条 info——Emby/Jellyfin 构造器改 super 参数（连带删除两处失效 import）、MediaBrowser/Subsonic 构造器经 `dart fix` 转 initializing formal（Dart private named parameters）、GlassAppBar actions 改 null-aware spread（`...?`）；fnos_adapter 一处格式归一。`flutter analyze` 达成 No issues found
+- **首个 CI**：`.github/workflows/ci.yml`——format 检查 + `flutter analyze --fatal-infos` + gitleaks 凭据扫描（fetch-depth 0 扫全历史）。因 test/ 已退库，CI 不含 flutter test 步骤，测试闸门留在本地
+
 ## 2026-09-11 — 历史重写：清除凭据 + test//UI/ 全面退库
 
 - **git filter-repo 重写全部历史**：明文口令（fnOS 测试文件）与 `test/`、`UI/` 目录从所有 commit 中剔除；仓库体积 25MB → 8.8MiB。全部 commit hash 已变更，远端强推覆盖

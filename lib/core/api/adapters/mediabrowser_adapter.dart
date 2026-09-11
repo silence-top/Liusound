@@ -19,11 +19,10 @@ abstract class MediaBrowserAdapter
     implements ServerAdapter {
   MediaBrowserAdapter({
     required String serverUrl,
-    required String username,
+    required this._username,
     required Map<String, String> secrets,
     NetworkSettings networkSettings = const NetworkSettings(),
   }) : _serverUrl = serverUrl,
-       _username = username,
        _password = secrets['password'] ?? '',
        _secrets = Map.of(secrets),
        _userId = secrets['userId'] ?? '',

@@ -586,7 +586,7 @@ class GlassAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 child: title!,
               ),
             ),
-          if (actions != null) ...actions!,
+          ...?actions,
         ],
       ),
     );

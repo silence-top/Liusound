@@ -19,10 +19,9 @@ import 'subsonic_protocol.dart';
 class SubsonicAdapter extends SubsonicProtocolAdapter {
   SubsonicAdapter({
     required ServerConfig config,
-    required Map<String, String> secrets,
+    required this._secrets,
     NetworkSettings networkSettings = const NetworkSettings(),
-  }) : _config = config,
-       _secrets = secrets {
+  }) : _config = config {
     _dio.options.baseUrl = config.serverUrl;
     NetworkRuntime.configureDio(_dio, networkSettings);
   }
