@@ -351,5 +351,3 @@ class _SkinPreviewCard extends StatelessWidget {
     );
   }
 }
-
-/// 音效面板（Android）：EQ 波段滑杆 + 预设曲线 + 低音/空间近似 + 参数剪贴板导入导出

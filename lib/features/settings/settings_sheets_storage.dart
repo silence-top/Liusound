@@ -1,9 +1,5 @@
 part of 'settings_screen.dart';
 
-// ---------- 分组卡片组件 ----------
-
-const _divider = Divider(height: 1, indent: 56);
-
 /// 缓存限额选择（附录·四）：2GB / 5GB / 10GB / 无限制
 Future<void> _showCacheLimitPicker(BuildContext context, WidgetRef ref) {
   final settings = ref.read(cacheSettingsProvider);
@@ -88,18 +84,6 @@ Future<void> _clearAudioCache(BuildContext context, WidgetRef ref) async {
   await AudioCache.clear();
   ref.invalidate(audioCacheSizeProvider);
   showToast('播放缓存已清理');
-}
-
-/// 字节数人性化显示
-String _fmtBytes(int bytes) {
-  if (bytes >= 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-  if (bytes >= 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-  return '$bytes B';
 }
 
 /// 在线音质分档选择（附录·四）：Wi-Fi 与移动网络独立配置。
@@ -418,5 +402,3 @@ Future<void> _showNetworkSettings(BuildContext context, WidgetRef ref) {
     ),
   );
 }
-
-/// 液态玻璃档位选择（关闭 / 标准 / 增强），选择后立即生效并持久化

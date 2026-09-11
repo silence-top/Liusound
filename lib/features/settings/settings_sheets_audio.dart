@@ -335,5 +335,3 @@ Future<void> _showHeadsetSheet(BuildContext context) {
     ),
   );
 }
-
-/// 主题色选择（§8.1）：六个预设色板，选中后立即生效并持久化
