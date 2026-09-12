@@ -16,6 +16,9 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # 与开发机一致（3.47.2 / Dart 3.13.2）；不锁版本时 stable 升级会
+          # 连带 dart format 规则变化，导致 Format check 与本地结果背离
+          flutter-version: 3.47.2
           cache: true
 
       - name: Pub get
