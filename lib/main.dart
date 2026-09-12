@@ -13,6 +13,7 @@ import 'core/audio/audio_effects.dart';
 import 'core/audio/audio_session.dart';
 import 'core/download/auto_download.dart';
 import 'core/floating/floating_lyrics.dart';
+import 'core/history/play_history.dart';
 import 'core/platform/display_mode.dart';
 import 'core/scrobble/scrobble_service.dart';
 import 'core/settings/prefs.dart';
@@ -104,6 +105,8 @@ class MusicApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     // Scrobble 上报服务随 App 存活（50%/2min 触发 + 离线队列补发）
     ref.watch(scrobbleServiceProvider);
+    // 本地播放历史记录服务随 App 存活（听歌统计 / 私人 FM 去重）
+    ref.watch(playHistoryServiceProvider);
     // 音效链随 App 存活：监听音频会话并在会话建立后挂载 EQ/低音/空间
     ref.watch(audioEffectsProvider);
     // 播放器内核随 App 存活：构造即触发冷启动恢复（上次队列/当前歌），

@@ -17,6 +17,7 @@ import '../auth/auth_controller.dart';
 import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import '../search/search_screen.dart';
+import '../stats/stats_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
 import 'library_entries_screen.dart';
@@ -214,6 +215,11 @@ class _EntryGrid extends ConsumerWidget {
     final genres = ref.watch(genresProvider);
     final radios = ref.watch(radioStationsProvider);
     final extras = <Widget>[
+      _Entry(
+        Icons.insights,
+        '听歌统计',
+        () => Navigator.of(context).push(fadeRoute<void>(const StatsScreen())),
+      ),
       if (albumArtists.valueOrNull != null)
         _Entry(
           Icons.theaters,

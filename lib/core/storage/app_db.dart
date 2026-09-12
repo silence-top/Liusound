@@ -19,7 +19,7 @@ abstract final class AppDb {
     final dir = await getDatabasesPath();
     final db = await openDatabase(
       p.join(dir, 'liusound.db'),
-      version: 5,
+      version: 6,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE scrobble_queue(
@@ -60,6 +60,7 @@ abstract final class AppDb {
           ' ON download_index(fingerprint)',
         );
         await _createLyricsLocal(db);
+        await _createPlayHistory(db);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 3) {
@@ -91,6 +92,10 @@ abstract final class AppDb {
             'ALTER TABLE download_index ADD COLUMN payload TEXT',
           );
         }
+        if (oldVersion < 6) {
+          // 本地播放历史（听歌统计 / 私人 FM 排除近期待播）
+          await _createPlayHistory(db);
+        }
         await _createLyricsLocal(db);
       },
     );
@@ -108,6 +113,26 @@ abstract final class AppDb {
         created_at INTEGER NOT NULL
       )
     ''');
+  }
+
+  static Future<void> _createPlayHistory(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS play_history(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id TEXT NOT NULL,
+        song_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        album TEXT NOT NULL,
+        album_id TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        played_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_history_played'
+      ' ON play_history(server_id, played_at)',
+    );
   }
 
   /// 仅 onUpgrade v2→v4 路径使用：建 v4 时代的旧 schema（无 payload），

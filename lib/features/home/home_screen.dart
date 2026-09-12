@@ -11,6 +11,7 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
+import '../fm/fm_screen.dart';
 import '../player/action_sheets.dart';
 import '../player/full_screen_player.dart';
 import '../player/player_controller.dart';
@@ -55,6 +56,7 @@ class HomeScreen extends ConsumerWidget {
                         .push(fadeRoute<void>(const SearchScreen())),
               ),
             ),
+            const SliverToBoxAdapter(child: _FmBanner()),
             SliverToBoxAdapter(
               child: _Section(
                 title: '最新专辑',
@@ -91,6 +93,67 @@ class HomeScreen extends ConsumerWidget {
               child: SizedBox(
                 height: 96 + MediaQuery.paddingOf(context).bottom,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 私人 FM 横幅（裸排）：主色圆底收音机图标 + 标题副行 + 播放角标，
+/// 整行点击进入 FM 页
+class _FmBanner extends StatelessWidget {
+  const _FmBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () =>
+            Navigator.of(context).push(fadeRoute<void>(const FmScreen())),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.radio, color: primary, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '私人 FM',
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '从你的曲库随机漫游',
+                    style: TextStyle(
+                      color: AppTheme.textDimOf(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.play_circle_outline,
+              size: 30,
+              color: AppTheme.textFaintOf(context),
             ),
           ],
         ),
