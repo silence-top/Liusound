@@ -26,6 +26,7 @@ import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
@@ -130,7 +131,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    Navigator.of(context).push(fadeRoute<void>(page));
   }
 }
 

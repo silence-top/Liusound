@@ -84,11 +84,9 @@ class _SystemSettingsPage extends ConsumerWidget {
                         subtitle: config != null
                             ? '${config.serverUrl} · ${config.username}'
                             : '点击添加服务器',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const ServersScreen(),
-                          ),
-                        ),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .push(fadeRoute<void>(const ServersScreen())),
                       ),
                       _divider,
                       _InfoTile(
