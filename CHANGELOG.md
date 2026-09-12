@@ -2,6 +2,12 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-12 — 设置二级页与主设置页同步 + 主题联动
+
+- **7 个二级页（播放/音效/网络/存储/外观/播放器样式/系统）统一为推入页规范形态**：`AmbientBackground > Scaffold(透明) > CustomScrollView > SliverAppBar(钉住·透明·标题)`，随皮肤/自定义背景/主题色联动（替换此前的 AppBar + ListView 旧形态）
+- **补齐迷你播放条**：二级页 Scaffold 挂 `bottomNavigationBar: MiniPlayer`（歌曲详情页同款），推入整页后播放控制不中断；未播放时自收缩为零高度
+- **底部避让对齐主设置页**：列表底部内边距统一为 `48 + 底部安全区`，与主设置页一致
+
 ## 2026-09-11 — 仓库清理：过时文档退库 + README 重写
 
 - **删除过时过程文档**：`LIU_SOUND_AI_FIX_PLAN*.md`（AI 整改计划，已全部执行完毕）、`待办清单.md`、`修改内容.md`、`优化内容.md` 从索引与本地一并移除；根目录现仅保留 README / FEATURES / CHANGELOG 三个产品文档

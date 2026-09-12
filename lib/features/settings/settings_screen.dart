@@ -31,6 +31,7 @@ import '../auth/auth_controller.dart';
 import '../player/action_sheets.dart';
 import '../player/cover_style.dart';
 import '../player/mini_bar_style.dart';
+import '../player/mini_player.dart';
 import '../player/player_controller.dart';
 import 'servers_screen.dart';
 
@@ -89,7 +90,8 @@ class SettingsScreen extends ConsumerWidget {
           _EntryCard(
             icon: Icons.wifi,
             title: '网络',
-            subtitle: 'Wi-Fi ${streaming.wifiQuality.label} · 转码 ${streaming.transcodeFormat.label}',
+            subtitle:
+                'Wi-Fi ${streaming.wifiQuality.label} · 转码 ${streaming.transcodeFormat.label}',
             onTap: () => _push(context, const _NetworkSettingsPage()),
           ),
           _EntryCard(
@@ -128,9 +130,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 }
 
