@@ -8,22 +8,22 @@ class _StorageSettingsPage extends ConsumerWidget {
     final cache = ref.watch(cacheSettingsProvider);
     final cacheSize = ref.watch(audioCacheSizeProvider);
 
-    return AmbientBackground(
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
-              foregroundColor: AppTheme.textPrimaryOf(context),
-              title: const Text('存储与缓存'),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
+        foregroundColor: AppTheme.textPrimaryOf(context),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          12,
+          4,
+          12,
+          48 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
           _GroupCard(
             title: '下载',
             children: [
@@ -87,11 +87,7 @@ class _StorageSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-                ]),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

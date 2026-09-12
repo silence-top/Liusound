@@ -9,22 +9,22 @@ class _NetworkSettingsPage extends ConsumerWidget {
     final network = ref.watch(networkSettingsProvider);
     ref.watch(transcodeSupportProvider);
 
-    return AmbientBackground(
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
-              foregroundColor: AppTheme.textPrimaryOf(context),
-              title: const Text('网络设置'),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
+        foregroundColor: AppTheme.textPrimaryOf(context),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          12,
+          4,
+          12,
+          48 + MediaQuery.paddingOf(context).bottom,
+        ),
+        children: [
           _GroupCard(
             title: '音质',
             children: [
@@ -75,11 +75,7 @@ class _NetworkSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-                ]),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
