@@ -482,6 +482,45 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
     }
   }
 
+  @override
+  Future<bool> deletePlaylist(String playlistId) async {
+    try {
+      await _post('/api/v1/playlist/delete', {'guid': playlistId});
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('FnOS', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      await _post('/api/v1/playlist/remove-track', {
+        'guid': playlistId,
+        'trackGUIDs': [songId],
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('FnOS', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      await _post('/api/v1/playlist/update', {
+        'guid': playlistId,
+        'name': newName,
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('FnOS', err, st);
+      return false;
+    }
+  }
+
   /// fnOS 服务端在流播放时自动记录播放历史，无需显式上报
   @override
   Future<bool> scrobble(String songId) async => false;

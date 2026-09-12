@@ -7,6 +7,7 @@ class _EffectsSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final effects = ref.watch(audioEffectsProvider);
     final crossfade = ref.watch(crossfadeSecondsProvider);
+    final rgMode = ref.watch(replayGainModeProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -21,6 +22,22 @@ class _EffectsSettingsPage extends ConsumerWidget {
                 title: '交叉淡入淡出',
                 subtitle: crossfade == 0 ? '关闭' : '$crossfade 秒',
                 onTap: () => showCrossfadePicker(context),
+              ),
+              _divider,
+              _ActionTile(
+                icon: Icons.volume_up,
+                title: '音量归一化 (ReplayGain)',
+                subtitle: switch (rgMode) {
+                  ReplayGainMode.off => '关闭',
+                  ReplayGainMode.track => '按曲目增益',
+                  ReplayGainMode.album => '按专辑增益',
+                },
+                onTap: () {
+                  final next = ReplayGainMode.values[
+                    (rgMode.index + 1) % ReplayGainMode.values.length
+                  ];
+                  ref.read(replayGainModeProvider.notifier).state = next;
+                },
               ),
               _divider,
               _ActionTile(

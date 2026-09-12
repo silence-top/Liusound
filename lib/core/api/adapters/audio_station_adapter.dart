@@ -355,6 +355,47 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
     }
   }
 
+  @override
+  Future<bool> deletePlaylist(String playlistId) async {
+    try {
+      await _api('SYNO.AudioStation.Playlist', 'destroy', {
+        'id': playlistId,
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      await _api('SYNO.AudioStation.Playlist', 'remove', {
+        'id': playlistId,
+        'song_id': songId,
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      await _api('SYNO.AudioStation.Playlist', 'rename', {
+        'id': playlistId,
+        'name': newName,
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('AudioStation', err, st);
+      return false;
+    }
+  }
+
   // ---------- 媒体 ----------
 
   @override

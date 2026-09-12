@@ -50,6 +50,7 @@ mixin PlayerSourceResolver
       await _setStreamSource(source);
       if (gen != _playGeneration) return;
       _ref.read(currentQualityProvider.notifier).state = hint.quality;
+      _applyReplayGain(song);
       await _player.play();
       unawaited(
         AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
@@ -73,6 +74,7 @@ mixin PlayerSourceResolver
         if (gen != _playGeneration) return;
         _ref.read(currentQualityProvider.notifier).state =
             StreamQuality.lossless;
+        _applyReplayGain(song);
         await _player.play();
         unawaited(
           AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
@@ -128,11 +130,42 @@ mixin PlayerSourceResolver
     try {
       await _player.setAudioSource(AudioSource.file(path));
       if (gen != _playGeneration) return;
+      _applyReplayGain(song);
       await _player.play();
       unawaited(_resumeLongTrack(song));
     } catch (_) {
       // 文件被移动/删除等场景给出提示，状态保持可重试
       if (gen == _playGeneration) _notify('本地文件播放失败：文件不可读');
     }
+  }
+
+  /// ReplayGain 音量归一化：按当前模式选取 gain/peak，dB→线性后做峰值限制，
+  /// 关闭时恢复满音量。仅在歌曲携带了增益数据时生效
+  void _applyReplayGain(Song song) {
+    final mode = _ref.read(replayGainModeProvider);
+    if (mode == ReplayGainMode.off) {
+      unawaited(_player.setVolume(1.0));
+      return;
+    }
+    final rg = song.replayGain;
+    if (rg == null) {
+      unawaited(_player.setVolume(1.0));
+      return;
+    }
+    final gainDb = mode == ReplayGainMode.album
+        ? (rg.albumGain ?? rg.trackGain)
+        : (rg.trackGain ?? rg.albumGain);
+    final peak = mode == ReplayGainMode.album
+        ? (rg.albumPeak ?? rg.trackPeak)
+        : (rg.trackPeak ?? rg.albumPeak);
+    if (gainDb == null) {
+      unawaited(_player.setVolume(1.0));
+      return;
+    }
+    var multiplier = pow(10, gainDb / 20).toDouble();
+    if (peak != null && peak > 0) {
+      multiplier = min(multiplier, peak);
+    }
+    unawaited(_player.setVolume(multiplier.clamp(0.0, 1.0)));
   }
 }

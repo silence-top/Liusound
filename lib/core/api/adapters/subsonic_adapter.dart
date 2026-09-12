@@ -315,6 +315,51 @@ class SubsonicAdapter extends SubsonicProtocolAdapter {
   Future<bool> createPlaylist(String name) =>
       _action('createPlaylist', {'name': name});
 
+  @override
+  Future<bool> deletePlaylist(String playlistId) =>
+      _action('deletePlaylist', {'id': playlistId});
+
+  /// Subsonic 无单独移除接口：createPlaylist + playlistId 会替换整份歌单，
+  /// 因此先拉当前曲目列表，过滤掉目标歌曲后回写
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      final songs = await fetchPlaylistSongs(playlistId);
+      final remaining = songs.where((s) => s.id != songId).map((s) => s.id);
+      final params = <String, String>{'playlistId': playlistId};
+      var i = 0;
+      for (final id in remaining) {
+        params['songId_$i'] = id;
+        i++;
+      }
+      return await _action('createPlaylist', params);
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
+      return false;
+    }
+  }
+
+  /// Subsonic 无重命名接口；createPlaylist + playlistId + name + 原曲目实现「改名」
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      final songs = await fetchPlaylistSongs(playlistId);
+      final params = <String, String>{
+        'playlistId': playlistId,
+        'name': newName,
+      };
+      var i = 0;
+      for (final s in songs) {
+        params['songId_$i'] = s.id;
+        i++;
+      }
+      return await _action('createPlaylist', params);
+    } catch (err, st) {
+      adapterSwallowLog('Subsonic', err, st);
+      return false;
+    }
+  }
+
   /// submission=true 为完成上报（scrobble）；false 为「正在播放」
   @override
   Future<bool> scrobble(String songId) =>

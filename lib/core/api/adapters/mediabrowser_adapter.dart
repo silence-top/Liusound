@@ -564,6 +564,48 @@ abstract class MediaBrowserAdapter
   }
 
   @override
+  Future<bool> deletePlaylist(String playlistId) async {
+    try {
+      await _delete('/Playlists/$playlistId');
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
+      return false;
+    }
+  }
+
+  /// Jellyfin/Emby 移除歌单曲目：POST /Playlists/{id}/Items 带完整剩余列表
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      final songs = await fetchPlaylistSongs(playlistId);
+      final remaining = songs.where((s) => s.id != songId).map((s) => s.id);
+      await _post('/Playlists/$playlistId/Items', {
+        'Ids': remaining.join(','),
+      });
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      await _dio.post<dynamic>(
+        '/Items/$playlistId',
+        data: {'Name': newName},
+        options: Options(headers: _headers),
+      );
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('MediaBrowser', err, st);
+      return false;
+    }
+  }
+
+  @override
   Future<PlaybackSource> resolveStream(
     Song song, {
     QualityHint? quality,

@@ -478,6 +478,55 @@ class PlexAdapter with SecretsUpdatable implements ServerAdapter {
   }
 
   @override
+  Future<bool> deletePlaylist(String playlistId) async {
+    try {
+      await _dio.delete(
+        '/playlists/$playlistId',
+        queryParameters: {'X-Plex-Token': _token},
+        options: Options(headers: const {'Accept': 'application/json'}),
+      );
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      await _dio.delete(
+        '/playlists/$playlistId/items',
+        queryParameters: {
+          'X-Plex-Token': _token,
+          'uri':
+              'server://$_machineId/com.plexapp.plugins.library/library/metadata/$songId',
+        },
+        options: Options(headers: const {'Accept': 'application/json'}),
+      );
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      await _dio.put<dynamic>(
+        '/playlists/$playlistId',
+        queryParameters: {'X-Plex-Token': _token, 'title': newName},
+        options: Options(headers: const {'Accept': 'application/json'}),
+      );
+      return true;
+    } catch (err, st) {
+      adapterSwallowLog('Plex', err, st);
+      return false;
+    }
+  }
+
+  @override
   Future<bool> scrobble(String songId) async {
     try {
       // Plex 上报端点：/:/scrobble（与 /:/rate 同族的写接口）

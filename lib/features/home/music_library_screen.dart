@@ -642,6 +642,61 @@ class _CreatePlaylistFormState extends ConsumerState<_CreatePlaylistForm> {
   }
 }
 
+/// 重命名歌单表单：预填当前名称，提交后 pop 返回新名称。
+class _RenamePlaylistForm extends StatefulWidget {
+  const _RenamePlaylistForm({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  State<_RenamePlaylistForm> createState() => _RenamePlaylistFormState();
+}
+
+class _RenamePlaylistFormState extends State<_RenamePlaylistForm> {
+  bool _dirty = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: widget.controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onChanged: (_) {
+            if (!_dirty) setState(() => _dirty = true);
+          },
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(hintText: '新歌单名称'),
+        ),
+        const SizedBox(height: AppSpacing.m),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            const SizedBox(width: AppSpacing.s),
+            FilledButton(
+              onPressed: _submit,
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final name = widget.controller.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(name);
+  }
+}
+
 /// 歌单封面：优先用前 4 首歌的去重专辑封面拼 2×2（对齐设计图）；
 /// 不足 2 张时回退歌单自带封面 / 占位图标。
 class _PlaylistCover extends ConsumerWidget {
@@ -780,6 +835,11 @@ class _PlaylistRow extends StatelessWidget {
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'play', child: Text('播放')),
                 PopupMenuItem(value: 'queue', child: Text('加入队列')),
+                PopupMenuItem(value: 'rename', child: Text('重命名')),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text('删除', style: TextStyle(color: AppTheme.heartRed)),
+                ),
               ],
             ),
           ],
@@ -791,6 +851,59 @@ class _PlaylistRow extends StatelessWidget {
   Future<void> _onMenuAction(BuildContext context, String action) async {
     final adapter = ref.read(serverAdapterProvider);
     if (adapter == null) return;
+
+    if (action == 'rename') {
+      final controller = TextEditingController(text: playlist.name);
+      final newName = await glassDialog<String>(
+        context,
+        title: '重命名歌单',
+        content: _RenamePlaylistForm(controller: controller),
+      );
+      controller.dispose();
+      if (newName == null || newName.trim().isEmpty) return;
+      final ok = await adapter.renamePlaylist(playlist.id, newName.trim());
+      if (!ok) {
+        showToast('重命名失败', error: true);
+        return;
+      }
+      ref.invalidate(playlistsProvider);
+      showToast('已重命名为「$newName」');
+      return;
+    }
+
+    if (action == 'delete') {
+      final confirmed = await glassDialog<bool>(
+        context,
+        title: '删除歌单',
+        content: Text(
+          '确定要删除「${playlist.name}」吗？此操作不可恢复。',
+          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.heartRed,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      );
+      if (confirmed != true) return;
+      final ok = await adapter.deletePlaylist(playlist.id);
+      if (!ok) {
+        showToast('删除失败', error: true);
+        return;
+      }
+      ref.invalidate(playlistsProvider);
+      showToast('已删除歌单「${playlist.name}」');
+      return;
+    }
+
     final songs = await adapter.fetchPlaylistSongs(playlist.id);
     if (songs.isEmpty) {
       showToast('歌单暂无歌曲');

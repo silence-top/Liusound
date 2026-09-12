@@ -266,6 +266,45 @@ class NavidromeClient {
   Future<bool> createPlaylist(String name) =>
       _subsonicAction('createPlaylist', {'name': name});
 
+  /// 删除歌单（Navidrome 原生 DELETE /api/playlist/{id}）
+  Future<bool> deletePlaylist(String playlistId) async {
+    try {
+      final res = await dio.delete<dynamic>('/api/playlist/$playlistId');
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
+      return false;
+    }
+  }
+
+  /// 重命名歌单（Navidrome 原生 PUT /api/playlist/{id}）
+  Future<bool> renamePlaylist(String playlistId, String newName) async {
+    try {
+      final res = await dio.put<dynamic>(
+        '/api/playlist/$playlistId',
+        data: {'name': newName},
+      );
+      return res.statusCode == 200;
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
+      return false;
+    }
+  }
+
+  /// 从歌单移除歌曲（Navidrome 原生 DELETE /api/playlist/{id}/tracks）
+  Future<bool> removeFromPlaylist(String playlistId, String songId) async {
+    try {
+      final res = await dio.delete<dynamic>(
+        '/api/playlist/$playlistId/tracks',
+        data: {'ids': [songId]},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (err, st) {
+      adapterSwallowLog('Navidrome', err, st);
+      return false;
+    }
+  }
+
   // ---------- 搜索 ----------
   /// Subsonic search3：Navidrome 原生 API 无 /search 路由，
   /// 未知路径会兜底返回 SPA HTML，导致响应体强转 Map 崩溃

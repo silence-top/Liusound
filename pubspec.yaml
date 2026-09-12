@@ -57,6 +57,7 @@ dependencies:
   audio_metadata_reader: ^1.4.0
   permission_handler: ^12.0.1
   home_widget: ^0.7.0
+  share_plus: ^13.3.0
   lpinyin: ^2.0.3
   # web 端 SQLite（WASM sqlite 在 worker 执行）与浏览器互操作
   sqflite_common_ffi_web: ^0.4.0

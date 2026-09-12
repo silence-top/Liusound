@@ -85,6 +85,18 @@ class SongInfoScreen extends StatelessWidget {
                         '比特率',
                         song.bitRate != null ? '${song.bitRate} kbps' : '—',
                       ),
+                      _row(
+                        context,
+                        '采样率',
+                        song.sampleRate != null
+                            ? '${(song.sampleRate! / 1000).toStringAsFixed(1)} kHz'
+                            : '—',
+                      ),
+                      _row(
+                        context,
+                        '位深',
+                        song.bitDepth != null ? '${song.bitDepth} bit' : '—',
+                      ),
                       _row(context, '播放次数', '${song.playCount}'),
                       _row(context, '上次播放时间', _fmtIso(song.lastPlayed) ?? '—'),
                       _row(context, '创建时间', _fmtIso(song.created) ?? '—'),

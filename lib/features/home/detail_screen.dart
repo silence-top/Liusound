@@ -30,6 +30,7 @@ List<Widget> _songSlivers(
   bool showFileSize = false,
   Set<String> selected = const {},
   ValueChanged<Song>? onToggle,
+  String? playlistId,
 }) {
   if (songs.isEmpty) {
     return [SliverToBoxAdapter(child: noMatchBox())];
@@ -49,6 +50,7 @@ List<Widget> _songSlivers(
             onToggleSelect: selectMode && onToggle != null
                 ? () => onToggle(song)
                 : null,
+            playlistId: playlistId,
           ),
         );
       },
@@ -127,6 +129,20 @@ mixin _BatchSelect<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     if (picked.isEmpty) return;
     _exitSelect();
     await showAddToPlaylistSheet(context, picked);
+  }
+
+  /// 批量收藏/取消收藏：按选中曲目的收藏多数态翻转
+  Future<void> batchStar(List<Song> songs) async {
+    final picked = selectionOf(songs);
+    if (picked.isEmpty) return;
+    final target = !picked.every((s) => s.starred);
+    final adapter = ref.read(serverAdapterProvider);
+    if (adapter == null) return;
+    for (final s in picked) {
+      await adapter.setStar(s.id, target);
+    }
+    _exitSelect();
+    showToast(target ? '已收藏 ${picked.length} 首' : '已取消收藏 ${picked.length} 首');
   }
 
   void _toast(String message) {
@@ -276,6 +292,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
                 canDownload: canDownload,
                 onPlayNext: () => batchPlayNext(songs),
                 onAddToPlaylist: () => batchAddToPlaylist(songs),
+                onStar: () => batchStar(songs),
                 onDownload: () => batchDownload(songs),
               )
             : const MiniPlayer(),
@@ -364,6 +381,7 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
       showFileSize: widget.songsProvider != null,
       selected: selectedIds,
       onToggle: toggleSelected,
+      playlistId: widget.playlistId,
     );
     if (paged != null) {
       final controller = ref.read(widget.pagedSongsProvider!.notifier);
@@ -856,6 +874,7 @@ class _BatchBar extends StatelessWidget {
     required this.canDownload,
     required this.onPlayNext,
     required this.onAddToPlaylist,
+    required this.onStar,
     required this.onDownload,
   });
 
@@ -863,6 +882,7 @@ class _BatchBar extends StatelessWidget {
   final bool canDownload;
   final VoidCallback onPlayNext;
   final VoidCallback onAddToPlaylist;
+  final VoidCallback onStar;
   final VoidCallback onDownload;
 
   @override
@@ -880,6 +900,7 @@ class _BatchBar extends StatelessWidget {
         children: [
           _action(context, Icons.low_priority, '下一首播放', onPlayNext),
           _action(context, Icons.playlist_add, '添加到歌单', onAddToPlaylist),
+          _action(context, Icons.favorite_border, '收藏', onStar),
           if (canDownload)
             _action(context, Icons.download_outlined, '下载', onDownload),
         ],
@@ -1093,6 +1114,7 @@ class SongRow extends ConsumerWidget {
     this.showFileSize = false,
     this.selected,
     this.onToggleSelect,
+    this.playlistId,
   });
 
   final Song song;
@@ -1105,6 +1127,9 @@ class SongRow extends ConsumerWidget {
   /// 非 null 即处于批量选择态，值为该行是否已勾选
   final bool? selected;
   final VoidCallback? onToggleSelect;
+
+  /// 非 null 表示当前在歌单详情页，歌曲操作弹窗里会出现「从歌单移除」
+  final String? playlistId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1122,7 +1147,7 @@ class SongRow extends ConsumerWidget {
                 openFullScreenPlayer(context);
               }
             },
-      onLongPress: selecting ? null : () => showSongActionSheet(context, song),
+      onLongPress: selecting ? null : () => showSongActionSheet(context, song, playlistId: playlistId),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -1199,7 +1224,7 @@ class SongRow extends ConsumerWidget {
                   size: 22,
                   color: AppTheme.textPrimaryOf(context),
                 ),
-                onPressed: () => showSongActionSheet(context, song),
+                onPressed: () => showSongActionSheet(context, song, playlistId: playlistId),
               ),
             ],
           ],

@@ -113,6 +113,39 @@ final playModeProvider = StateProvider<PlayMode>((ref) => PlayMode.order);
 /// 播放速度（0.5-3.0，歌曲操作菜单调整，随播放状态持久化）
 final playbackSpeedProvider = StateProvider<double>((ref) => 1.0);
 
+/// ReplayGain 归一化模式：off 不调整，track 按曲目增益，album 按专辑增益
+enum ReplayGainMode { off, track, album }
+
+final replayGainModeProvider = StateProvider<ReplayGainMode>(
+  (ref) => ReplayGainMode.off,
+);
+
+/// A-B 循环：off 未启用 → setA 已标记 A 待设 B → looping A↔B 循环中
+class ABLoopState {
+  const ABLoopState({this.aMs, this.bMs});
+
+  final int? aMs;
+  final int? bMs;
+
+  ABLoopPhase get phase {
+    if (aMs == null) return ABLoopPhase.off;
+    if (bMs == null) return ABLoopPhase.setA;
+    return ABLoopPhase.looping;
+  }
+
+  static const disabled = ABLoopState();
+
+  ABLoopState markA(int ms) => ABLoopState(aMs: ms);
+  ABLoopState markB(int ms) => ABLoopState(aMs: aMs, bMs: ms);
+  ABLoopState clear() => disabled;
+}
+
+enum ABLoopPhase { off, setA, looping }
+
+final abLoopProvider = StateProvider<ABLoopState>(
+  (ref) => ABLoopState.disabled,
+);
+
 /// 循环播放（队列播完回首）；关闭时播完队列即停止（设置页开关）
 final loopPlaybackProvider = StateProvider<bool>((ref) => true);
 

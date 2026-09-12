@@ -35,6 +35,12 @@ mixin PlayerRestore on PlayerActionsBase {
           if (savedSpeed > 0) {
             _ref.read(playbackSpeedProvider.notifier).state = savedSpeed;
           }
+          final savedRg = saved['replayGainMode'] as String?;
+          _ref.read(replayGainModeProvider.notifier).state =
+              ReplayGainMode.values.firstWhere(
+                (m) => m.name == savedRg,
+                orElse: () => ReplayGainMode.off,
+              );
           _ref.read(loopPlaybackProvider.notifier).state =
               saved['loopPlayback'] as bool? ?? true;
           // 恢复 shuffle 遍历序（P1-ShuffleOrder）：剔除已不在队列中的 ID，

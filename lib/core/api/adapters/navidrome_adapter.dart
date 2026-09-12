@@ -222,6 +222,18 @@ class NavidromeAdapter extends SubsonicProtocolAdapter {
   @override
   Future<bool> createPlaylist(String name) => _client.createPlaylist(name);
 
+  @override
+  Future<bool> deletePlaylist(String playlistId) =>
+      _client.deletePlaylist(playlistId);
+
+  @override
+  Future<bool> removeFromPlaylist(String playlistId, String songId) =>
+      _client.removeFromPlaylist(playlistId, songId);
+
+  @override
+  Future<bool> renamePlaylist(String playlistId, String newName) =>
+      _client.renamePlaylist(playlistId, newName);
+
   /// Navidrome 同时兼容 Subsonic API，scrobble 走 /rest/scrobble
   @override
   Future<bool> scrobble(String songId) =>

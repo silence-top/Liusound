@@ -20,6 +20,7 @@ mixin PlayerPersistence on PlayerActionsBase {
         'currentSong': _ref.read(currentSongProvider)?.toJson(),
         'playMode': _ref.read(playModeProvider).name,
         'speed': _ref.read(playbackSpeedProvider),
+        'replayGainMode': _ref.read(replayGainModeProvider).name,
         'loopPlayback': _ref.read(loopPlaybackProvider),
         'shuffleOrder': _ref.read(shuffleOrderProvider).order,
         'shufflePos': _ref.read(shuffleOrderProvider).pos,

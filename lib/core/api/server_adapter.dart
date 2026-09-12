@@ -66,6 +66,17 @@ abstract class ServerAdapter {
   /// 调用方自行 invalidate 歌单列表刷新，本方法不负责回传新歌单
   Future<bool> createPlaylist(String name);
 
+  /// 删除服务端歌单；默认不支持（返回 false），各后端按需覆写
+  Future<bool> deletePlaylist(String playlistId) => Future.value(false);
+
+  /// 从歌单中移除指定歌曲；默认不支持
+  Future<bool> removeFromPlaylist(String playlistId, String songId) =>
+      Future.value(false);
+
+  /// 重命名歌单；默认不支持
+  Future<bool> renamePlaylist(String playlistId, String newName) =>
+      Future.value(false);
+
   /// [quality] 为当前网络的质量提示；null 或 lossless 时返回原始流。
   /// 支持转码的后端（capabilities.transcoding）按提示追加服务端转码参数
   Future<PlaybackSource> resolveStream(Song song, {QualityHint? quality});
