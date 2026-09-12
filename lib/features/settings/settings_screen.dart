@@ -64,73 +64,74 @@ class SettingsScreen extends ConsumerWidget {
     final cacheSize = ref.watch(audioCacheSizeProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          12,
-          4,
-          12,
-          48 + MediaQuery.paddingOf(context).bottom,
-        ),
-        children: [
-          _EntryCard(
-            icon: Icons.play_circle_outline,
-            title: '播放',
-            subtitle: '循环 · 自动播放 · 速度 · 定时',
-            onTap: () => _push(context, const _PlaybackSettingsPage()),
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: ListView(
+          padding: EdgeInsets.fromLTRB(
+            12,
+            4,
+            12,
+            48 + MediaQuery.paddingOf(context).bottom,
           ),
-          _EntryCard(
-            icon: Icons.equalizer,
-            title: '音效',
-            subtitle: effects.enabled ? '均衡器已开启' : '均衡器 · 低音 · 空间 · 线控',
-            onTap: () => _push(context, const _EffectsSettingsPage()),
-          ),
-          _EntryCard(
-            icon: Icons.wifi,
-            title: '网络',
-            subtitle: 'Wi-Fi ${streaming.wifiQuality.label} · 转码 ${streaming.transcodeFormat.label}',
-            onTap: () => _push(context, const _NetworkSettingsPage()),
-          ),
-          _EntryCard(
-            icon: Icons.storage_outlined,
-            title: '存储与缓存',
-            subtitle: cacheSize.when(
-              data: (bytes) => '缓存 ${_fmtBytes(bytes)} · 边听边存 · 自动下载',
-              loading: () => '边听边存 · 自动下载 · 缓存限额',
-              error: (_, _) => '边听边存 · 自动下载 · 缓存限额',
+          children: [
+            _EntryCard(
+              icon: Icons.play_circle_outline,
+              title: '播放',
+              subtitle: '循环 · 自动播放 · 速度 · 定时',
+              onTap: () => _push(context, const _PlaybackSettingsPage()),
             ),
-            onTap: () => _push(context, const _StorageSettingsPage()),
-          ),
-          _EntryCard(
-            icon: Icons.palette_outlined,
-            title: '外观',
-            subtitle: '${skin.label} · 主题色 · 背景',
-            onTap: () => _push(context, const _AppearanceSettingsPage()),
-          ),
-          _EntryCard(
-            icon: Icons.album_outlined,
-            title: '播放器样式',
-            subtitle: coverStyle.label,
-            onTap: () => _push(context, const _PlayerStyleSettingsPage()),
-          ),
-          _EntryCard(
-            icon: Icons.settings_outlined,
-            title: '系统',
-            subtitle: config != null
-                ? '${config.type.displayName} · ${appVersion?.version ?? ''}'
-                : '未连接 · ${appVersion?.version ?? ''}',
-            onTap: () => _push(context, const _SystemSettingsPage()),
-          ),
-        ],
+            _EntryCard(
+              icon: Icons.equalizer,
+              title: '音效',
+              subtitle: effects.enabled ? '均衡器已开启' : '均衡器 · 低音 · 空间 · 线控',
+              onTap: () => _push(context, const _EffectsSettingsPage()),
+            ),
+            _EntryCard(
+              icon: Icons.wifi,
+              title: '网络',
+              subtitle:
+                  'Wi-Fi ${streaming.wifiQuality.label} · 转码 ${streaming.transcodeFormat.label}',
+              onTap: () => _push(context, const _NetworkSettingsPage()),
+            ),
+            _EntryCard(
+              icon: Icons.storage_outlined,
+              title: '存储与缓存',
+              subtitle: cacheSize.when(
+                data: (bytes) => '缓存 ${_fmtBytes(bytes)} · 边听边存 · 自动下载',
+                loading: () => '边听边存 · 自动下载 · 缓存限额',
+                error: (_, _) => '边听边存 · 自动下载 · 缓存限额',
+              ),
+              onTap: () => _push(context, const _StorageSettingsPage()),
+            ),
+            _EntryCard(
+              icon: Icons.palette_outlined,
+              title: '外观',
+              subtitle: '${skin.label} · 主题色 · 背景',
+              onTap: () => _push(context, const _AppearanceSettingsPage()),
+            ),
+            _EntryCard(
+              icon: Icons.album_outlined,
+              title: '播放器样式',
+              subtitle: coverStyle.label,
+              onTap: () => _push(context, const _PlayerStyleSettingsPage()),
+            ),
+            _EntryCard(
+              icon: Icons.settings_outlined,
+              title: '系统',
+              subtitle: config != null
+                  ? '${config.type.displayName} · ${appVersion?.version ?? ''}'
+                  : '未连接 · ${appVersion?.version ?? ''}',
+              onTap: () => _push(context, const _SystemSettingsPage()),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 }
 

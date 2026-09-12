@@ -17,73 +17,81 @@ class ServersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('服务器管理')),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          GlassContainer(
-            onTap: () => _showAddServerSheet(context),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppRadius.s),
-                  ),
-                  child: Icon(
-                    Icons.add,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '添加服务器',
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryOf(context),
-                      fontSize: 16,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 56,
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.textPrimaryOf(context),
+              title: const Text('服务器管理'),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  GlassCard(
+                    child: ListTile(
+                      leading: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppRadius.s),
+                        ),
+                        child: Icon(
+                          Icons.add,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      title: Text(
+                        '添加服务器',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryOf(context),
+                          fontSize: 16,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: AppTheme.textFaintOf(context),
+                      ),
+                      onTap: () => _showAddServerSheet(context),
                     ),
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: AppTheme.textFaintOf(context),
-                ),
-              ],
-            ),
-          ),
-          if (auth.servers.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(
-                child: Text(
-                  '暂无已保存的服务器',
-                  style: TextStyle(
-                    color: AppTheme.textFaintOf(context),
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            )
-          else
-            ...auth.servers.map(
-              (config) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _ServerCard(
-                  config: config,
-                  isActive: config.id == auth.activeServerId,
-                ),
+                  if (auth.servers.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        child: Text(
+                          '暂无已保存的服务器',
+                          style: TextStyle(
+                            color: AppTheme.textFaintOf(context),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...auth.servers.map(
+                      (config) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _ServerCard(
+                          config: config,
+                          isActive: config.id == auth.activeServerId,
+                        ),
+                      ),
+                    ),
+                ]),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
