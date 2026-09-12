@@ -201,7 +201,7 @@ class _ProgressSlider extends ConsumerWidget {
   }
 }
 
-/// 控制行：模式 / A-B循环 / 上一首 / 大播放键 / 下一首 / 队列
+/// 控制行：模式 / 上一首 / 大播放键 / 下一首 / 队列
 class _ControlsRow extends ConsumerWidget {
   const _ControlsRow();
 
@@ -213,7 +213,6 @@ class _ControlsRow extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const _ModeButton(),
-          const _ABLoopButton(),
           IconButton(
             iconSize: 28,
             color: Colors.white,
@@ -256,42 +255,6 @@ class _ModeButton extends ConsumerWidget {
       color: Colors.white,
       icon: Icon(icon),
       onPressed: () => ref.read(playerActionsProvider).cyclePlayMode(),
-    );
-  }
-}
-
-/// A-B 循环按钮：off → 标记 A → 标记 B（循环中）→ 清除
-class _ABLoopButton extends ConsumerWidget {
-  const _ABLoopButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ab = ref.watch(abLoopProvider);
-    final active = ab.phase != ABLoopPhase.off;
-    final label = switch (ab.phase) {
-      ABLoopPhase.off => 'AB',
-      ABLoopPhase.setA => 'A',
-      ABLoopPhase.looping => 'AB',
-    };
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: TextButton(
-        onPressed: () => ref.read(playerActionsProvider).cycleABLoop(),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: active ? const Color(0xFF4FC3F7) : Colors.white38,
-          ),
-        ),
-      ),
     );
   }
 }

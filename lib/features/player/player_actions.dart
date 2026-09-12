@@ -82,7 +82,6 @@ class PlayerActions extends PlayerActionsBase
     });
     _ref.listen<Song?>(currentSongProvider, (_, song) {
       if (song != null) _syncShufflePos(song.id);
-      _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled;
       _schedulePersist();
     });
     _ref.listen<List<Song>>(queueProvider, (_, queue) {
@@ -140,7 +139,6 @@ class PlayerActions extends PlayerActionsBase
           }),
     );
     _subs.add(player.positionStream.listen(_tickCrossfade));
-    _subs.add(player.positionStream.listen(_tickABLoop));
   }
 
   /// 播放/暂停切换；冷启动恢复后的首播会先加载流并跳到上次进度
@@ -334,40 +332,6 @@ class PlayerActions extends PlayerActionsBase
         position.inMilliseconds,
       );
     } catch (_) {}
-  }
-
-  // ---------- A-B 循环 ----------
-
-  /// 位置监听：looping 阶段到达 B 点时回到 A 点
-  void _tickABLoop(Duration pos) {
-    final ab = _ref.read(abLoopProvider);
-    if (ab.phase != ABLoopPhase.looping) return;
-    if (pos.inMilliseconds >= ab.bMs!) {
-      unawaited(_player.seek(Duration(milliseconds: ab.aMs!)));
-    }
-  }
-
-  /// 循环 A-B：off → 标记 A → 标记 B（开始循环）→ 清除
-  void cycleABLoop() {
-    final ab = _ref.read(abLoopProvider);
-    final posMs = _player.position.inMilliseconds;
-    switch (ab.phase) {
-      case ABLoopPhase.off:
-        _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(
-          posMs,
-        );
-      case ABLoopPhase.setA:
-        if (posMs <= ab.aMs!) {
-          // B 必须大于 A，否则重置
-          _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(
-            posMs,
-          );
-        } else {
-          _ref.read(abLoopProvider.notifier).state = ab.markB(posMs);
-        }
-      case ABLoopPhase.looping:
-        _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled;
-    }
   }
 
   // ---------- 队列管理 ----------

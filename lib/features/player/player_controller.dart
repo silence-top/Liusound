@@ -120,32 +120,6 @@ final replayGainModeProvider = StateProvider<ReplayGainMode>(
   (ref) => ReplayGainMode.off,
 );
 
-/// A-B 循环：off 未启用 → setA 已标记 A 待设 B → looping A↔B 循环中
-class ABLoopState {
-  const ABLoopState({this.aMs, this.bMs});
-
-  final int? aMs;
-  final int? bMs;
-
-  ABLoopPhase get phase {
-    if (aMs == null) return ABLoopPhase.off;
-    if (bMs == null) return ABLoopPhase.setA;
-    return ABLoopPhase.looping;
-  }
-
-  static const disabled = ABLoopState();
-
-  ABLoopState markA(int ms) => ABLoopState(aMs: ms);
-  ABLoopState markB(int ms) => ABLoopState(aMs: aMs, bMs: ms);
-  ABLoopState clear() => disabled;
-}
-
-enum ABLoopPhase { off, setA, looping }
-
-final abLoopProvider = StateProvider<ABLoopState>(
-  (ref) => ABLoopState.disabled,
-);
-
 /// 循环播放（队列播完回首）；关闭时播完队列即停止（设置页开关）
 final loopPlaybackProvider = StateProvider<bool>((ref) => true);
 
