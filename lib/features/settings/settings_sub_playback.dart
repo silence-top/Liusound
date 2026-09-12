@@ -11,12 +11,22 @@ class _PlaybackSettingsPage extends ConsumerWidget {
     final sleepRemain = ref.watch(sleepTimerProvider);
     final speed = ref.watch(playbackSpeedProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('播放设置')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        children: [
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 56,
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.textPrimaryOf(context),
+              title: const Text('播放设置'),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
           _GroupCard(
             children: [
               _SwitchTile(
@@ -64,7 +74,11 @@ class _PlaybackSettingsPage extends ConsumerWidget {
               const _VolumeTile(),
             ],
           ),
-        ],
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

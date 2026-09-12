@@ -12,12 +12,22 @@ class _AppearanceSettingsPage extends ConsumerWidget {
     final bgConfig = ref.watch(backgroundProvider);
     final skin = ref.watch(appSkinProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('外观设置')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        children: [
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 56,
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.textPrimaryOf(context),
+              title: const Text('外观设置'),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
           _GroupCard(
             title: '主题',
             children: [
@@ -67,7 +77,11 @@ class _AppearanceSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-        ],
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

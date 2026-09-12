@@ -12,12 +12,22 @@ class _SystemSettingsPage extends ConsumerWidget {
     final endText = ref.watch(listEndTextProvider);
     final appVersion = ref.watch(_packageInfoProvider).valueOrNull;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('系统设置')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        children: [
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              toolbarHeight: 56,
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.textPrimaryOf(context),
+              title: const Text('系统设置'),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
           _GroupCard(
             title: '通用',
             children: [
@@ -91,7 +101,11 @@ class _SystemSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-        ],
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
