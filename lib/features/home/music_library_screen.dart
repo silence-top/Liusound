@@ -10,6 +10,7 @@ import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
 import '../../shared/widgets/toast.dart';
@@ -201,9 +202,8 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
   }
 }
 
-/// 八入口：歌曲 / 我喜欢的 / 本地音乐 / 专辑 + 专辑艺术家 / 歌手 / 流派 / 电台。
-/// 后四项按后端能力显隐：provider 返回 null（不支持）时入口隐藏；
-/// 加载中先隐藏避免闪烁，加载完成支持则出现。
+/// 入口网格：Wrap 布局 + 圆形玻璃按钮，视觉对齐首页快捷导航。
+/// 后四项按后端能力显隐：provider 返回 null（不支持）时入口隐藏。
 class _EntryGrid extends ConsumerWidget {
   const _EntryGrid();
 
@@ -213,12 +213,33 @@ class _EntryGrid extends ConsumerWidget {
     final albumArtists = ref.watch(albumArtistsProvider);
     final genres = ref.watch(genresProvider);
     final radios = ref.watch(radioStationsProvider);
-    final extras = <Widget>[
+    final entries = <({IconData icon, String label, VoidCallback onTap})>[
+      (
+        icon: Icons.music_note,
+        label: '歌曲',
+        onTap: () => _openSongs(context, '歌曲', librarySongsProvider),
+      ),
+      (
+        icon: Icons.favorite,
+        label: '我喜欢的',
+        onTap: () => _openSongs(context, '我喜欢的', likedSongsProvider),
+      ),
+      (
+        icon: Icons.smartphone,
+        label: '本地音乐',
+        onTap: () => _openSongs(
+          context,
+          '本地音乐',
+          localSongsProvider,
+          onRefresh: forceLocalRescan,
+        ),
+      ),
+      (icon: Icons.album, label: '专辑', onTap: () => _openAlbums(context)),
       if (albumArtists.valueOrNull != null)
-        _Entry(
-          Icons.theaters,
-          '专辑艺术家',
-          () => _openArtists(
+        (
+          icon: Icons.theaters,
+          label: '专辑艺术家',
+          onTap: () => _openArtists(
             context,
             '专辑艺术家',
             albumArtistsProvider,
@@ -226,57 +247,34 @@ class _EntryGrid extends ConsumerWidget {
           ),
         ),
       if (artists.valueOrNull != null)
-        _Entry(
-          Icons.person,
-          '歌手',
-          () => _openArtists(context, '歌手', artistsProvider),
+        (
+          icon: Icons.person,
+          label: '歌手',
+          onTap: () => _openArtists(context, '歌手', artistsProvider),
         ),
       if (genres.valueOrNull != null)
-        _Entry(
-          Icons.piano,
-          '流派',
-          () => Navigator.of(context).push(fadeRoute<void>(const GenrePage())),
+        (
+          icon: Icons.piano,
+          label: '流派',
+          onTap: () =>
+              Navigator.of(context).push(fadeRoute<void>(const GenrePage())),
         ),
       if (radios.valueOrNull != null)
-        _Entry(
-          Icons.radio,
-          '电台',
-          () => Navigator.of(context).push(fadeRoute<void>(const RadioPage())),
+        (
+          icon: Icons.radio,
+          label: '电台',
+          onTap: () =>
+              Navigator.of(context).push(fadeRoute<void>(const RadioPage())),
         ),
     ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        alignment: WrapAlignment.spaceAround,
+        runSpacing: 8,
         children: [
-          Row(
-            children: [
-              _Entry(
-                Icons.music_note,
-                '歌曲',
-                () => _openSongs(context, '歌曲', librarySongsProvider),
-              ),
-              _Entry(
-                Icons.favorite,
-                '我喜欢的',
-                () => _openSongs(context, '我喜欢的', likedSongsProvider),
-              ),
-              _Entry(
-                Icons.smartphone,
-                '本地音乐',
-                () => _openSongs(
-                  context,
-                  '本地音乐',
-                  localSongsProvider,
-                  onRefresh: forceLocalRescan,
-                ),
-              ),
-              _Entry(Icons.album, '专辑', () => _openAlbums(context)),
-            ],
-          ),
-          if (extras.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Row(children: [for (final e in extras) Expanded(child: e)]),
-          ],
+          for (final e in entries)
+            _RoundEntry(icon: e.icon, label: e.label, onTap: e.onTap),
         ],
       ),
     );
@@ -288,7 +286,6 @@ class _EntryGrid extends ConsumerWidget {
     FutureProvider<List<Song>> provider, {
     Future<void> Function()? onRefresh,
   }) {
-    // 复用专辑式歌曲列表（头部 + 顶部操作条 + 批量选择）
     Navigator.of(context).push(
       fadeRoute<void>(
         SongListScreen(
@@ -326,8 +323,13 @@ class _EntryGrid extends ConsumerWidget {
   }
 }
 
-class _Entry extends ConsumerWidget {
-  const _Entry(this.icon, this.label, this.onTap);
+/// 圆形玻璃入口按钮（对齐首页 _QuickNavItem 风格）
+class _RoundEntry extends ConsumerWidget {
+  const _RoundEntry({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -335,36 +337,46 @@ class _Entry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final content = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 12),
-        ),
-      ],
-    );
-    final inner = ref.watch(cardDisplayProvider)
-        ? GlassCard(
-            onTap: onTap,
-            radius: AppRadius.m,
-            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-            child: content,
-          )
-        : InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppRadius.m),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-              child: content,
+    return SizedBox(
+      width: 72,
+      child: PressableScale(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: withGlassTintOpacity(
+                  ref,
+                  AppTheme.surfaceOf(context).withValues(alpha: 0.6),
+                ),
+                border: Border.all(
+                  color: AppTheme.textFaintOf(context).withValues(alpha: 0.12),
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
-          );
-    return Expanded(child: inner);
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -583,10 +595,9 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     List<Playlist> mine,
   ) {
     if (list.isEmpty) {
-      // 我的歌单为空但服务器有歌单 → 引导切换查看；否则走新建/同步引导
       final guideSwitch = !_all && mine.isEmpty;
       return glassEmptyState(
-        text: guideSwitch ? '没有你的歌单\n点击标题旁箭头查看全部歌单' : '还没有歌单\n新建一个，或从服务器重新同步',
+        text: guideSwitch ? '没有你的歌单\n点击上方「全部」标签查看全部' : '还没有歌单\n新建一个，或从服务器重新同步',
         icon: Icons.queue_music_outlined,
         padding: const EdgeInsets.symmetric(
           vertical: AppSpacing.xl,
@@ -612,16 +623,39 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
               ],
       );
     }
-    final rows = Column(
-      children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
+    final coverSize = (MediaQuery.sizeOf(context).width - 24 - 16) / 3;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 12,
+        children: [
+          for (final p in list)
+            _PlaylistCard(
+              playlist: p,
+              size: coverSize,
+              onTap: () => Navigator.of(context).push(
+                fadeRoute<void>(
+                  SongListScreen(
+                    playlistId: p.id,
+                    title: p.name,
+                    coverAlbumId: p.coverArt,
+                  ),
+                ),
+              ),
+              onLongPress: () => _showPlaylistMenu(context, p),
+            ),
+        ],
+      ),
     );
-    return ref.watch(cardDisplayProvider)
-        ? GlassContainer(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: rows,
-          )
-        : rows;
+  }
+
+  void _showPlaylistMenu(BuildContext context, Playlist playlist) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PlaylistActionSheet(playlist: playlist, ref: ref),
+    );
   }
 }
 
@@ -758,10 +792,7 @@ class _RenamePlaylistFormState extends State<_RenamePlaylistForm> {
               child: const Text('取消'),
             ),
             const SizedBox(width: AppSpacing.s),
-            FilledButton(
-              onPressed: _submit,
-              child: const Text('确定'),
-            ),
+            FilledButton(onPressed: _submit, child: const Text('确定')),
           ],
         ),
       ],
@@ -775,12 +806,13 @@ class _RenamePlaylistFormState extends State<_RenamePlaylistForm> {
   }
 }
 
-/// 歌单封面：优先用前 4 首歌的去重专辑封面拼 2×2（对齐设计图）；
+/// 歌单封面：优先用前 4 首歌的去重专辑封面拼 2×2；
 /// 不足 2 张时回退歌单自带封面 / 占位图标。
 class _PlaylistCover extends ConsumerWidget {
-  const _PlaylistCover({required this.playlist});
+  const _PlaylistCover({required this.playlist, this.size = 52});
 
   final Playlist playlist;
+  final double size;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -793,8 +825,8 @@ class _PlaylistCover extends ConsumerWidget {
           return ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
-              width: 52,
-              height: 52,
+              width: size,
+              height: size,
               child: Column(
                 children: [
                   for (var r = 0; r < 2; r++)
@@ -803,10 +835,9 @@ class _PlaylistCover extends ConsumerWidget {
                         children: [
                           for (var c = 0; c < 2; c++)
                             Expanded(
-                              // 不足 4 张时循环复用已有封面补位
                               child: CoverArt(
                                 albumId: ids[(r * 2 + c) % ids.length],
-                                size: 26,
+                                size: size / 2,
                                 radius: 0,
                               ),
                             ),
@@ -821,7 +852,7 @@ class _PlaylistCover extends ConsumerWidget {
         if (ids.length == 1) {
           return ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: CoverArt(albumId: ids.first, size: 52, radius: 8),
+            child: CoverArt(albumId: ids.first, size: size, radius: 8),
           );
         }
         return _fallback(context);
@@ -839,12 +870,12 @@ class _PlaylistCover extends ConsumerWidget {
     if (hasCover) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: CoverArt(albumId: playlist.coverArt!, size: 52, radius: 8),
+        child: CoverArt(albumId: playlist.coverArt!, size: size, radius: 8),
       );
     }
     return Container(
-      width: 52,
-      height: 52,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(8),
@@ -852,73 +883,163 @@ class _PlaylistCover extends ConsumerWidget {
       child: Icon(
         Icons.queue_music,
         color: AppTheme.textFaintOf(context),
-        size: 26,
+        size: size * 0.5,
       ),
     );
   }
 }
 
-class _PlaylistRow extends StatelessWidget {
-  const _PlaylistRow({required this.playlist, required this.ref});
+/// 歌单卡片（3 列网格）：封面 + 播放量角标 + 名称，长按弹出操作菜单。
+class _PlaylistCard extends StatelessWidget {
+  const _PlaylistCard({
+    required this.playlist,
+    required this.size,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final Playlist playlist;
+  final double size;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: PressableScale(
+        onTap: onTap,
+        child: SizedBox(
+          width: size,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          color: AppTheme.surfaceOf(context)
+                              .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      Center(
+                        child: _PlaylistCover(playlist: playlist, size: size),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.play_arrow,
+                                size: 10,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 1),
+                              Text(
+                                '${playlist.songCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              MarqueeText(
+                playlist.name,
+                maxLines: 2,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 歌单操作底部菜单（长按卡片弹出）
+class _PlaylistActionSheet extends StatelessWidget {
+  const _PlaylistActionSheet({required this.playlist, required this.ref});
 
   final Playlist playlist;
   final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.of(context).push(
-        fadeRoute<void>(
-          SongListScreen(
-            playlistId: playlist.id,
-            title: playlist.name,
-            coverAlbumId: playlist.coverArt,
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: withGlassTintOpacity(
+            ref,
+            imageBgAwareTint(ref, AppTheme.surfaceOf(context)),
           ),
+          borderRadius: BorderRadius.circular(AppRadius.l),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _PlaylistCover(playlist: playlist),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    playlist.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryOf(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${playlist.songCount} 首歌曲',
-                    style: TextStyle(
-                      color: AppTheme.textFaintOf(context),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                playlist.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppTheme.textDimOf(context),
+                  fontSize: 13,
+                ),
               ),
             ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: AppTheme.textFaintOf(context)),
-              onSelected: (action) => _onMenuAction(context, action),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'play', child: Text('播放')),
-                PopupMenuItem(value: 'queue', child: Text('加入队列')),
-                PopupMenuItem(value: 'rename', child: Text('重命名')),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Text('删除', style: TextStyle(color: AppTheme.heartRed)),
-                ),
-              ],
+            Divider(height: 1, color: SkinTokens.of(context).divider),
+            _SheetItem(
+              icon: Icons.play_circle_outline,
+              label: '播放',
+              onTap: () => _handleAction(context, 'play'),
+            ),
+            _SheetItem(
+              icon: Icons.playlist_play,
+              label: '加入队列',
+              onTap: () => _handleAction(context, 'queue'),
+            ),
+            _SheetItem(
+              icon: Icons.edit_outlined,
+              label: '重命名',
+              onTap: () => _handleAction(context, 'rename'),
+            ),
+            _SheetItem(
+              icon: Icons.delete_outline,
+              label: '删除',
+              danger: true,
+              onTap: () => _handleAction(context, 'delete'),
             ),
           ],
         ),
@@ -926,7 +1047,8 @@ class _PlaylistRow extends StatelessWidget {
     );
   }
 
-  Future<void> _onMenuAction(BuildContext context, String action) async {
+  Future<void> _handleAction(BuildContext context, String action) async {
+    Navigator.of(context).pop();
     final adapter = ref.read(serverAdapterProvider);
     if (adapter == null) return;
 
@@ -963,9 +1085,7 @@ class _PlaylistRow extends StatelessWidget {
             child: const Text('取消'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.heartRed,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.heartRed),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('删除'),
           ),
@@ -995,6 +1115,39 @@ class _PlaylistRow extends StatelessWidget {
       actions.addToQueue(songs);
       showToast('已将 ${songs.length} 首歌曲加入队列');
     }
+  }
+}
+
+class _SheetItem extends StatelessWidget {
+  const _SheetItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? AppTheme.heartRed : AppTheme.textPrimaryOf(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Text(label, style: TextStyle(color: color, fontSize: 16)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
