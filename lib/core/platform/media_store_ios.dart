@@ -34,9 +34,7 @@ final class MediaStoreIos implements MediaStore {
   }
 
   @override
-  Future<bool> deleteFromPublicMusic({
-    required String fileName,
-  }) async {
+  Future<bool> deleteFromPublicMusic({required String fileName}) async {
     final dirPath = await publicMusicDir();
     if (dirPath == null) return false;
     try {

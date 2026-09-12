@@ -12,7 +12,8 @@ library;
 import 'local_scan_dirs_stub.dart'
     if (dart.library.io) 'local_scan_dirs_io.dart'
     show createLocalScanDirs;
-export 'local_scan_dirs_stub.dart' if (dart.library.io) 'local_scan_dirs_io.dart';
+export 'local_scan_dirs_stub.dart'
+    if (dart.library.io) 'local_scan_dirs_io.dart';
 
 /// 全局单例（业务侧直接 `localScanDirs.getScanDirectories()`）
 final LocalScanDirs localScanDirs = createLocalScanDirs();

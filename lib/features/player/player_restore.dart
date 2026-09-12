@@ -36,8 +36,9 @@ mixin PlayerRestore on PlayerActionsBase {
             _ref.read(playbackSpeedProvider.notifier).state = savedSpeed;
           }
           final savedRg = saved['replayGainMode'] as String?;
-          _ref.read(replayGainModeProvider.notifier).state =
-              ReplayGainMode.values.firstWhere(
+          _ref.read(replayGainModeProvider.notifier).state = ReplayGainMode
+              .values
+              .firstWhere(
                 (m) => m.name == savedRg,
                 orElse: () => ReplayGainMode.off,
               );

@@ -580,9 +580,7 @@ abstract class MediaBrowserAdapter
     try {
       final songs = await fetchPlaylistSongs(playlistId);
       final remaining = songs.where((s) => s.id != songId).map((s) => s.id);
-      await _post('/Playlists/$playlistId/Items', {
-        'Ids': remaining.join(','),
-      });
+      await _post('/Playlists/$playlistId/Items', {'Ids': remaining.join(',')});
       return true;
     } catch (err, st) {
       adapterSwallowLog('MediaBrowser', err, st);

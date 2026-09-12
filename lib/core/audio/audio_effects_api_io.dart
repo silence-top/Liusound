@@ -4,7 +4,9 @@ import '../platform/app_platform.dart';
 import 'audio_effects_api.dart';
 
 final class AudioEffectsApiIo implements AudioEffectsApi {
-  static const _channel = MethodChannel('com.silencetop.liusound/audio_effects');
+  static const _channel = MethodChannel(
+    'com.silencetop.liusound/audio_effects',
+  );
 
   @override
   bool get isAvailable => AppPlatform.isAndroid;

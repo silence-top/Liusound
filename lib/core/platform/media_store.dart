@@ -33,9 +33,7 @@ abstract interface class MediaStore {
 
   /// 删除公共音乐目录中的指定文件。
   /// 成功返回 true；文件不存在/平台不支持/删除失败返回 false。
-  Future<bool> deleteFromPublicMusic({
-    required String fileName,
-  });
+  Future<bool> deleteFromPublicMusic({required String fileName});
 
   /// 公共音乐落盘目录的绝对路径（含应用子目录）；平台不支持返回 null
   Future<String?> publicMusicDir();

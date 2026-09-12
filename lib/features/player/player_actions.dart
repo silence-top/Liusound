@@ -353,11 +353,15 @@ class PlayerActions extends PlayerActionsBase
     final posMs = _player.position.inMilliseconds;
     switch (ab.phase) {
       case ABLoopPhase.off:
-        _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(posMs);
+        _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(
+          posMs,
+        );
       case ABLoopPhase.setA:
         if (posMs <= ab.aMs!) {
           // B 必须大于 A，否则重置
-          _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(posMs);
+          _ref.read(abLoopProvider.notifier).state = ABLoopState.disabled.markA(
+            posMs,
+          );
         } else {
           _ref.read(abLoopProvider.notifier).state = ab.markB(posMs);
         }

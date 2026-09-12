@@ -1,5 +1,7 @@
-import 'audio_effects_api_web.dart' if (dart.library.io) 'audio_effects_api_io.dart';
-export 'audio_effects_api_web.dart' if (dart.library.io) 'audio_effects_api_io.dart';
+import 'audio_effects_api_web.dart'
+    if (dart.library.io) 'audio_effects_api_io.dart';
+export 'audio_effects_api_web.dart'
+    if (dart.library.io) 'audio_effects_api_io.dart';
 
 /// 设备 EQ 波段信息（center 单位 Hz，min/max 单位毫贝，通常 -1500..1500）
 class EqBand {

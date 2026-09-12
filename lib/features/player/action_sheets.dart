@@ -27,7 +27,11 @@ import 'widgets/star_rating.dart';
 
 /// 歌曲操作弹窗（对标设计图「播放页面的更多的按钮」）：
 /// 头部（封面 + 标题/歌手 + 五星评分 + 收藏）→ 操作网格 → 歌手/专辑/歌曲信息行。
-void showSongActionSheet(BuildContext context, Song song, {String? playlistId}) {
+void showSongActionSheet(
+  BuildContext context,
+  Song song, {
+  String? playlistId,
+}) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -244,7 +248,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                     Navigator.of(context).pop();
                     SharePlus.instance.share(
                       ShareParams(
-                        text: '♪ ${song.title} — ${song.artist}\n'
+                        text:
+                            '♪ ${song.title} — ${song.artist}\n'
                             '专辑：${song.album}\n'
                             '— 来自流声音乐',
                       ),
@@ -293,7 +298,8 @@ class _SongActionSheetState extends ConsumerState<_SongActionSheet> {
                   if (widget.playlistId != null)
                     _circleItem(Icons.playlist_remove, '从歌单移除', () async {
                       final navigator = Navigator.of(context);
-                      final ok = await ref
+                      final ok =
+                          await ref
                               .read(serverAdapterProvider)
                               ?.removeFromPlaylist(
                                 widget.playlistId!,

@@ -358,9 +358,7 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
   @override
   Future<bool> deletePlaylist(String playlistId) async {
     try {
-      await _api('SYNO.AudioStation.Playlist', 'destroy', {
-        'id': playlistId,
-      });
+      await _api('SYNO.AudioStation.Playlist', 'destroy', {'id': playlistId});
       return true;
     } catch (err, st) {
       adapterSwallowLog('AudioStation', err, st);

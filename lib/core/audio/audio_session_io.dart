@@ -20,9 +20,12 @@ final class AudioSessionIo implements AudioSessionFacade {
   @override
   Stream<void> get becomingNoisyEventStream {
     if (!isAvailable) return const Stream.empty();
-    return AudioSession.instance.then((session) {
-      return session.becomingNoisyEventStream;
-    }).asStream().asyncExpand((s) => s);
+    return AudioSession.instance
+        .then((session) {
+          return session.becomingNoisyEventStream;
+        })
+        .asStream()
+        .asyncExpand((s) => s);
   }
 }
 

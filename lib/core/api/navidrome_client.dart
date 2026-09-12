@@ -296,7 +296,9 @@ class NavidromeClient {
     try {
       final res = await dio.delete<dynamic>(
         '/api/playlist/$playlistId/tracks',
-        data: {'ids': [songId]},
+        data: {
+          'ids': [songId],
+        },
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (err, st) {

@@ -680,10 +680,7 @@ class _RenamePlaylistFormState extends State<_RenamePlaylistForm> {
               child: const Text('取消'),
             ),
             const SizedBox(width: AppSpacing.s),
-            FilledButton(
-              onPressed: _submit,
-              child: const Text('确定'),
-            ),
+            FilledButton(onPressed: _submit, child: const Text('确定')),
           ],
         ),
       ],
@@ -885,9 +882,7 @@ class _PlaylistRow extends StatelessWidget {
             child: const Text('取消'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.heartRed,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.heartRed),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('删除'),
           ),

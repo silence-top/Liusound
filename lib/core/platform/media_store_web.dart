@@ -14,9 +14,7 @@ final class MediaStoreWeb implements MediaStore {
   }) async => null;
 
   @override
-  Future<bool> deleteFromPublicMusic({
-    required String fileName,
-  }) async => false;
+  Future<bool> deleteFromPublicMusic({required String fileName}) async => false;
 
   @override
   Future<String?> publicMusicDir() async => null;

@@ -34,9 +34,7 @@ final class MediaStoreAndroid implements MediaStore {
   }
 
   @override
-  Future<bool> deleteFromPublicMusic({
-    required String fileName,
-  }) async {
+  Future<bool> deleteFromPublicMusic({required String fileName}) async {
     try {
       final result = await _channel.invokeMethod<bool>('deleteFromMusic', {
         'fileName': fileName,

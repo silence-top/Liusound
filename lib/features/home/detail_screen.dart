@@ -1147,7 +1147,9 @@ class SongRow extends ConsumerWidget {
                 openFullScreenPlayer(context);
               }
             },
-      onLongPress: selecting ? null : () => showSongActionSheet(context, song, playlistId: playlistId),
+      onLongPress: selecting
+          ? null
+          : () => showSongActionSheet(context, song, playlistId: playlistId),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -1224,7 +1226,8 @@ class SongRow extends ConsumerWidget {
                   size: 22,
                   color: AppTheme.textPrimaryOf(context),
                 ),
-                onPressed: () => showSongActionSheet(context, song, playlistId: playlistId),
+                onPressed: () =>
+                    showSongActionSheet(context, song, playlistId: playlistId),
               ),
             ],
           ],
