@@ -368,8 +368,8 @@ class _Entry extends ConsumerWidget {
   }
 }
 
-/// 歌单区：标题旁三角图标切换「我的歌单 / 全部歌单」（owner 匹配当前用户名）；
-/// 后端不提供 owner（全部为空）时两份列表一致，切换图标隐藏。
+/// 歌单区：点击标题或旁侧三角图标切换「我的歌单 / 全部歌单」（owner 匹配当前用户名）；
+/// 后端不提供 owner（全部为空）时两份列表一致，切换入口隐藏。
 class _PlaylistSection extends ConsumerStatefulWidget {
   const _PlaylistSection();
 
@@ -418,6 +418,14 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     // 只要有歌单就允许切换（部分后端全部歌单都属于自己，两份列表一致但切换可用）
     final canToggle = all.isNotEmpty;
     final list = _all ? all : mine;
+    final title = Text(
+      _all ? '全部歌单' : '我的歌单',
+      style: TextStyle(
+        color: AppTheme.textPrimaryOf(context),
+        fontSize: 19,
+        fontWeight: FontWeight.bold,
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -425,26 +433,27 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
           padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
           child: Row(
             children: [
-              Text(
-                _all ? '全部歌单' : '我的歌单',
-                style: TextStyle(
-                  color: AppTheme.textPrimaryOf(context),
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
               if (canToggle)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => setState(() => _all = !_all),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
-                    child: Icon(
-                      _all ? Icons.arrow_right : Icons.arrow_left,
-                      size: 22,
-                      color: AppTheme.textFaintOf(context),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      title,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+                        child: Icon(
+                          _all ? Icons.arrow_right : Icons.arrow_left,
+                          size: 22,
+                          color: AppTheme.textFaintOf(context),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                )
+              else
+                title,
               const Spacer(),
               PopupMenuButton<String>(
                 icon: Icon(
@@ -508,7 +517,7 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
       // 我的歌单为空但服务器有歌单 → 引导切换查看；否则走新建/同步引导
       final guideSwitch = !_all && mine.isEmpty;
       return glassEmptyState(
-        text: guideSwitch ? '没有你的歌单\n点击标题旁箭头查看全部歌单' : '还没有歌单\n新建一个，或从服务器重新同步',
+        text: guideSwitch ? '没有你的歌单\n点击标题查看全部歌单' : '还没有歌单\n新建一个，或从服务器重新同步',
         icon: Icons.queue_music_outlined,
         padding: const EdgeInsets.symmetric(
           vertical: AppSpacing.xl,
