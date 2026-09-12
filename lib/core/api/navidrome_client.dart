@@ -192,14 +192,19 @@ class NavidromeClient {
         .toList();
   }
 
-  /// 歌单内歌曲（对标 1.x GET /api/playlist/{id}/tracks）
+  /// 歌单内歌曲（对标 1.x GET /api/playlist/{id}/tracks）。
+  /// Navidrome 返回的条目 id 是歌单内序号（"1"、"2"…），真实歌曲 id 在
+  /// mediaFileId —— 直接用条目 id 拼流地址会 404，导致歌单无法播放
   Future<List<Song>> getPlaylistSongs(String playlistId) async {
     final res = await dio.get<List<dynamic>>(
       '/api/playlist/$playlistId/tracks',
     );
-    return (res.data ?? const [])
-        .map((e) => Song.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (res.data ?? const []).map((e) {
+      final j = Map<String, dynamic>.from(e as Map<String, dynamic>);
+      final mediaFileId = j['mediaFileId']?.toString() ?? '';
+      if (mediaFileId.isNotEmpty) j['id'] = mediaFileId;
+      return Song.fromJson(j);
+    }).toList();
   }
 
   /// 我喜欢的歌曲（Navidrome starred 过滤）
