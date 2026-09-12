@@ -17,18 +17,18 @@ import '../player/player_controller.dart';
 import '../search/search_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
-import 'library_entries_screen.dart';
-import 'music_library_screen.dart';
 
-/// 首页（2.0 改版，参考网易云 / QQ 音乐布局）：
-/// 搜索栏 → 快捷导航宫格(2×4) → 推荐歌单(3列) → 最新专辑(横滑) →
-/// 每日推荐 / 最近播放 / 最常播放（带排名序号）。
+/// 首页（对标 1.x HomeScreen）：
+/// 装饰搜索栏 + 分区顺序：最新专辑 / 每日推荐 / 最近播放 / 最常播放 / 随机专辑。
+/// 歌曲分区（每日推荐 / 最近播放 / 最常播放）展示 3 行歌曲，
+/// 点「查看更多」进入全屏列表（SongListScreen）。
 ///
 /// 性能设计：本页不订阅任何播放进度 provider → 播放期间零重建；
 /// 横向分区使用 ListView.builder 惰性构建 + 固定 itemExtent。
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  /// 下拉刷新：更换随机 seed 并重取全部分区
   Future<void> _refresh(WidgetRef ref) async {
     ref.read(randomSeedProvider.notifier).state = makeSeed();
     ref.invalidate(latestAlbumsProvider);
@@ -36,12 +36,12 @@ class HomeScreen extends ConsumerWidget {
     ref.invalidate(mostPlayedSongsProvider);
     ref.invalidate(randomAlbumsProvider);
     ref.invalidate(dailySongsProvider);
-    ref.invalidate(playlistsProvider);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
       backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
@@ -50,13 +50,11 @@ class HomeScreen extends ConsumerWidget {
           slivers: [
             SliverToBoxAdapter(
               child: SearchEntryBar(
-                onTap: () => Navigator.of(context).push(
-                  fadeRoute<void>(const SearchScreen()),
-                ),
+                onTap: () =>
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(const SearchScreen())),
               ),
             ),
-            SliverToBoxAdapter(child: _quickNavGrid(context, ref)),
-            _playlistSection(context, ref),
             SliverToBoxAdapter(
               child: _Section(
                 title: '最新专辑',
@@ -68,7 +66,6 @@ class HomeScreen extends ConsumerWidget {
                 title: '每日推荐',
                 provider: dailySongsProvider,
                 withDate: true,
-                subtitle: DateTime.now().toIso8601String().substring(0, 10),
               ),
             ),
             SliverToBoxAdapter(
@@ -81,9 +78,15 @@ class HomeScreen extends ConsumerWidget {
               child: _SongListSection(
                 title: '最常播放',
                 provider: mostPlayedSongsProvider,
-                numbered: true,
               ),
             ),
+            SliverToBoxAdapter(
+              child: _Section(
+                title: '随机专辑',
+                child: _AlbumRow(randomAlbumsProvider),
+              ),
+            ),
+            // 收尾留白：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 96 + MediaQuery.paddingOf(context).bottom,
@@ -94,344 +97,9 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
-
-  /// 快捷导航宫格：2 行 × 4 列，圆形图标 + 标签
-  Widget _quickNavGrid(BuildContext context, WidgetRef ref) {
-    final items = _quickNavItems(context, ref);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Wrap(
-        alignment: WrapAlignment.spaceAround,
-        runSpacing: 8,
-        children: [
-          for (final item in items) _QuickNavItem(icon: item.icon, label: item.label, onTap: item.onTap),
-        ],
-      ),
-    );
-  }
-
-  List<({IconData icon, String label, VoidCallback onTap})> _quickNavItems(
-    BuildContext context,
-    WidgetRef ref,
-  ) {
-    return [
-      (
-        icon: Icons.calendar_today,
-        label: '每日推荐',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            SongListScreen(
-              title: '每日推荐',
-              songsProvider: dailySongsProvider,
-              date: DateTime.now().toIso8601String().substring(0, 10),
-            ),
-          ),
-        ),
-      ),
-      (
-        icon: Icons.queue_music,
-        label: '歌单',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(const MusicLibraryScreen()),
-        ),
-      ),
-      (
-        icon: Icons.person,
-        label: '歌手',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            ArtistListPage(title: '歌手', provider: artistsProvider),
-          ),
-        ),
-      ),
-      (
-        icon: Icons.album,
-        label: '专辑',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            AlbumListPage(title: '专辑', provider: libraryAlbumsProvider),
-          ),
-        ),
-      ),
-      (
-        icon: Icons.history,
-        label: '最近播放',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            SongListScreen(
-              title: '最近播放',
-              songsProvider: recentlyPlayedSongsProvider,
-            ),
-          ),
-        ),
-      ),
-      (
-        icon: Icons.favorite,
-        label: '我喜欢',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            SongListScreen(
-              title: '我喜欢的',
-              songsProvider: likedSongsProvider,
-            ),
-          ),
-        ),
-      ),
-      (
-        icon: Icons.grid_view,
-        label: '流派',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(const GenrePage()),
-        ),
-      ),
-      (
-        icon: Icons.apps,
-        label: '更多',
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(const MusicLibraryScreen()),
-        ),
-      ),
-    ];
-  }
-
-  /// 推荐歌单分区：3 列网格，展示前 6 个歌单
-  Widget _playlistSection(BuildContext context, WidgetRef ref) {
-    final playlists = ref.watch(playlistsProvider);
-    return playlists.when(
-      loading: () => const SliverToBoxAdapter(
-        child: SizedBox(
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ),
-      error: (_, _) => const SliverToBoxAdapter(
-        child: SizedBox(
-          height: 120,
-          child: Center(
-            child: Text('加载歌单失败', style: TextStyle(color: Colors.grey)),
-          ),
-        ),
-      ),
-      data: (list) {
-        if (list.isEmpty) return const SliverToBoxAdapter();
-        final visible = list.take(6).toList();
-        return SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Text(
-                        '推荐歌单',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryOf(context),
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          fadeRoute<void>(const MusicLibraryScreen()),
-                        ),
-                        child: Text(
-                          '查看更多',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 12,
-                    children: [
-                      for (var i = 0; i < visible.length; i++)
-                        _PlaylistCard(
-                          playlist: visible[i],
-                          onTap: () => Navigator.of(context).push(
-                            fadeRoute<void>(
-                              SongListScreen(
-                                title: visible[i].name,
-                                playlistId: visible[i].id,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
-// ─── 快捷导航项 ─────────────────────────────────────────
-
-class _QuickNavItem extends ConsumerWidget {
-  const _QuickNavItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SizedBox(
-      width: 72,
-      child: PressableScale(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: withGlassTintOpacity(
-                  ref,
-                  AppTheme.surfaceOf(context).withValues(alpha: 0.6),
-                ),
-                border: Border.all(
-                  color: AppTheme.textFaintOf(context).withValues(alpha: 0.12),
-                ),
-              ),
-              child: Icon(
-                icon,
-                size: 22,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppTheme.textPrimaryOf(context),
-                fontSize: 12,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── 歌单网格 ────────────────────────────────────────────
-
-class _PlaylistCard extends StatelessWidget {
-  const _PlaylistCard({required this.playlist, required this.onTap});
-
-  final Playlist playlist;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final coverSize = (screenWidth - 24 - 16) / 3;
-    return PressableScale(
-      onTap: onTap,
-      child: SizedBox(
-        width: coverSize,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        color: AppTheme.surfaceOf(context).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    Center(
-                      child: Icon(
-                        Icons.queue_music,
-                        size: 32,
-                        color: AppTheme.textFaintOf(context),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.play_arrow,
-                              size: 10,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 1),
-                            Text(
-                              '${playlist.songCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            MarqueeText(
-              playlist.name,
-              maxLines: 2,
-              style: TextStyle(
-                color: AppTheme.textPrimaryOf(context),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── 分区容器 ────────────────────────────────────────────
-
+/// 分区容器：标题（20 加粗）+ 可选尾部动作 + 内容
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.child, this.trailing});
 
@@ -471,14 +139,15 @@ class _Section extends StatelessWidget {
   }
 }
 
-// ─── 横向专辑行 ──────────────────────────────────────────
-
+/// 横向专辑行（最新专辑 / 随机专辑分区共用），点击进入专辑详情页
 class _AlbumRow extends ConsumerWidget {
   const _AlbumRow(this.provider);
 
   final FutureProvider<List<Album>> provider;
 
   static const _cardWidth = 140.0;
+
+  /// 封面 140 + 间距 8 + 双行标题 ~34 + 间距 4 + 歌手 ~17
   static const _rowHeight = 208.0;
 
   @override
@@ -514,7 +183,7 @@ class _AlbumRow extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: list.length,
-            itemExtent: _cardWidth + 8,
+            itemExtent: _cardWidth + 8, // 卡片宽 + 左右 margin 4
             itemBuilder: (context, index) => _AlbumCard(album: list[index]),
           ),
         );
@@ -552,7 +221,11 @@ class _AlbumCard extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  CoverArt(albumId: album.id, size: _AlbumRow._cardWidth, radius: 8),
+                  CoverArt(
+                    albumId: album.id,
+                    size: _AlbumRow._cardWidth,
+                    radius: 8,
+                  ),
                   Positioned(
                     top: 4,
                     right: 4,
@@ -561,6 +234,8 @@ class _AlbumCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.s),
+              // 双行 12sp：避免「我的楼兰（2026新…」这类粗暴截断；
+              // 两行仍放不下时长按可跑马灯读全名
               MarqueeText(
                 album.name,
                 maxLines: 2,
@@ -586,24 +261,20 @@ class _AlbumCard extends StatelessWidget {
   }
 }
 
-// ─── 歌曲列表分区 ────────────────────────────────────────
-
-/// 歌曲列表分区：3 行歌曲 + 「查看更多」进入全屏列表。
-/// [numbered] = true 时左侧显示排名序号（最常播放 / 热歌榜风格）。
+/// 歌曲列表分区（每日推荐 / 最近播放 / 最常播放共用）：
+/// 3 行歌曲裸排 + 「查看更多」进入全屏列表
 class _SongListSection extends ConsumerWidget {
   const _SongListSection({
     required this.title,
     required this.provider,
     this.withDate = false,
-    this.subtitle,
-    this.numbered = false,
   });
 
   final String title;
   final FutureProvider<List<Song>> provider;
+
+  /// 「查看更多」页头是否展示今日日期（每日推荐）
   final bool withDate;
-  final String? subtitle;
-  final bool numbered;
 
   void _openDetail(BuildContext context, List<Song> songs) {
     Navigator.of(context).push(
@@ -671,28 +342,14 @@ class _SongListSection extends ConsumerWidget {
                   child: Column(
                     children: list
                         .take(3)
-                        .map(
-                          (song) => _SongCardRow(
-                            song: song,
-                            queue: list,
-                            rank: numbered
-                                ? list.indexOf(song) + 1
-                                : null,
-                          ),
-                        )
+                        .map((song) => _SongCardRow(song: song, queue: list))
                         .toList(),
                   ),
                 )
               : Column(
                   children: list
                       .take(3)
-                      .map(
-                        (song) => _SongCardRow(
-                          song: song,
-                          queue: list,
-                          rank: numbered ? list.indexOf(song) + 1 : null,
-                        ),
-                      )
+                      .map((song) => _SongCardRow(song: song, queue: list))
                       .toList(),
                 ),
         );
@@ -701,14 +358,13 @@ class _SongListSection extends ConsumerWidget {
   }
 }
 
-/// 歌曲行：可选排名序号 + 封面 + 标题/副标题 + 播放按钮。
-/// [rank] 非空时左侧显示排名数字（前 3 名高亮主题色），隐藏封面。
+/// 歌曲列表分区行：56 封面 + 标题/副标题 + 播放按钮，
+/// 点击直接播放（整卡队列）并弹出全屏播放器
 class _SongCardRow extends ConsumerWidget {
-  const _SongCardRow({required this.song, required this.queue, this.rank});
+  const _SongCardRow({required this.song, required this.queue});
 
   final Song song;
   final List<Song> queue;
-  final int? rank;
 
   void _play(BuildContext context, WidgetRef ref) {
     final actions = ref.read(playerActionsProvider);
@@ -719,32 +375,16 @@ class _SongCardRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final primary = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: () => _play(context, ref),
+      // 长按唤出上下文菜单（与详情页 SongRow 行为一致）
       onLongPress: () => showSongActionSheet(context, song),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
         child: Row(
           children: [
-            if (rank != null) ...[
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '${rank!}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: rank! <= 3 ? primary : AppTheme.textDimOf(context),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-            ] else ...[
-              CoverArt(albumId: song.albumId, size: 56, radius: 8),
-              const SizedBox(width: 14),
-            ],
+            CoverArt(albumId: song.albumId, size: 56, radius: 8),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,6 +413,7 @@ class _SongCardRow extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
+            // 命中区 44×44dp：圆圈图标本身偏小，靠 constraints 兜住可点范围
             IconButton(
               onPressed: () => _play(context, ref),
               padding: EdgeInsets.zero,

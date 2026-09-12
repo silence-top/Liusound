@@ -412,115 +412,37 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
                 (p) => p.owner != null && p.owner!.toLowerCase() == username,
               )
               .toList();
+    // owner 与当前用户名都对不上（如后端只返回显示名）时无法区分归属，回退为全部，
+    // 避免过滤出空列表导致整个歌单区看起来消失
     final mine = matched.isEmpty ? all : matched;
+    // 只要有歌单就允许切换（部分后端全部歌单都属于自己，两份列表一致但切换可用）
     final canToggle = all.isNotEmpty;
     final list = _all ? all : mine;
-    final primary = Theme.of(context).colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 4, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
           child: Row(
             children: [
-              if (canToggle) ...[
-                GestureDetector(
-                  onTap: () => setState(() => _all = false),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '我的',
-                              style: TextStyle(
-                                color: !_all
-                                    ? primary
-                                    : AppTheme.textFaintOf(context),
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              '${mine.length}',
-                              style: TextStyle(
-                                color: !_all
-                                    ? primary
-                                    : AppTheme.textFaintOf(context),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          height: 2.5,
-                          width: 28,
-                          decoration: BoxDecoration(
-                            color: !_all ? primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              Text(
+                _all ? '全部歌单' : '我的歌单',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryOf(context),
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+              if (canToggle)
                 GestureDetector(
-                  onTap: () => setState(() => _all = true),
+                  onTap: () => setState(() => _all = !_all),
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '全部',
-                              style: TextStyle(
-                                color: _all
-                                    ? primary
-                                    : AppTheme.textFaintOf(context),
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              '${all.length}',
-                              style: TextStyle(
-                                color: _all
-                                    ? primary
-                                    : AppTheme.textFaintOf(context),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          height: 2.5,
-                          width: 28,
-                          decoration: BoxDecoration(
-                            color: _all ? primary : Colors.transparent,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+                    child: Icon(
+                      _all ? Icons.arrow_right : Icons.arrow_left,
+                      size: 22,
+                      color: AppTheme.textFaintOf(context),
                     ),
-                  ),
-                ),
-              ] else
-                Text(
-                  '歌单',
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryOf(context),
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               const Spacer(),
