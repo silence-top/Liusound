@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/download/download_service.dart';
 import '../../core/download/auto_download.dart';
-import '../../core/local/local_library.dart' show downloadIndexVersionProvider;
+import '../../core/download/download_queue.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
@@ -624,17 +622,16 @@ class _CrossfadeContent extends ConsumerWidget {
 
 // ---------- 离线下载（§3.2 支持批量） ----------
 
-/// 把一批歌曲下载到应用文档目录 Music/：全程一个进度对话框，结束后汇总提示。
-/// 单曲入口传 `[song]`，文案与批量前的单曲下载完全一致。
-/// 单曲失败不该中断整批，所以逐条计数、跑完再报结果。
+/// 把一批歌曲加入后台下载队列：门禁校验后立即返回，不阻塞用户操作，
+/// 进度在「下载列表」弹层（设置-存储与缓存-下载列表）查看。
+/// 单曲入口传 `[song]`；任务顺序落盘、失败可重试，语义见 DownloadQueueController。
 Future<void> downloadSongs(
   BuildContext context,
   WidgetRef ref,
   List<Song> songs,
 ) async {
   if (songs.isEmpty) return;
-  final adapter = ref.read(serverAdapterProvider);
-  if (adapter == null) {
+  if (ref.read(serverAdapterProvider) == null) {
     showToast('未登录，无法下载', error: true);
     return;
   }
@@ -647,122 +644,19 @@ Future<void> downloadSongs(
     showToast('当前为移动网络，「移动网络传输」已关闭，无法下载', error: true);
     return;
   }
-  if (!context.mounted) return;
 
-  final total = songs.length;
-  // (歌名, 批量进度段, 整体进度)：ValueNotifier 按结构相等判定，任一变化都会重建
-  final state = ValueNotifier<(String, String, double?)>((
-    songs.first.title,
-    '',
-    null,
-  ));
-  var dialogOpen = true;
-  unawaited(
-    glassDialog<void>(
-      context,
-      barrierDismissible: false,
-      title: '正在下载',
-      content: ValueListenableBuilder<(String, String, double?)>(
-        valueListenable: state,
-        builder: (dialogCtx, v, _) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              v.$1,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppTheme.textPrimaryOf(dialogCtx),
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (v.$2.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                v.$2,
-                style: TextStyle(
-                  color: AppTheme.textFaintOf(dialogCtx),
-                  fontSize: 12,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: v.$3,
-              minHeight: 4,
-              borderRadius: BorderRadius.circular(2),
-              backgroundColor: AppTheme.textPrimaryOf(dialogCtx)
-                  .withValues(alpha: 0.12),
-              color: Theme.of(dialogCtx).colorScheme.primary,
-            ),
-            if (v.$3 != null) ...[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '${((v.$3! * 100).round()).clamp(0, 100)}%',
-                  style: TextStyle(
-                    color: AppTheme.textFaintOf(dialogCtx),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ).then((_) => dialogOpen = false),
-  );
-
-  var done = 0;
-  var failed = 0;
-  var networkFail = false;
-  var lastName = '';
-  for (var i = 0; i < total; i++) {
-    final song = songs[i];
-    state.value = (
-      song.title,
-      total == 1 ? '' : '${i + 1}/$total',
-      total == 1 ? null : i / total,
-    );
-    try {
-      final source = await adapter.resolveDownload(song);
-      final path = await downloadSongFile(
-        source: source,
-        song: song,
-        serverId: ref.read(activeServerIdProvider),
-        networkSettings: ref.read(networkSettingsProvider),
-        onProgress: (received, size) {
-          if (size <= 0) return;
-          state.value = (
-            state.value.$1,
-            state.value.$2,
-            total == 1 ? received / size : (i + received / size) / total,
-          );
-        },
-      );
-      done++;
-      // 下载完成即时刷新「本地音乐」合并展示（downloadIndexVersionProvider）
-      ref.read(downloadIndexVersionProvider.notifier).state++;
-      lastName = Uri.file(path).pathSegments.last;
-    } on DioException {
-      failed++;
-      networkFail = true;
-    } catch (_) {
-      failed++;
-    }
+  final added = ref
+      .read(downloadQueueProvider.notifier)
+      .enqueue(songs, ref.read(activeServerIdProvider));
+  if (added == 0) {
+    showToast('所选歌曲已在下载队列中');
+    return;
   }
-  state.dispose();
-  if (dialogOpen && context.mounted) Navigator.of(context).pop();
-
-  final message = failed == 0
-      ? (total == 1 ? '已下载到：$lastName' : '已下载 $done 首歌曲')
-      : (done == 0
-            ? (networkFail ? '下载失败，请检查网络' : '下载失败')
-            : '已下载 $done 首，$failed 首失败');
-  showToast(message, error: failed > 0);
+  showToast(
+    added == 1
+        ? '已加入下载队列：${songs.first.title}'
+        : '已加入下载队列：$added 首歌曲',
+  );
 }
 
 // ---------- 添加到歌单 ----------

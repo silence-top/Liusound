@@ -206,7 +206,7 @@ class _Section extends StatelessWidget {
 class _AlbumRow extends ConsumerWidget {
   const _AlbumRow(this.provider);
 
-  final FutureProvider<List<Album>> provider;
+  final HomeSectionProvider<Album> provider;
 
   static const _cardWidth = 140.0;
 
@@ -334,7 +334,7 @@ class _SongListSection extends ConsumerWidget {
   });
 
   final String title;
-  final FutureProvider<List<Song>> provider;
+  final HomeSectionProvider<Song> provider;
 
   /// 「查看更多」页头是否展示今日日期（每日推荐）
   final bool withDate;

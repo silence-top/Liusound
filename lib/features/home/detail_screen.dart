@@ -115,7 +115,7 @@ mixin _BatchSelect<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     _toast('已将 ${picked.length} 首设为下一首播放');
   }
 
-  /// 批量下载（进度与结果提示由 downloadSongs 统一负责）
+  /// 批量下载（入列后台队列即返回，进度见下载列表）
   Future<void> batchDownload(List<Song> songs) async {
     final picked = selectionOf(songs);
     if (picked.isEmpty) return;

@@ -62,6 +62,8 @@ class _StorageSettingsPage extends ConsumerWidget {
                         subtitle: cache.limit.label,
                         onTap: () => _showCacheLimitPicker(context, ref),
                       ),
+                      _divider,
+                      const _DownloadQueueTile(),
                     ],
                   ),
                   _GroupCard(
@@ -99,6 +101,34 @@ class _StorageSettingsPage extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 下载列表入口：展示后台下载队列的进行中任务数，点击打开下载列表弹层
+class _DownloadQueueTile extends ConsumerWidget {
+  const _DownloadQueueTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(downloadQueueProvider);
+    final active = tasks
+        .where(
+          (t) =>
+              t.status == DownloadTaskStatus.waiting ||
+              t.status == DownloadTaskStatus.running,
+        )
+        .length;
+    final subtitle = switch (active) {
+      0 => '无进行中任务',
+      1 => '1 个任务进行中',
+      _ => '$active 个任务进行中',
+    };
+    return _ActionTile(
+      icon: Icons.download_outlined,
+      title: '下载列表',
+      subtitle: subtitle,
+      onTap: () => showDownloadQueueSheet(context),
     );
   }
 }

@@ -37,6 +37,7 @@ class _MarqueeTextState extends State<MarqueeText>
   TextStyle? _cachedStyle;
   int? _cachedMaxLines;
   double _cachedMaxWidth = -1;
+  TextScaler? _cachedScaler;
 
   @override
   void dispose() {
@@ -48,16 +49,19 @@ class _MarqueeTextState extends State<MarqueeText>
   /// 单行放得下时只需一次不限宽布局；两者语义不同，多行溢出时才需要第二次
   /// 受限布局兜底判断。
   void _measure(double maxWidth) {
+    final scaler = MediaQuery.textScalerOf(context);
     if (widget.text == _cachedText &&
         widget.style == _cachedStyle &&
         widget.maxLines == _cachedMaxLines &&
-        maxWidth == _cachedMaxWidth) {
+        maxWidth == _cachedMaxWidth &&
+        scaler == _cachedScaler) {
       return;
     }
     _cachedText = widget.text;
     _cachedStyle = widget.style;
     _cachedMaxLines = widget.maxLines;
     _cachedMaxWidth = maxWidth;
+    _cachedScaler = scaler;
     _overflow = false;
     _distance = 0;
     if (maxWidth <= 0 || !maxWidth.isFinite) return;
@@ -65,12 +69,18 @@ class _MarqueeTextState extends State<MarqueeText>
       text: TextSpan(text: widget.text, style: widget.style),
       maxLines: 1,
       textDirection: Directionality.of(context),
+      // 系统大字号下实际渲染更宽，测量必须同倍率，否则溢出判断/滚动距离失真
+      textScaler: scaler,
     )..layout();
     final singleWidth = painter.width;
-    if (singleWidth <= maxWidth) return;
+    if (singleWidth <= maxWidth) {
+      painter.dispose();
+      return;
+    }
     if (widget.maxLines == 1) {
       _overflow = true;
       _distance = singleWidth - maxWidth;
+      painter.dispose();
       return;
     }
     painter
@@ -80,6 +90,7 @@ class _MarqueeTextState extends State<MarqueeText>
       _overflow = true;
       _distance = singleWidth - maxWidth;
     }
+    painter.dispose();
   }
 
   void _start() {

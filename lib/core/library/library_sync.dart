@@ -27,7 +27,9 @@ abstract final class LibrarySync {
     if (adapter == null) return const [];
     return _load<Song>(
       read,
-      kind: 'songs_all',
+      // v2：旧快照可能是 getRandomSongs 随机子集（全库枚举上线前所存），
+      // 而 libraryVersion 未变时永远命中旧数据，需换 kind 作废重拉
+      kind: 'songs_all_v2',
       fetch: () => adapter.fetchSongs(
         const SongQuery(sort: SongSort.title, limit: 100000),
       ),
@@ -97,12 +99,16 @@ abstract final class LibrarySync {
       }
       fetched = true;
       final fresh = await fetch();
-      await db.insert('library_snapshot', {
-        'server_key': serverId,
-        'kind': kind,
-        'version': current,
-        'payload': await _encodePayload(encode, fresh),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      // 快照写库失败不能吞掉成功的拉取结果：fresh 已是当前能拿到的最优
+      // 数据，直接返回；快照留待下次进入补写
+      try {
+        await db.insert('library_snapshot', {
+          'server_key': serverId,
+          'kind': kind,
+          'version': current,
+          'payload': await _encodePayload(encode, fresh),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      } catch (_) {}
       return fresh;
     } catch (_) {
       // 数据库/网络任一环节失败时优先旧快照，避免离线时发起第二次全量请求。

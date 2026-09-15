@@ -40,20 +40,26 @@ class AppAudioHandler extends BaseAudioHandler {
   late final AudioPlayer _player;
   Timer? _clickTimer;
   int _clickCount = 0;
-  // 小部件封面缓存：albumId → 已落盘的封面文件路径（每首歌最多拉取一次）
-  final Map<int, String> _widgetCoverCache = {};
+  // 小部件同步序号：等待封面拉取期间切歌/暂停会开启更新的同步，
+  // 晚到的旧封面结果不得回退小部件状态
+  int _widgetSyncSeq = 0;
+  // 小部件封面缓存：'serverId|albumId' → 已落盘的封面文件路径（每封面最多拉一次）
+  final Map<String, String> _widgetCoverCache = {};
   // 并发去重：切歌时 _syncMediaItem 与 playingStream 会同时触发 _syncWidget，
   // 共享同一个拉取 Future，避免同封面重复请求
-  final Map<int, Future<String?>> _coverInFlight = {};
+  final Map<String, Future<String?>> _coverInFlight = {};
   // 失败负缓存：网络故障时 play/pause 每拍都会触发刷新，10 分钟内不重试
-  final Map<int, DateTime> _coverFailedAt = {};
+  final Map<String, DateTime> _coverFailedAt = {};
   static const _coverRetryWindow = Duration(minutes: 10);
 
   Future<void> _syncWidget(Song? song, bool playing) async {
+    final seq = ++_widgetSyncSeq;
+    final coverPath = await _widgetCoverPath(song);
+    if (seq != _widgetSyncSeq) return; // 已有更新的同步，本次结果作废
     await HomeWidgetSync.push(
       song: song,
       playing: playing,
-      coverPath: await _widgetCoverPath(song),
+      coverPath: coverPath,
     );
   }
 
@@ -62,7 +68,9 @@ class AppAudioHandler extends BaseAudioHandler {
     if (song == null) return null;
     final local = song.localCoverPath;
     if (local != null && localFs.fileExists(local)) return local;
-    final key = song.albumId.hashCode;
+    // 键含服务器身份：fnOS/Plex 等数字 albumId 跨服同值，缓存不能互串
+    final key = '${_ref.read(activeServerIdProvider)}|${song.albumId}';
+    final fileKey = key.hashCode;
     final cached = _widgetCoverCache[key];
     if (cached != null && localFs.fileExists(cached)) return cached;
     final failedAt = _coverFailedAt[key];
@@ -70,11 +78,11 @@ class AppAudioHandler extends BaseAudioHandler {
         DateTime.now().difference(failedAt) < _coverRetryWindow) {
       return null;
     }
-    return _coverInFlight[key] ??= _fetchWidgetCover(song, key)
+    return _coverInFlight[key] ??= _fetchWidgetCover(song, key, fileKey)
         .whenComplete(() => _coverInFlight.remove(key));
   }
 
-  Future<String?> _fetchWidgetCover(Song song, int key) async {
+  Future<String?> _fetchWidgetCover(Song song, String key, int fileKey) async {
     try {
       final bytes = await _ref
           .read(serverAdapterProvider)
@@ -83,7 +91,7 @@ class AppAudioHandler extends BaseAudioHandler {
         _coverFailedAt[key] = DateTime.now();
         return null;
       }
-      final path = await localFs.writeTempFile('widget_cover_$key.png', bytes);
+      final path = await localFs.writeTempFile('widget_cover_$fileKey.png', bytes);
       if (path == null) {
         _coverFailedAt[key] = DateTime.now();
         return null;
@@ -149,6 +157,20 @@ class AppAudioHandler extends BaseAudioHandler {
     final song = _ref
         .read(queueProvider)
         .where((s) => s.id == mediaItem.id)
+        .firstOrNull;
+    if (song != null) await _ref.read(playerActionsProvider).play(song);
+  }
+
+  /// 车机常用路径：按媒体 id 播放（Android Auto 语音/推荐位走这里而非
+  /// playMediaItem，缺失会导致「能浏览不能点播」）
+  @override
+  Future<void> playFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    final song = _ref
+        .read(queueProvider)
+        .where((s) => s.id == mediaId)
         .firstOrNull;
     if (song != null) await _ref.read(playerActionsProvider).play(song);
   }

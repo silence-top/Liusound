@@ -46,7 +46,9 @@ class _BottomArea extends ConsumerWidget {
         ),
         child: Container(
           color: barTint,
-          padding: const EdgeInsets.only(bottom: 12),
+          // 底部留白：SafeArea 吸掉系统导航条后仍再垫一档，
+          // 控制行不贴屏幕下缘
+          padding: const EdgeInsets.only(bottom: 24),
           child: Material(
             type: MaterialType.transparency,
             child: Column(
