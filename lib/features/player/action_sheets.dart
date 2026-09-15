@@ -732,6 +732,7 @@ Future<void> downloadSongs(
       final path = await downloadSongFile(
         source: source,
         song: song,
+        serverId: ref.read(activeServerIdProvider),
         networkSettings: ref.read(networkSettingsProvider),
         onProgress: (received, size) {
           if (size <= 0) return;

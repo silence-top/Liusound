@@ -42,11 +42,12 @@ abstract class PlayerActionsBase {
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _fading = false; // 交叉淡化进行中（防重入）
   int _resumePositionMs = 0; // 冷启动待恢复进度（首播时一次性消费）
+  // 首播前待 seek 的恢复进度：play() 装源完成后、起播前消费，
+  // 避免「先从 0 播一段、暂停后才跳断点」（just_audio play() 完成语义所致）
+  int _pendingResumeMs = 0;
   int _playGeneration = 0; // 播放代数：连点切歌时旧加载流程作废，避免竞争
   bool _disposed = false; // provider 已销毁（订阅/Timer 已清理）
-  // 冷启动恢复/断点续播的自动 seek 期间置位：跳过 play() 内部的长音频断点
-  // 恢复，避免两个异步 seek 竞争最终落点
-  bool _suppressResumeLongTrack = false;
+  bool _wasPlaying = false; // playingStream 真转假判定（首帧不视为暂停）
   DateTime? _lastPositionPersistAt; // 播放中进度持久化节流
   final _random = Random();
 
@@ -124,21 +125,12 @@ class PlayerActions extends PlayerActionsBase
     // READY 之后才允许恢复后自动播放（用户显式开启的 auto_play 行为保持不变）
     if (_ref.read(autoPlayProvider.notifier).state) {
       final song = _ref.read(currentSongProvider);
-      final resumeMs = _resumePositionMs;
-      _resumePositionMs = 0;
       if (song != null && _adapter != null) {
-        // 进度由下方 seek 恢复：跳过 play() 内部的长音频断点 seek，避免双 seek 竞态
-        _suppressResumeLongTrack = true;
-        try {
-          await play(song);
-        } finally {
-          _suppressResumeLongTrack = false;
-        }
-        if (resumeMs > 0) {
-          try {
-            await _player.seek(Duration(milliseconds: resumeMs));
-          } catch (_) {}
-        }
+        // 进度由 play() 在装源后、起播前 seek 恢复（_pendingResumeMs），
+        // 不经过长音频断点恢复，也不等待 play() 的「暂停/播完」完成语义
+        _pendingResumeMs = _resumePositionMs;
+        _resumePositionMs = 0;
+        await play(song);
       }
     }
   }
@@ -166,8 +158,12 @@ class PlayerActions extends PlayerActionsBase
     );
     _subs.add(
       player.playingStream.listen((playing) {
-        // 暂停瞬间（手动/音频焦点/定时停止）立即落盘进度
-        if (!playing && _restored) _tickPausePersist();
+        // 仅「真转假」视为暂停瞬间落盘。playingStream 是种子流：绑定瞬间
+        // 就会吐出当前值 false——那是冷启动的初始态不是暂停，若落盘会把
+        // 尚未加载音源的零进度写回，覆盖掉保存的断点
+        final wasPlaying = _wasPlaying;
+        _wasPlaying = playing;
+        if (!playing && wasPlaying && _restored) _tickPausePersist();
       }),
     );
   }
@@ -183,22 +179,10 @@ class PlayerActions extends PlayerActionsBase
         player.processingState == ProcessingState.idle) {
       final song = _ref.read(currentSongProvider);
       if (song != null && _adapter != null) {
-        final resumeMs = _resumePositionMs;
+        // 与冷启动自动播放同理：进度由 play() 在起播前 seek 恢复
+        _pendingResumeMs = _resumePositionMs;
         _resumePositionMs = 0;
-        // 与冷启动自动播放同理：进度由下方 seek 恢复，跳过长音频断点恢复
-        _suppressResumeLongTrack = true;
-        try {
-          await play(song);
-        } finally {
-          _suppressResumeLongTrack = false;
-        }
-        try {
-          if (resumeMs > 0) {
-            await player.seek(Duration(milliseconds: resumeMs));
-          }
-        } catch (_) {
-          // 流加载失败时 seek 会抛错，静默保持可重试
-        }
+        await play(song);
         return;
       }
     }
@@ -395,13 +379,19 @@ class PlayerActions extends PlayerActionsBase
 
   void clearQueue() => _ref.read(queueProvider.notifier).clear();
 
-  /// 登出等场景：清空播放器与持久化状态（对齐 1.x 清 PLAYER_STATE）
+  /// 登出/切服等场景：清空播放器与持久化状态（对齐 1.x 清 PLAYER_STATE）
   Future<void> stop() async {
+    // 先使在途播放请求失效：旧 resolve/play 晚到不得再装源出声
+    // （否则清空的队列之后还会响起旧服务器的歌）
+    _playGeneration++;
+    _pendingResumeMs = 0;
     _ref.read(fmActiveProvider.notifier).state = false;
     _persistDebounce?.cancel();
     _resumePositionMs = 0;
-    await _player.stop();
+    // 先清当前歌再停播放器：暂停落盘监听看到 currentSong == null 会跳过，
+    // 避免把零进度写回、与下面的 prefs.remove 竞争复活已删状态
     _ref.read(currentSongProvider.notifier).state = null;
+    await _player.stop();
     _ref.read(queueProvider.notifier).clear();
     try {
       final prefs = await SharedPreferences.getInstance();

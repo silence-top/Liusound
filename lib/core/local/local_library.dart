@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
+import '../api/adapter_provider.dart' show activeServerIdProvider;
 import '../models/models.dart';
 import '../platform/isolate_runner.dart';
 import '../storage/app_db.dart';
@@ -27,7 +28,8 @@ String? localSongPath(Song song) =>
     song.id.startsWith(localSongIdPrefix) ? song.path : null;
 
 /// 下载产物命名标记（download_service：`歌手 - 标题--<16位指纹>.<ext>`，
-/// 指纹为 sha256(songId) 前 16 位十六进制）：下载落盘目录（Android 公共
+/// 指纹为 sha256(serverId|songId) 前 16 位十六进制，历史下载为
+/// sha256(songId)）：下载落盘目录（Android 公共
 /// Music/流声、Windows 音乐库\流声）与本地扫描目录重叠，按文件名标记排除，
 /// 避免同一首歌既作为服务器歌曲离线副本、又以 local: 身份重复入库。
 /// 用户自放文件几乎不会匹配该模式，误伤概率可忽略。
@@ -54,12 +56,16 @@ DateTime? _lastScanFinishedAt;
 /// 身份保持服务器 id——列表点播经 player_source_resolver 自动命中离线文件，
 /// 收藏/评分/歌词等继续命中服务器歌曲，与扫描的 local: 歌曲天然不重。
 /// payload 为空的历史下载（旧版本所下）无法还原元数据，跳过。
-Future<List<Song>> loadDownloadedSongs() async {
+/// 只展示归属当前服务器（或无归属的历史行）的下载：跨服同 id 歌曲的
+/// 离线文件不互通，展示他服条目会造成「能看不能离线播」。
+Future<List<Song>> loadDownloadedSongs(String serverId) async {
   try {
     final db = await AppDb.instance();
     final rows = await db.query(
       'download_index',
       columns: ['payload'],
+      where: "server_id = ? OR server_id = ''",
+      whereArgs: [serverId],
       orderBy: 'created_at DESC',
     );
     final raws = <String>[];
@@ -100,6 +106,7 @@ List<Song> _decodeDownloadedPayloads(List<String> raws) {
 final localSongsProvider = FutureProvider<List<Song>>((ref) async {
   ref.watch(localScanVersionProvider);
   ref.watch(downloadIndexVersionProvider);
+  final serverId = ref.watch(activeServerIdProvider);
   final cached = await loadLocalSongsCache();
   final List<Song> local;
   if (cached != null && cached.isNotEmpty) {
@@ -109,7 +116,7 @@ final localSongsProvider = FutureProvider<List<Song>>((ref) async {
     local = await scanLocalLibrary();
     _lastScanFinishedAt = DateTime.now();
   }
-  final downloaded = await loadDownloadedSongs();
+  final downloaded = await loadDownloadedSongs(serverId);
   return [...local, ...downloaded];
 });
 

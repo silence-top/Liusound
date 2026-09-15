@@ -56,8 +56,9 @@ mixin PlayerCrossfade on PlayerActionsBase, PlayerSourceResolver {
       // 淡出已到 0：play() 内的 _applyReplayGain 因 _fading 跳过，
       // 音量保持 0 从头淡入（否则新曲起播瞬间会以满音量爆音）
       await _player.setVolume(0);
-      await play(next);
-      final fadeGen = _playGeneration;
+      // 认领本次 play() 创建的代数：若装源期间用户手动切歌产生了更新代数，
+      // play() 返回值就是过期代数——放弃淡化并恢复音量
+      final fadeGen = await play(next);
       final target = _replayGainTargetVolume(next);
       for (var i = 1; i <= steps; i++) {
         await Future<void>.delayed(const Duration(milliseconds: stepMs));

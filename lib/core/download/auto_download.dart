@@ -42,7 +42,7 @@ class AutoDownload {
           break;
         }
         if (!read(cacheSettingsProvider).autoDownload) break;
-        if (await findDownloadedSong(song) != null) continue;
+        if (await findDownloadedSong(song, serverId) != null) continue;
         try {
           final source = await adapter.resolveDownload(song);
           await downloadSongFile(

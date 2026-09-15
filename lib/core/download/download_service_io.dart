@@ -46,7 +46,8 @@ Future<String> downloadSongFile({
   );
   // 代理/自签证书/hosts 映射对下载同样生效（否则网络设置形同虚设）
   NetworkRuntime.configureDio(dio, networkSettings);
-  final fingerprint = _songFingerprint(song.id);
+  // 指纹含 serverId：不同服务器的同名数字 id（fnOS/Plex）不得共用一个文件
+  final fingerprint = _songFingerprint(serverId, song.id);
   // 按源文件真实容器命名（FLAC/M4A 等），无 suffix 时回退 mp3
   final suffix = song.suffix?.trim().toLowerCase() ?? '';
   final ext = suffix.isEmpty ? 'mp3' : suffix;
@@ -127,41 +128,61 @@ String _safeName(String name) =>
 
 /// 反查歌曲的本地离线文件，未下载返回 null。
 ///
-/// 优先走 download_index 索引（O(1) 查询）；索引命中但文件已丢失时
-/// 懒修复（删除失效记录）；索引未命中回退目录指纹扫描一次并回填索引
-/// （覆盖本版本之前下载的历史文件）。
-Future<String?> findDownloadedSong(Song song) async {
-  final fingerprint = _songFingerprint(song.id);
+/// 优先走 download_index 索引（O(1) 查询）：先查本服务器新指纹，未命中
+/// 再查旧版指纹（升级前的历史下载），命中且归属可确认时把旧记录迁移到
+/// 新指纹（文件名不变，无需重下）。索引命中但文件已丢失时懒修复（删除
+/// 失效记录）；索引未命中回退目录指纹扫描一次并回填索引。
+Future<String?> findDownloadedSong(Song song, String serverId) async {
+  final fingerprint = _songFingerprint(serverId, song.id);
+  final legacy = _legacySongFingerprint(song.id);
+  Database? db;
   try {
-    final db = await AppDb.instance();
-    final rows = await db.query(
-      'download_index',
-      where: 'fingerprint = ?',
-      whereArgs: [fingerprint],
-      limit: 1,
-    );
-    if (rows.isNotEmpty) {
-      final path = rows.first['path'] as String;
-      if (await File(path).exists()) {
-        try {
-          await db.update(
-            'download_index',
-            {'last_accessed_at': DateTime.now().millisecondsSinceEpoch},
-            where: 'fingerprint = ?',
-            whereArgs: [fingerprint],
-          );
-        } catch (_) {}
-        return path;
+    db = await AppDb.instance();
+  } catch (_) {}
+  if (db != null) {
+    try {
+      for (final fp in [fingerprint, legacy]) {
+        final rows = await db.query(
+          'download_index',
+          where: 'fingerprint = ?',
+          whereArgs: [fp],
+          limit: 1,
+        );
+        if (rows.isEmpty) continue;
+        final row = rows.first;
+        final path = row['path'] as String;
+        // 旧记录须归属本服务器（或无归属）才可复用：另一服务器的同名 id
+        // 记录不能跨服共用，保持未下载语义（目录扫描兜底会再校验一次）
+        final rowServer = (row['server_id'] as String?) ?? '';
+        if (fp == legacy && rowServer.isNotEmpty && rowServer != serverId) {
+          break;
+        }
+        if (await File(path).exists()) {
+          try {
+            await db.update(
+              'download_index',
+              {
+                // 旧记录迁移：指纹改写为新值并补归属
+                if (fp == legacy) 'fingerprint': fingerprint,
+                if (fp == legacy) 'server_id': serverId,
+                'last_accessed_at': DateTime.now().millisecondsSinceEpoch,
+              },
+              where: 'fingerprint = ?',
+              whereArgs: [fp],
+            );
+          } catch (_) {}
+          return path;
+        }
+        // 索引有记录但文件不存在：懒修复，删除失效记录
+        await db.delete(
+          'download_index',
+          where: 'fingerprint = ?',
+          whereArgs: [fp],
+        );
       }
-      // 索引有记录但文件不存在：懒修复，删除失效记录
-      await db.delete(
-        'download_index',
-        where: 'fingerprint = ?',
-        whereArgs: [fingerprint],
-      );
+    } catch (_) {
+      // 索引查询异常继续走目录兜底
     }
-  } catch (_) {
-    // 索引查询异常继续走目录兜底
   }
 
   // 兜底：历史下载无索引记录，按指纹扫描 Music 目录并回填索引
@@ -170,27 +191,59 @@ Future<String?> findDownloadedSong(Song song) async {
     final musicDir = Directory(p.join(docs.path, 'Music'));
     if (!await musicDir.exists()) return null;
     final marker = '--$fingerprint.';
+    final legacyMarker = '--$legacy.';
     await for (final entry in musicDir.list()) {
       if (entry is! File) continue;
       final name = entry.uri.pathSegments.last;
       // .tmp 是中断残留的半截文件，绝不能当作有效下载回填索引
       if (name.endsWith('.tmp')) continue;
-      if (name.contains(marker)) {
-        try {
-          final db = await AppDb.instance();
-          final now = DateTime.now().millisecondsSinceEpoch;
-          await db.insert('download_index', {
-            'server_id': '',
-            'song_id': song.id,
-            'fingerprint': fingerprint,
-            'path': entry.path,
-            'size': await entry.length(),
-            'created_at': now,
-            'last_accessed_at': now,
-          }, conflictAlgorithm: ConflictAlgorithm.replace);
-        } catch (_) {}
-        return entry.path;
+      final isLegacy = !name.contains(marker) && name.contains(legacyMarker);
+      if (!name.contains(marker) && !isLegacy) continue;
+      // 旧文件认领须过归属校验：已有记录且归属其他服务器时不得跨服共用
+      // （索引不可用时保持旧行为：认领）
+      if (isLegacy &&
+          db != null &&
+          !await _legacyAdoptable(db, song.id, serverId)) {
+        continue;
       }
+      try {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final data = {
+          'server_id': serverId,
+          'song_id': song.id,
+          'fingerprint': fingerprint,
+          'path': entry.path,
+          'size': await entry.length(),
+          'created_at': now,
+          'last_accessed_at': now,
+        };
+        // 旧文件认领：若存在归属合法的旧记录则就地迁移，否则新登记
+        final existing = (isLegacy && db != null)
+            ? await db.query(
+                'download_index',
+                where: 'fingerprint = ?',
+                whereArgs: [legacy],
+                limit: 1,
+              )
+            : const <Map<String, Object?>>[];
+        if (db != null) {
+          if (existing.isNotEmpty) {
+            await db.update(
+              'download_index',
+              data,
+              where: 'fingerprint = ?',
+              whereArgs: [legacy],
+            );
+          } else {
+            await db.insert(
+              'download_index',
+              data,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+      } catch (_) {}
+      return entry.path;
     }
   } catch (_) {
     // 目录不可读等情况按「未下载」处理
@@ -198,7 +251,30 @@ Future<String?> findDownloadedSong(Song song) async {
   return null;
 }
 
-String _songFingerprint(String songId) =>
+/// 旧版指纹文件可否认领：无记录（最早期下载）或记录归属本服务器/无归属
+/// 才可认领；已归属其他服务器（同数字 id 不同服）的文件不可跨服共用。
+/// 索引不可用时保持旧行为（认领）
+Future<bool> _legacyAdoptable(Database db, String songId, String serverId) async {
+  try {
+    final rows = await db.query(
+      'download_index',
+      where: 'fingerprint = ?',
+      whereArgs: [_legacySongFingerprint(songId)],
+      limit: 1,
+    );
+    if (rows.isEmpty) return true;
+    final server = (rows.first['server_id'] as String?) ?? '';
+    return server.isEmpty || server == serverId;
+  } catch (_) {
+    return true;
+  }
+}
+
+String _songFingerprint(String serverId, String songId) =>
+    sha256.convert(utf8.encode('$serverId|$songId')).toString().substring(0, 16);
+
+/// 旧版指纹（仅 songId，不含服务器）：用于升级前历史下载/记录的迁移识别
+String _legacySongFingerprint(String songId) =>
     sha256.convert(utf8.encode(songId)).toString().substring(0, 16);
 
 /// 清理下载中断残留的 .tmp 半截文件（进程被杀/断电时 dio 来不及删除）。

@@ -21,6 +21,16 @@ class FmController {
 
   static const _batchSize = 20;
 
+  /// 队列身份签名：List 是引用相等，跨 async 间隙比对必须用字符串形态。
+  /// 抽歌是两次网络请求，期间队列/当前曲可能被用户操作改写
+  String _queueSignature() {
+    final queue = _ref.read(queueProvider);
+    return '${queue.length}|'
+        '${queue.isEmpty ? '' : queue.first.id}|'
+        '${queue.isEmpty ? '' : queue.last.id}|'
+        '${_ref.read(currentSongProvider)?.id ?? ''}';
+  }
+
   /// 抽一批歌：两轮随机（第一轮严格排除近 7 天听过，第二轮放宽只去重），
   /// 曲库很小时保证仍有歌可播
   Future<List<Song>> _draw() async {
@@ -56,8 +66,16 @@ class FmController {
     if (_ref.read(fmLoadingProvider)) return false;
     _ref.read(fmLoadingProvider.notifier).state = true;
     try {
+      final serverId = _ref.read(activeServerIdProvider);
+      final queueSig = _queueSignature();
       final batch = await _draw();
-      if (batch.isEmpty) return false;
+      // 抽歌期间切服务器/换队列会使本次会话作废：旧批量若照常 replaceQueue，
+      // 会把旧服务器的歌倒进新服务器的队列
+      if (batch.isEmpty ||
+          _ref.read(activeServerIdProvider) != serverId ||
+          _queueSignature() != queueSig) {
+        return false;
+      }
       final actions = _ref.read(playerActionsProvider);
       actions.replaceQueue(batch);
       // replaceQueue 会清除 FM 激活态（曲库整表播放语义），这里重新置位
@@ -83,10 +101,18 @@ class FmController {
           ? -1
           : queue.indexWhere((s) => s.id == current.id);
       if (queue.length - index - 1 > 3) return;
+      final serverId = _ref.read(activeServerIdProvider);
+      final queueSig = _queueSignature();
       final batch = await _draw();
-      if (batch.isNotEmpty) {
-        _ref.read(queueProvider.notifier).add(batch);
+      // 抽歌是网络请求：期间退出 FM/切服务器/换队列后旧批量不得再追加，
+      // 否则旧服务器的歌会混进新环境的队尾
+      if (batch.isEmpty ||
+          !_ref.read(fmActiveProvider) ||
+          _ref.read(activeServerIdProvider) != serverId ||
+          _queueSignature() != queueSig) {
+        return;
       }
+      _ref.read(queueProvider.notifier).add(batch);
     } finally {
       _refilling = false;
     }

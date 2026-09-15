@@ -42,6 +42,9 @@ mixin PlayerPersistence on PlayerActionsBase {
   void _tickPositionPersist(Duration pos) {
     if (!_restored || _disposed) return;
     if (_ref.read(currentSongProvider) == null) return;
+    // positionStream 是种子流：绑定瞬间吐出 Duration.zero，音源未就绪时也报零。
+    // 此时落盘会把零进度写回，覆盖长音频断点与冷启动恢复进度
+    if (pos <= Duration.zero) return;
     final now = DateTime.now();
     final last = _lastPositionPersistAt;
     if (last != null && now.difference(last) < _positionPersistInterval) {
