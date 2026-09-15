@@ -2,6 +2,40 @@
 
 产品版本号以 `pubspec.yaml` 的 `version` 为唯一事实来源。变更按主题分节，架构侧详情见 `FEATURES.md`（§13 Invariants / §14 Anti-Patterns / §15 P1 整改补充）。
 
+## 2026-09-14 — 全量优化：播放正确性 × 性能 × 打磨
+
+### 播放链路正确性
+
+- **播放进度持久化补齐**：此前进度只在状态变化时防抖采样，整曲播放期间零写入，进程被杀（后台回收/断电）后续播回开头——现在 positionStream 驱动 20s 墙钟节流落盘 + 暂停瞬间立即落盘，被杀最多回退 20 秒；恢复链路补 `_restoring/_restored/_disposed` 三态守卫，autoplay 恢复路径消除「先播歌头再 seek 断点」的双 seek 竞态（`_suppressResumeLongTrack` 窗口）
+- **交叉淡入淡出修复**：淡出循环补 暂停/切歌 中断保护（`_playGeneration` 比对 + `_fading` 防重入），淡入期间 `_applyReplayGain` 不再抢夺音量（由淡入循环托管终值，终值用 ReplayGain 目标音量），交叉淡入的音量爬升不再跳变
+- **FM 状态生命周期**：`replaceQueue`（曲库整表播放语义）与 `stop()` 现在会清 `fmActiveProvider`，杜绝「从 FM 播过任意列表后 FM 标记残留」；FM 补批从页面级监听上移为全局 `FmRefillService`（监听 currentSongProvider），切歌自动补批不再依赖 FM 页面存活；补批加在途防重
+- **播放页专辑取色封面带鉴权头**：album_tint 的网络封面此前不带 headers，fnOS/MediaBrowser 下 401 导致取色失败退灰——补齐 `cover.headers`
+- **重登并发去重**：fnOS / AudioStation 的 `_relogin()` 加 in-flight 去重，多请求同时 401 时只触发一次重登，避免登录接口被并发打爆
+
+### 下载与存储
+
+- **下载 tmp 残留三重治理**：目录兜底扫描跳过 `.tmp` 半截文件（此前会被指纹标记误匹配当成本地歌曲）；MediaStore 公共目录保存成功后删除应用内 tmp 副本（Android 公共目录写入是拷贝语义，不再双份占空间）；启动时清理超 1 小时的孤儿 `.tmp`
+- **下载快照解码进 isolate**：`loadDownloadedSongs` 逐行 jsonDecode 在大库下累计卡顿主 isolate，总 payload 超 256KB 整批移入后台 isolate（保留单行损坏跳过语义）
+- **自动下载批量刷新**：批量预取「我喜欢」不再逐首 bump `downloadIndexVersionProvider`（每 bump 一次本地音乐列表全量重读），收尾统一 bump 一次
+
+### 列表与刷新性能
+
+- **搜索页结果虚拟化**：bare 模式下 艺人/专辑/歌曲 三个分区从 Column 全量构建改为 SliverList.builder 惰性构建；搜索框清除按钮与结果区改为局部订阅，输入关键词时页面骨架零重建
+- **详情页排序/过滤记忆化**：detail_screen 的 sort/filter 在入参未变时复用上次结果，滚动中每次 build 不再重复排序上千首
+- **本地封面按需解码**：CoverArt 本地内嵌封面用 ResizeImage 解到「目标尺寸 × DPR」，大图封面列表滚动不再解码全尺寸 bitmap
+- **播放缓存上限检查节流**：AudioCache.enforceLimit 同容量参数 5 分钟内不重复全库扫描
+- **歌单封面 keepAlive**：`playlistCoverIdsProvider` 改 keepAlive 并监听 `activeServerIdProvider`，首页切 Tab 返回零网络等待、切服自动失效重取
+- **fnOS 搜索并行**：歌曲/专辑/艺人三路搜索由顺序 await 改为并行发起
+- **迷你播放条歌词刷新**：`_MiniTextBlock` 在 lyrics 内容变化（如后台补词完成）时也重新解析，不只依赖切歌
+- **队列电平条局部化**：播放/暂停不再整表重建队列 Sheet，仅当前行的 `_CurrentEqualizer` 订阅播放态
+
+### 其他修复与打磨
+
+- **Scrobble 补发防重入**：启动补发与网络恢复触发可能并发，加 `_flushing` 守卫避免同记录重复上报
+- **曲库快照失败不再立即二次全量**：快照拉取失败且无旧快照时直接抛错进入错误态（下拉刷新可重试），弱网下不再加倍等待；有旧快照仍优先退回快照
+- **Subsonic 全库快照语义修复**：`SongSort.title` 全量快照从 `getRandomSongs`（随机子集且每次不同，离线浏览内容漂移）改为 `search3` 空查询分页拉全库（500/页）；服务器不支持空查询时退回随机子集旧行为
+- **MarqueeText 测量缓存**：TextPainter 测量按 文本/样式/行数/宽度 缓存，卡片重 build 零测量开销；单行文本一次不限宽布局同时导出溢出判断与滚动距离
+
 ## 2026-09-13 — 修复 Navidrome 歌单无法播放
 
 - **歌单曲目 id 映射修复**：Navidrome 原生接口 `/api/playlist/{id}/tracks` 返回条目的 `id` 是歌单内序号（"1"、"2"…），真实歌曲 id 在 `mediaFileId` —— 旧逻辑直接用条目 id 拼流地址（`/rest/stream?id=1`）必然失败，表现为「其他列表都能放，只有歌单播放失败」；现优先取 `mediaFileId`，同时顺带修复从歌单来源的歌曲「添加到歌单 / 从歌单移除」（这两个接口同样期望真实歌曲 id）

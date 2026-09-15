@@ -61,10 +61,19 @@ class CoverArt extends ConsumerWidget {
     // 时每个 item build 都会触发，同步 I/O 阻塞 UI 线程）
     final coverImage = localCover == null ? null : localFileImage(localCover!);
     if (coverImage != null) {
+      final dpr = MediaQuery.devicePixelRatioOf(context).round();
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: Image(
-          image: coverImage,
+          // 内嵌封面常 1400²+：按显示尺寸×DPR 限解码，44px 列表槽位
+          // 不再全尺寸解码（与网络分支 memCacheWidth 同策略）
+          image: ResizeImage(
+            coverImage,
+            width: (size * dpr).round(),
+            height: (size * dpr).round(),
+            policy: ResizeImagePolicy.exact,
+            allowUpscaling: false,
+          ),
           width: size,
           height: size,
           fit: BoxFit.cover,

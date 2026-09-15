@@ -43,6 +43,11 @@ abstract class PlayerActionsBase {
   bool _fading = false; // 交叉淡化进行中（防重入）
   int _resumePositionMs = 0; // 冷启动待恢复进度（首播时一次性消费）
   int _playGeneration = 0; // 播放代数：连点切歌时旧加载流程作废，避免竞争
+  bool _disposed = false; // provider 已销毁（订阅/Timer 已清理）
+  // 冷启动恢复/断点续播的自动 seek 期间置位：跳过 play() 内部的长音频断点
+  // 恢复，避免两个异步 seek 竞争最终落点
+  bool _suppressResumeLongTrack = false;
+  DateTime? _lastPositionPersistAt; // 播放中进度持久化节流
   final _random = Random();
 
   /// 长音频断点阈值（>10min 的曲目单独记进度，有声书/长录音续播用）
@@ -88,6 +93,14 @@ class PlayerActions extends PlayerActionsBase
       _syncShuffleOrder(queue);
       _schedulePersist();
     });
+    _ref.onDispose(() {
+      _disposed = true;
+      _persistDebounce?.cancel();
+      for (final s in _subs) {
+        s.cancel();
+      }
+      _subs.clear();
+    });
     unawaited(_initialize());
   }
 
@@ -96,7 +109,7 @@ class PlayerActions extends PlayerActionsBase
   /// READY 之前禁止自动播放 / crossfade / 自动切歌；
   /// 恢复失败安全降级到空队列，不允许无限 restore loop
   Future<void> _initialize() async {
-    if (_restoring || _restored) return;
+    if (_restoring || _restored || _disposed) return;
     _restoring = true;
     try {
       await _restore();
@@ -114,7 +127,13 @@ class PlayerActions extends PlayerActionsBase
       final resumeMs = _resumePositionMs;
       _resumePositionMs = 0;
       if (song != null && _adapter != null) {
-        await play(song);
+        // 进度由下方 seek 恢复：跳过 play() 内部的长音频断点 seek，避免双 seek 竞态
+        _suppressResumeLongTrack = true;
+        try {
+          await play(song);
+        } finally {
+          _suppressResumeLongTrack = false;
+        }
         if (resumeMs > 0) {
           try {
             await _player.seek(Duration(milliseconds: resumeMs));
@@ -135,10 +154,22 @@ class PlayerActions extends PlayerActionsBase
           .where((s) => s == ProcessingState.completed)
           .listen((_) {
             if (!_restored) return; // READY 之前不自动切歌
+            if (_fading) return; // 交叉淡化由 _runCrossfade 推进，避免双重切歌
             unawaited(playNext());
           }),
     );
-    _subs.add(player.positionStream.listen(_tickCrossfade));
+    _subs.add(
+      player.positionStream.listen((pos) {
+        _tickCrossfade(pos);
+        _tickPositionPersist(pos);
+      }),
+    );
+    _subs.add(
+      player.playingStream.listen((playing) {
+        // 暂停瞬间（手动/音频焦点/定时停止）立即落盘进度
+        if (!playing && _restored) _tickPausePersist();
+      }),
+    );
   }
 
   /// 播放/暂停切换；冷启动恢复后的首播会先加载流并跳到上次进度
@@ -154,7 +185,13 @@ class PlayerActions extends PlayerActionsBase
       if (song != null && _adapter != null) {
         final resumeMs = _resumePositionMs;
         _resumePositionMs = 0;
-        await play(song);
+        // 与冷启动自动播放同理：进度由下方 seek 恢复，跳过长音频断点恢复
+        _suppressResumeLongTrack = true;
+        try {
+          await play(song);
+        } finally {
+          _suppressResumeLongTrack = false;
+        }
         try {
           if (resumeMs > 0) {
             await player.seek(Duration(milliseconds: resumeMs));
@@ -343,8 +380,11 @@ class PlayerActions extends PlayerActionsBase
   void playNextInQueue(List<Song> songs) =>
       _ref.read(queueProvider.notifier).insertAfterCurrent(songs);
 
-  void replaceQueue(List<Song> songs) =>
-      _ref.read(queueProvider.notifier).replaceAll(songs);
+  void replaceQueue(List<Song> songs) {
+    // 曲库/歌单整表播放退出 FM 漫游（FM start 在 replaceQueue 后重新置位）
+    _ref.read(fmActiveProvider.notifier).state = false;
+    _ref.read(queueProvider.notifier).replaceAll(songs);
+  }
 
   void removeFromQueue(String songId) =>
       _ref.read(queueProvider.notifier).remove(songId);
@@ -357,6 +397,7 @@ class PlayerActions extends PlayerActionsBase
 
   /// 登出等场景：清空播放器与持久化状态（对齐 1.x 清 PLAYER_STATE）
   Future<void> stop() async {
+    _ref.read(fmActiveProvider.notifier).state = false;
     _persistDebounce?.cancel();
     _resumePositionMs = 0;
     await _player.stop();

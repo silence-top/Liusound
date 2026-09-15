@@ -34,13 +34,14 @@ class AutoDownload {
         return;
       }
       final serverId = read(activeServerIdProvider);
+      var downloadedCount = 0;
       for (final song in liked) {
         // 循环中重读当前服务器：切换服务器后旧流程必须中止，
         // 否则会把旧服务器的歌曲下到新服务器的归属里
         if (read(activeServerIdProvider) != serverId) {
-          return;
+          break;
         }
-        if (!read(cacheSettingsProvider).autoDownload) return;
+        if (!read(cacheSettingsProvider).autoDownload) break;
         if (await findDownloadedSong(song) != null) continue;
         try {
           final source = await adapter.resolveDownload(song);
@@ -50,11 +51,15 @@ class AutoDownload {
             serverId: serverId,
             networkSettings: read(networkSettingsProvider),
           );
-          // 下载完成即时刷新「本地音乐」合并展示
-          read(downloadIndexVersionProvider.notifier).state++;
+          downloadedCount++;
         } catch (_) {
           continue; // 单曲失败继续下一首
         }
+      }
+      // 批量刷新「本地音乐」合并展示：逐首 bump 会让 localSongsProvider
+      // 在批量下载期间连续全量重读（扫描 + 数据库），收尾统一 bump 一次即可
+      if (downloadedCount > 0) {
+        read(downloadIndexVersionProvider.notifier).state += downloadedCount;
       }
       // 下载库（Music/）不参与播放缓存 LRU：Cache 与 Download 完全分离，
       // 容量治理由设置页下载管理负责，这里不再触发 AudioCache.enforceLimit

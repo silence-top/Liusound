@@ -62,20 +62,34 @@ Future<List<Song>> loadDownloadedSongs() async {
       columns: ['payload'],
       orderBy: 'created_at DESC',
     );
-    final songs = <Song>[];
+    final raws = <String>[];
+    var totalSize = 0;
     for (final row in rows) {
       final raw = row['payload'] as String?;
       if (raw == null || raw.isEmpty) continue;
-      try {
-        songs.add(Song.fromJson(jsonDecode(raw) as Map<String, dynamic>));
-      } catch (_) {
-        // 单条快照损坏跳过，不影响其余
-      }
+      raws.add(raw);
+      totalSize += raw.length;
     }
-    return songs;
+    // 库大时逐行 jsonDecode 的累计开销可观，整批丢进 isolate
+    if (totalSize > _snapshotIsolateThreshold) {
+      return await runInIsolate(() => _decodeDownloadedPayloads(raws));
+    }
+    return _decodeDownloadedPayloads(raws);
   } catch (_) {
     return const [];
   }
+}
+
+List<Song> _decodeDownloadedPayloads(List<String> raws) {
+  final songs = <Song>[];
+  for (final raw in raws) {
+    try {
+      songs.add(Song.fromJson(jsonDecode(raw) as Map<String, dynamic>));
+    } catch (_) {
+      // 单条快照损坏跳过，不影响其余
+    }
+  }
+  return songs;
 }
 
 /// 本地音乐列表（资料库「本地音乐」入口）：

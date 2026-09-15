@@ -511,7 +511,16 @@ class AudioStationAdapter with SecretsUpdatable implements ServerAdapter {
     await _relogin();
   }
 
-  Future<void> _relogin() async {
+  Future<void>? _reloginInFlight;
+
+  /// 并发去重：SID 失效时多个并发请求同时命中 105-107，只发一次重登
+  Future<void> _relogin() {
+    return _reloginInFlight ??= _doRelogin().whenComplete(() {
+      _reloginInFlight = null;
+    });
+  }
+
+  Future<void> _doRelogin() async {
     if (_password.isEmpty) throw AuthError('无密码，无法重新登录');
     final res = await _dio.get<Map<String, dynamic>>(
       '/webapi/auth.cgi',

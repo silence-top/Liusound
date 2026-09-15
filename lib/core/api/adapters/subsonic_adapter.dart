@@ -157,12 +157,44 @@ class SubsonicAdapter extends SubsonicProtocolAdapter {
         query.sort == SongSort.mostPlayed) {
       return const [];
     }
+    // 全量快照（sort=title）走 search3 空查询分页：getRandomSongs 只能返回
+    // 随机子集且每次不同，曲库快照会变成漂移样本，离线浏览内容不可复现
+    if (query.sort == SongSort.title) return _fetchAllSongs(query.limit);
     final data = await _api('getRandomSongs', {'size': '${query.limit}'});
     final list = data['randomSongs']?['song'] as List<dynamic>?;
     return (list ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(_toSong)
         .toList();
+  }
+
+  /// search3 空查询分页拉全库歌曲（曲库快照用）
+  Future<List<Song>> _fetchAllSongs(int limit) async {
+    const pageSize = 500;
+    final songs = <Song>[];
+    var offset = 0;
+    while (songs.length < limit) {
+      final data = await _api('search3', {
+        'query': '',
+        'songCount': '$pageSize',
+        'songOffset': '$offset',
+        'artistCount': '0',
+        'albumCount': '0',
+      });
+      final list = data['searchResult3']?['song'] as List<dynamic>?;
+      final page = (list ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(_toSong)
+          .toList();
+      songs.addAll(page);
+      // 首页即空：部分服务器不支持空 query 全量枚举，退回随机子集（旧行为）
+      if (offset == 0 && page.isEmpty) {
+        return fetchSongs(SongQuery(sort: SongSort.random, limit: limit));
+      }
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+    return songs;
   }
 
   @override

@@ -3,13 +3,18 @@ part of 'player_actions.dart';
 /// 播放状态持久化（P1-Persistence）：对标 1.x——队列前 100 + 当前歌 + 模式 + 进度，
 /// 500ms 防抖聚合写回；恢复过程中不回写
 mixin PlayerPersistence on PlayerActionsBase {
+  /// 播放中进度持久化间隔：positionStream 驱动节流落盘，进程被杀时最多
+  /// 回退该间隔（此前仅状态变化时采样，整曲播放期间零写入，续播回开头）
+  static const _positionPersistInterval = Duration(seconds: 20);
+
   void _schedulePersist() {
-    if (!_restored) return; // 恢复过程中不回写
+    if (!_restored || _disposed) return; // 恢复过程中不回写
     _persistDebounce?.cancel();
     _persistDebounce = Timer(const Duration(milliseconds: 500), _persistNow);
   }
 
   Future<void> _persistNow() async {
+    if (_disposed) return;
     try {
       final payload = <String, dynamic>{
         'queue': _ref
@@ -31,5 +36,26 @@ mixin PlayerPersistence on PlayerActionsBase {
     } catch (_) {
       // 持久化失败静默（存储异常不应影响播放）
     }
+  }
+
+  /// positionStream 节流落盘：播放中每 [_positionPersistInterval] 写一次进度
+  void _tickPositionPersist(Duration pos) {
+    if (!_restored || _disposed) return;
+    if (_ref.read(currentSongProvider) == null) return;
+    final now = DateTime.now();
+    final last = _lastPositionPersistAt;
+    if (last != null && now.difference(last) < _positionPersistInterval) {
+      return;
+    }
+    _lastPositionPersistAt = now;
+    unawaited(_persistNow());
+  }
+
+  /// 暂停瞬间立即落盘（playingStream 由真转假触发）
+  void _tickPausePersist() {
+    if (_disposed) return;
+    if (_ref.read(currentSongProvider) == null) return;
+    _lastPositionPersistAt = DateTime.now();
+    unawaited(_persistNow());
   }
 }

@@ -68,6 +68,7 @@ abstract final class LibrarySync {
     final adapter = read(serverAdapterProvider)!;
     if (!adapter.capabilities.versionedSnapshot) return fetch();
     String? cachedPayload;
+    var fetched = false;
     try {
       final serverId = read(activeServerIdProvider);
       final db = await AppDb.instance();
@@ -94,6 +95,7 @@ abstract final class LibrarySync {
           (current == null || current == cachedVersion)) {
         return await _decodePayload(decode, cachedPayload);
       }
+      fetched = true;
       final fresh = await fetch();
       await db.insert('library_snapshot', {
         'server_key': serverId,
@@ -109,6 +111,9 @@ abstract final class LibrarySync {
           return await _decodePayload(decode, cachedPayload);
         } catch (_) {}
       }
+      // fetch 已失败过一次就不再立即重试：弱网下第二次全量请求只会加倍等待，
+      // 直接抛出让调用方进入错误态，由下拉刷新/下次进入重试
+      if (fetched) rethrow;
       return fetch();
     }
   }

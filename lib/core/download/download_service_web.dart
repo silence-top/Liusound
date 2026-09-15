@@ -68,3 +68,6 @@ String _safeName(String name) =>
     name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
 
 Future<String?> findDownloadedSong(Song song) async => null;
+
+/// web 无本地文件系统，无 .tmp 残留（io 端启动清理用）
+Future<void> cleanupOrphanTmpFiles() async {}

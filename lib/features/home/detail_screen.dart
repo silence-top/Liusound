@@ -211,6 +211,34 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
   bool _filterExpanded = false;
   final TextEditingController _filterController = TextEditingController();
 
+  /// 排序/过滤结果记忆化：build 每帧都会走到，列表实例与偏好/关键词未变时
+  /// 不再重复全表拼音排序 + 过滤（数千首时 O(n log n) 每次输入都卡顿）
+  List<Song>? _sortedCache;
+  List<Song>? _sortedCacheSource;
+  SongSortPref? _sortedCachePref;
+  List<Song>? _filteredCache;
+  List<Song>? _filteredCacheSource;
+  String _filteredCacheQuery = '';
+
+  List<Song> _sortedOf(List<Song> all, SongSortPref? pref) {
+    if (!identical(all, _sortedCacheSource) || pref != _sortedCachePref) {
+      _sortedCache = sortSongs(all, pref);
+      _sortedCacheSource = all;
+      _sortedCachePref = pref;
+    }
+    return _sortedCache!;
+  }
+
+  List<Song> _filteredOf(List<Song> sorted, String query) {
+    if (!identical(sorted, _filteredCacheSource) ||
+        query != _filteredCacheQuery) {
+      _filteredCache = _filterSongs(sorted, query);
+      _filteredCacheSource = sorted;
+      _filteredCacheQuery = query;
+    }
+    return _filteredCache!;
+  }
+
   @override
   void dispose() {
     _filterController.dispose();
@@ -260,8 +288,8 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
       async = null;
     }
     final all = paged?.songs ?? async?.value ?? const <Song>[];
-    final sorted = sortSongs(all, ref.watch(songSortPrefProvider));
-    final songs = _filterSongs(sorted, _search);
+    final sorted = _sortedOf(all, ref.watch(songSortPrefProvider));
+    final songs = _filteredOf(sorted, _search);
     final canRate =
         widget.rateTargetId != null &&
         (ref.watch(serverAdapterProvider)?.capabilities.ratings ?? false);

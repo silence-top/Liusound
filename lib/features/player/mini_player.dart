@@ -313,7 +313,10 @@ class _MiniTextBlockState extends ConsumerState<_MiniTextBlock> {
   @override
   void didUpdateWidget(_MiniTextBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.song.id != oldWidget.song.id) {
+    // 播放时按需回填歌词会用同 id 新实例替换当前歌（player_source_resolver
+    // _backfillLyrics）：只比 id 会漏掉歌词到位后的重新解析
+    if (widget.song.id != oldWidget.song.id ||
+        widget.song.lyrics != oldWidget.song.lyrics) {
       _parse();
     }
   }

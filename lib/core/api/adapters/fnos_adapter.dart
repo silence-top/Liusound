@@ -181,7 +181,17 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
 
   Map<String, String> get _headers => {'Cookie': 'music-token=$_token'};
 
-  Future<void> _relogin() async {
+  Future<void>? _reloginInFlight;
+
+  /// 并发去重：token 失效时几十个并发请求同时命中 99999，只发一次重登，
+  /// 其余共享同一 in-flight（对齐 MediaBrowser/Plex 的 QueuedInterceptor 串行化）
+  Future<void> _relogin() {
+    return _reloginInFlight ??= _doRelogin().whenComplete(() {
+      _reloginInFlight = null;
+    });
+  }
+
+  Future<void> _doRelogin() async {
     if (_password.isEmpty) throw AuthError('无密码，无法重新登录');
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/v1/user/password-login',
@@ -402,10 +412,15 @@ class FnOsAdapter with SecretsUpdatable implements ServerAdapter {
 
   @override
   Future<SearchResult> search(String query) async {
-    final songs = await _searchTracks(query);
-    final albums = await _searchAlbums(query);
-    final artists = await _searchArtists(query);
-    return SearchResult(songs: songs, albums: albums, artists: artists);
+    // 三个独立端点并行拉取（先全部发起再等待），串行会把搜索延迟放大三倍
+    final songsF = _searchTracks(query);
+    final albumsF = _searchAlbums(query);
+    final artistsF = _searchArtists(query);
+    return SearchResult(
+      songs: await songsF,
+      albums: await albumsF,
+      artists: await artistsF,
+    );
   }
 
   Future<List<Song>> _searchTracks(String q) async {

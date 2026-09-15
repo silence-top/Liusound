@@ -88,17 +88,22 @@ class ScrobbleService {
   /// 单条记录最大重试次数；超过后从 pending 队列移除，避免永久阻塞后续记录
   static const _maxRetries = 5;
 
+  bool _flushing = false;
+
   /// 指数退避补发：只处理 next_retry_at 到期的记录，成功即删行；
   /// 失败按 1/2/4/8/16 分钟退避，单条不可恢复记录不得阻塞整条队列
   Future<void> _flush() async {
-    final adapter = _read(serverAdapterProvider);
-    final serverId = _read(activeServerIdProvider);
-    if (adapter == null ||
-        serverId.isEmpty ||
-        !adapter.capabilities.scrobbling) {
-      return;
-    }
+    // 防重入：启动补发与网络恢复触发可能并发，两轮都读到同一批待上报行会重复 scrobble
+    if (_flushing) return;
+    _flushing = true;
     try {
+      final adapter = _read(serverAdapterProvider);
+      final serverId = _read(activeServerIdProvider);
+      if (adapter == null ||
+          serverId.isEmpty ||
+          !adapter.capabilities.scrobbling) {
+        return;
+      }
       final db = await AppDb.instance();
       final now = DateTime.now().millisecondsSinceEpoch;
       final rows = await db.query(
@@ -124,7 +129,10 @@ class ScrobbleService {
           return; // 网络/服务端异常：本轮停止
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _flushing = false;
+    }
   }
 
   Future<void> _markFailed(

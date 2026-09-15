@@ -85,6 +85,11 @@ Future<String> downloadSongFile({
   );
   if (saved != null) {
     finalPath = saved;
+    // Android MediaStore 实现是 copy 而非 move：成功后删除私有目录残缺副本，
+    // 否则同一首歌存两份（桌面/iOS 实现为 move，delete 不命中、无副作用）
+    try {
+      await tmp.delete();
+    } catch (_) {}
   } else {
     // 公共目录不可用/失败，原子提交到私有目录：rename 覆盖旧文件
     // （Windows 上 rename 不能覆盖已存在目标）
@@ -167,7 +172,10 @@ Future<String?> findDownloadedSong(Song song) async {
     final marker = '--$fingerprint.';
     await for (final entry in musicDir.list()) {
       if (entry is! File) continue;
-      if (entry.uri.pathSegments.last.contains(marker)) {
+      final name = entry.uri.pathSegments.last;
+      // .tmp 是中断残留的半截文件，绝不能当作有效下载回填索引
+      if (name.endsWith('.tmp')) continue;
+      if (name.contains(marker)) {
         try {
           final db = await AppDb.instance();
           final now = DateTime.now().millisecondsSinceEpoch;
@@ -192,3 +200,26 @@ Future<String?> findDownloadedSong(Song song) async {
 
 String _songFingerprint(String songId) =>
     sha256.convert(utf8.encode(songId)).toString().substring(0, 16);
+
+/// 清理下载中断残留的 .tmp 半截文件（进程被杀/断电时 dio 来不及删除）。
+/// 残留文件的指纹标记会被目录兜底扫描和本地音乐扫描误匹配，启动时统一清掉
+Future<void> cleanupOrphanTmpFiles() async {
+  try {
+    final docs = await getApplicationDocumentsDirectory();
+    final musicDir = Directory(p.join(docs.path, 'Music'));
+    if (!await musicDir.exists()) return;
+    await for (final entry in musicDir.list()) {
+      if (entry is! File) continue;
+      if (!entry.uri.pathSegments.last.endsWith('.tmp')) continue;
+      try {
+        // 只清超过 1 小时的残留：正在进行的下载不会误伤
+        final mtime = (await entry.stat()).modified;
+        if (DateTime.now().difference(mtime) > const Duration(hours: 1)) {
+          await entry.delete();
+        }
+      } catch (_) {}
+    }
+  } catch (_) {
+    // 清理失败不影响主流程
+  }
+}

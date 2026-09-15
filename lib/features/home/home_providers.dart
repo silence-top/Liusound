@@ -83,20 +83,25 @@ final playlistSongsProvider = FutureProvider.autoDispose
       return adapter.fetchPlaylistSongs(playlistId);
     });
 
-/// 歌单拼贴封面：前 4 首歌的去重专辑 id（资料库歌单行 2×2 封面用）；autoDispose 同上
-final playlistCoverIdsProvider = FutureProvider.autoDispose
-    .family<List<String>, String>((ref, playlistId) async {
-      final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return [];
-      final songs = await adapter.fetchPlaylistSongs(playlistId);
-      final ids = <String>[];
-      for (final s in songs) {
-        if (ids.contains(s.albumId)) continue;
-        ids.add(s.albumId);
-        if (ids.length == 4) break;
-      }
-      return ids;
-    });
+/// 歌单拼贴封面：前 4 首歌的去重专辑 id（资料库歌单行 2×2 封面用）。
+/// 会话级缓存（非 autoDispose）：每次进资料库都要为每个歌单拉一次全量
+/// 曲目只为取 4 个专辑 id，重复进入不再重发；watch 服务器 id，切服即失效
+final playlistCoverIdsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  playlistId,
+) async {
+  ref.watch(activeServerIdProvider);
+  final adapter = ref.watch(serverAdapterProvider);
+  if (adapter == null) return [];
+  final songs = await adapter.fetchPlaylistSongs(playlistId);
+  final ids = <String>[];
+  for (final s in songs) {
+    if (ids.contains(s.albumId)) continue;
+    ids.add(s.albumId);
+    if (ids.length == 4) break;
+  }
+  return ids;
+});
 
 /// 曲库歌曲总数（负一屏服务器卡片展示）
 final songTotalProvider = FutureProvider<int>((ref) async {

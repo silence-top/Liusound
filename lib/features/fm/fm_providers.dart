@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/adapter_provider.dart'
@@ -58,6 +60,8 @@ class FmController {
       if (batch.isEmpty) return false;
       final actions = _ref.read(playerActionsProvider);
       actions.replaceQueue(batch);
+      // replaceQueue 会清除 FM 激活态（曲库整表播放语义），这里重新置位
+      _ref.read(fmActiveProvider.notifier).state = true;
       await actions.play(batch.first);
       return true;
     } finally {
@@ -65,17 +69,26 @@ class FmController {
     }
   }
 
-  /// 队列剩余不足时（当前曲之后 ≤3 首）补一批到队尾
+  bool _refilling = false;
+
+  /// 队列剩余不足时（当前曲之后 ≤3 首）补一批到队尾；
+  /// in-flight 守卫防并发切歌时重复补两批
   Future<void> refillIfNeeded() async {
-    final queue = _ref.read(queueProvider);
-    final current = _ref.read(currentSongProvider);
-    final index = current == null
-        ? -1
-        : queue.indexWhere((s) => s.id == current.id);
-    if (queue.length - index - 1 > 3) return;
-    final batch = await _draw();
-    if (batch.isNotEmpty) {
-      _ref.read(queueProvider.notifier).add(batch);
+    if (_refilling) return;
+    _refilling = true;
+    try {
+      final queue = _ref.read(queueProvider);
+      final current = _ref.read(currentSongProvider);
+      final index = current == null
+          ? -1
+          : queue.indexWhere((s) => s.id == current.id);
+      if (queue.length - index - 1 > 3) return;
+      final batch = await _draw();
+      if (batch.isNotEmpty) {
+        _ref.read(queueProvider.notifier).add(batch);
+      }
+    } finally {
+      _refilling = false;
     }
   }
 
@@ -104,3 +117,25 @@ class FmController {
 }
 
 final fmControllerProvider = Provider<FmController>((ref) => FmController(ref));
+
+/// FM 队列余量守卫：随 App 存活，FM 激活期间切歌自动补批——
+/// 此前只挂在 FM 页的 ref.listen 上，离开页面后队列耗尽漫游即停
+class FmRefillService {
+  FmRefillService(this._ref) {
+    _sub = _ref.listen<Song?>(currentSongProvider, (_, _) {
+      if (!_ref.read(fmActiveProvider)) return;
+      unawaited(_ref.read(fmControllerProvider).refillIfNeeded());
+    });
+  }
+
+  final Ref _ref;
+  late final ProviderSubscription<Song?> _sub;
+
+  void dispose() => _sub.close();
+}
+
+final fmRefillServiceProvider = Provider<FmRefillService>((ref) {
+  final service = FmRefillService(ref);
+  ref.onDispose(service.dispose);
+  return service;
+});

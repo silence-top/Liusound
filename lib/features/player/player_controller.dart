@@ -126,6 +126,10 @@ final loopPlaybackProvider = StateProvider<bool>((ref) => true);
 /// 启动后自动播放（恢复上次队列与进度并直接播放）
 final autoPlayProvider = StateProvider<bool>((ref) => false);
 
+/// 私人 FM 漫游中：FM start 置位、曲库整表播放（replaceQueue）与 stop 清除，
+/// 全局补批服务据此决定是否在队列将尽时自动补歌
+final fmActiveProvider = StateProvider<bool>((ref) => false);
+
 /// 交叉淡入淡出时长（秒，0=关闭，上限 10；持久化）
 class CrossfadeSecondsNotifier extends Notifier<int> {
   static const _key = 'crossfade_seconds';

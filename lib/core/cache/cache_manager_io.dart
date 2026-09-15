@@ -40,10 +40,23 @@ abstract final class AudioCache {
     }
   }
 
-  /// 超限 LRU 清理：按最后修改时间从旧到新删除文件直到低于限额
+  static DateTime? _lastEnforceAt;
+  static int? _lastEnforceLimitBytes;
+
+  /// 超限 LRU 清理：按最后修改时间从旧到新删除文件直到低于限额。
+  /// 每次切歌都会被播放器调用（一次播放两连调），全目录递归 + 逐文件
+  /// stat 开销大——同限额 5 分钟内只跑一轮，限额变化立即生效
   static Future<void> enforceLimit(CacheLimit limit) async {
     final maxBytes = limit.bytes;
     if (maxBytes == null) return;
+    final now = DateTime.now();
+    if (maxBytes == _lastEnforceLimitBytes &&
+        _lastEnforceAt != null &&
+        now.difference(_lastEnforceAt!) < const Duration(minutes: 5)) {
+      return;
+    }
+    _lastEnforceAt = now;
+    _lastEnforceLimitBytes = maxBytes;
     try {
       final cacheDir = await dir();
       if (!await cacheDir.exists()) return;

@@ -20,7 +20,8 @@ final albumDominantColorProvider = FutureProvider.autoDispose
         final ImageSource? cover = adapter.coverImage(albumId, size: 64);
         if (cover == null) return null;
         final palette = await PaletteGenerator.fromImageProvider(
-          NetworkImage(cover.url),
+          // 带 header 鉴权的后端（fnOS/MediaBrowser 系）必须透传，否则 401 恒回退
+          NetworkImage(cover.url, headers: cover.headers),
           size: const Size(64, 64),
           maximumColorCount: 16,
         );

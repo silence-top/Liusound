@@ -69,7 +69,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final query = ref.watch(searchQueryProvider);
+    // query 不在整页 watch：结果区与清除按钮各自订阅，
+    // 输入防抖触发时不再重建搜索框胶囊与分段 Tab
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -117,16 +118,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     ),
                   ),
-                  if (query.isNotEmpty)
-                    IconButton(
-                      onPressed: _clear,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        Icons.cancel,
-                        size: 20,
-                        color: AppTheme.textDimOf(context),
-                      ),
-                    ),
+                  _ClearButton(onClear: _clear),
                 ],
               ),
             ),
@@ -135,7 +127,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onChanged: (t) => setState(() => _tab = t),
             ),
             Expanded(
-              child: _Results(query: query, tab: _tab),
+              child: _Results(tab: _tab),
             ),
           ],
         ),
@@ -144,15 +136,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
+/// 清除按钮：独立订阅 query，输入变化只重建此按钮
+class _ClearButton extends ConsumerWidget {
+  const _ClearButton({required this.onClear});
+
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(searchQueryProvider).isEmpty) return const SizedBox.shrink();
+    return IconButton(
+      onPressed: onClear,
+      visualDensity: VisualDensity.compact,
+      icon: Icon(
+        Icons.cancel,
+        size: 20,
+        color: AppTheme.textDimOf(context),
+      ),
+    );
+  }
+}
+
 /// 结果区：区分「未输入」/「无结果」/「有结果」三种状态
 class _Results extends ConsumerWidget {
-  const _Results({required this.query, required this.tab});
+  const _Results({required this.tab});
 
-  final String query;
   final _SearchTab tab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final query = ref.watch(searchQueryProvider);
     return ref
         .watch(searchResultProvider)
         .when(
@@ -326,58 +339,45 @@ class _ResultList extends ConsumerWidget {
           )
         : rows;
 
+    // 分区标题独立成 sliver；裸排模式（默认）行级 SliverList.builder 虚拟化，
+    // 一次只 build/layout 可视行——否则全部结果一次性塞进 SliverToBoxAdapter，
+    // 大结果集时整段 build+layout 阻塞；卡片模式保留单卡包裹的整体形态
+    List<Widget> section(String title, int count, Widget Function(int) row) {
+      final titleSliver = SliverToBoxAdapter(child: _SectionTitle(title));
+      if (cardsOn) {
+        return [
+          titleSliver,
+          SliverToBoxAdapter(
+            child: group(
+              Column(
+                children: [for (var i = 0; i < count; i++) row(i)],
+              ),
+            ),
+          ),
+        ];
+      }
+      return [
+        titleSliver,
+        SliverList.builder(itemCount: count, itemBuilder: (_, i) => row(i)),
+      ];
+    }
+
     return CustomScrollView(
       slivers: [
         if (artists.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const _SectionTitle('艺人'),
-                group(
-                  Column(
-                    children: [
-                      for (final artist in artists) _ArtistRow(artist: artist),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ...section('艺人', artists.length, (i) => _ArtistRow(artist: artists[i])),
         if (albums.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const _SectionTitle('专辑'),
-                group(
-                  Column(
-                    children: [
-                      for (final album in albums) _AlbumRowCard(album: album),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ...section('专辑', albums.length, (i) => _AlbumRowCard(album: albums[i])),
         if (results.songs.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const _SectionTitle('歌曲'),
-                group(
-                  Column(
-                    children: [
-                      for (var i = 0; i < results.songs.length; i++)
-                        FadeSlideIn(
-                          child: SongRow(
-                            song: results.songs[i],
-                            index: i,
-                            songs: results.songs,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+          ...section(
+            '歌曲',
+            results.songs.length,
+            (i) => FadeSlideIn(
+              child: SongRow(
+                song: results.songs[i],
+                index: i,
+                songs: results.songs,
+              ),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 96)),

@@ -55,7 +55,7 @@ mixin PlayerSourceResolver
       unawaited(
         AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
       );
-      unawaited(_resumeLongTrack(song));
+      if (!_suppressResumeLongTrack) unawaited(_resumeLongTrack(song));
     } catch (e) {
       _debugLog('play(${song.id}) quality=${quality.name} failed: $e');
       // 本次已是旧代数：新一轮播放正在跑，旧失败必须静默，
@@ -79,7 +79,7 @@ mixin PlayerSourceResolver
         unawaited(
           AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
         );
-        unawaited(_resumeLongTrack(song));
+        if (!_suppressResumeLongTrack) unawaited(_resumeLongTrack(song));
       } catch (fallbackError) {
         _debugLog('play(${song.id}) lossless fallback failed: $fallbackError');
         if (gen == _playGeneration) _notify('播放失败，请检查服务器连接');
@@ -132,7 +132,7 @@ mixin PlayerSourceResolver
       if (gen != _playGeneration) return;
       _applyReplayGain(song);
       await _player.play();
-      unawaited(_resumeLongTrack(song));
+      if (!_suppressResumeLongTrack) unawaited(_resumeLongTrack(song));
     } catch (_) {
       // 文件被移动/删除等场景给出提示，状态保持可重试
       if (gen == _playGeneration) _notify('本地文件播放失败：文件不可读');
@@ -140,32 +140,30 @@ mixin PlayerSourceResolver
   }
 
   /// ReplayGain 音量归一化：按当前模式选取 gain/peak，dB→线性后做峰值限制，
-  /// 关闭时恢复满音量。仅在歌曲携带了增益数据时生效
+  /// 关闭时恢复满音量。仅在歌曲携带了增益数据时生效。
+  /// 交叉淡化期间跳过：音量由 fade 循环托管，避免淡入被直接顶到目标值
   void _applyReplayGain(Song song) {
+    if (_fading) return;
+    unawaited(_player.setVolume(_replayGainTargetVolume(song)));
+  }
+
+  /// ReplayGain 目标音量（线性倍率，0–1）；无增益数据/关闭模式时为 1.0
+  double _replayGainTargetVolume(Song song) {
     final mode = _ref.read(replayGainModeProvider);
-    if (mode == ReplayGainMode.off) {
-      unawaited(_player.setVolume(1.0));
-      return;
-    }
+    if (mode == ReplayGainMode.off) return 1.0;
     final rg = song.replayGain;
-    if (rg == null) {
-      unawaited(_player.setVolume(1.0));
-      return;
-    }
+    if (rg == null) return 1.0;
     final gainDb = mode == ReplayGainMode.album
         ? (rg.albumGain ?? rg.trackGain)
         : (rg.trackGain ?? rg.albumGain);
     final peak = mode == ReplayGainMode.album
         ? (rg.albumPeak ?? rg.trackPeak)
         : (rg.trackPeak ?? rg.albumPeak);
-    if (gainDb == null) {
-      unawaited(_player.setVolume(1.0));
-      return;
-    }
+    if (gainDb == null) return 1.0;
     var multiplier = pow(10, gainDb / 20).toDouble();
     if (peak != null && peak > 0) {
       multiplier = min(multiplier, peak);
     }
-    unawaited(_player.setVolume(multiplier.clamp(0.0, 1.0)));
+    return min(max(multiplier, 0.0), 1.0);
   }
 }

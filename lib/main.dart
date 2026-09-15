@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
@@ -12,6 +14,7 @@ import 'core/api/server_adapter.dart';
 import 'core/audio/audio_effects.dart';
 import 'core/audio/audio_session.dart';
 import 'core/download/auto_download.dart';
+import 'core/download/download_service.dart';
 import 'core/floating/floating_lyrics.dart';
 import 'core/history/play_history.dart';
 import 'core/platform/display_mode.dart';
@@ -23,6 +26,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/settings_prefs.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/server_select_screen.dart';
+import 'features/fm/fm_providers.dart';
 import 'features/player/album_tint.dart';
 import 'features/player/audio_handler.dart';
 import 'features/player/player_controller.dart';
@@ -92,6 +96,8 @@ Future<void> main() async {
   // 音频焦点：音乐模式（播放时降低其他应用音量，避免混音）。
   // 平台不支持时（Windows/Linux/鸿蒙/Web）自动跳过
   await audioSession.configureAsMusic();
+  // 下载中断残留的 .tmp 半截文件启动清理（web 为 no-op）
+  unawaited(cleanupOrphanTmpFiles());
   runApp(
     UncontrolledProviderScope(container: container, child: const MusicApp()),
   );
@@ -107,6 +113,8 @@ class MusicApp extends ConsumerWidget {
     ref.watch(scrobbleServiceProvider);
     // 本地播放历史记录服务随 App 存活（听歌统计 / 私人 FM 去重）
     ref.watch(playHistoryServiceProvider);
+    // FM 队列余量守卫随 App 存活（FM 激活期间离开页面也能自动补批）
+    ref.watch(fmRefillServiceProvider);
     // 音效链随 App 存活：监听音频会话并在会话建立后挂载 EQ/低音/空间
     ref.watch(audioEffectsProvider);
     // 播放器内核随 App 存活：构造即触发冷启动恢复（上次队列/当前歌），

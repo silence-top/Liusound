@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,10 +18,7 @@ class FmScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
     final loading = ref.watch(fmLoadingProvider);
-    // 切歌后检查队列余量，将尽自动补一批
-    ref.listen(currentSongProvider, (_, _) {
-      unawaited(ref.read(fmControllerProvider).refillIfNeeded());
-    });
+    // 切歌补批由全局 FmRefillService 承担（离开页面也生效），本页不再挂 listen
     return AmbientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,

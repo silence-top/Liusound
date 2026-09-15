@@ -44,8 +44,6 @@ class _QueueSheet extends ConsumerWidget {
     final mode = ref.watch(playModeProvider);
     final tokens = SkinTokens.of(context);
     final primary = Theme.of(context).colorScheme.primary;
-    // 流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住
-    final playing = ref.watch(isPlayingProvider).value ?? true;
     // 弹层面板底色随当前歌曲封面主色（内容驱动取色）：与播放页同色系，
     // 毛玻璃但底色近实色（用户要求：试毛玻璃但不要透明）
     final panelDominant = current == null
@@ -188,7 +186,7 @@ class _QueueSheet extends ConsumerWidget {
                   itemBuilder: (_, i) {
                     final song = queue[i];
                     final isCurrent = current?.id == song.id;
-                    final row = _row(context, ref, song, i, isCurrent, playing);
+                    final row = _row(context, ref, song, i, isCurrent);
                     // key 必须留在 itemBuilder 返回的最外层，ReorderableListView 才认得
                     return Dismissible(
                       key: ValueKey(song.id),
@@ -238,7 +236,6 @@ class _QueueSheet extends ConsumerWidget {
     Song song,
     int index,
     bool isCurrent,
-    bool playing,
   ) {
     final tokens = SkinTokens.of(context);
     final primary = Theme.of(context).colorScheme.primary;
@@ -270,7 +267,7 @@ class _QueueSheet extends ConsumerWidget {
               child: isCurrent
                   ? Align(
                       alignment: Alignment.centerRight,
-                      child: _EqualizerBars(color: primary, playing: playing),
+                      child: _CurrentEqualizer(color: primary),
                     )
                   : Text(
                       '${index + 1}',
@@ -339,6 +336,20 @@ class _QueueSheet extends ConsumerWidget {
     ),
     child: const Icon(Icons.delete_outline, size: 22, color: AppTheme.heartRed),
   );
+}
+
+/// 当前行的电平条：独立订阅播放状态，播放/暂停切换不再整表重建队列列表
+/// （流还没吐第一个值时按「播放中」处理，避免刚打开队列电平条就僵住）
+class _CurrentEqualizer extends ConsumerWidget {
+  const _CurrentEqualizer({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playing = ref.watch(isPlayingProvider).value ?? true;
+    return _EqualizerBars(color: color, playing: playing);
+  }
 }
 
 /// 播放中电平条：三根竖条按不同相位做三角波起伏，暂停时冻结在低位。

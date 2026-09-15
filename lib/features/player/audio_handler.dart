@@ -42,6 +42,12 @@ class AppAudioHandler extends BaseAudioHandler {
   int _clickCount = 0;
   // 小部件封面缓存：albumId → 已落盘的封面文件路径（每首歌最多拉取一次）
   final Map<int, String> _widgetCoverCache = {};
+  // 并发去重：切歌时 _syncMediaItem 与 playingStream 会同时触发 _syncWidget，
+  // 共享同一个拉取 Future，避免同封面重复请求
+  final Map<int, Future<String?>> _coverInFlight = {};
+  // 失败负缓存：网络故障时 play/pause 每拍都会触发刷新，10 分钟内不重试
+  final Map<int, DateTime> _coverFailedAt = {};
+  static const _coverRetryWindow = Duration(minutes: 10);
 
   Future<void> _syncWidget(Song? song, bool playing) async {
     await HomeWidgetSync.push(
@@ -59,13 +65,34 @@ class AppAudioHandler extends BaseAudioHandler {
     final key = song.albumId.hashCode;
     final cached = _widgetCoverCache[key];
     if (cached != null && localFs.fileExists(cached)) return cached;
-    final bytes = await _ref
-        .read(serverAdapterProvider)
-        ?.fetchCoverBytes(song.albumId, size: 256);
-    if (bytes == null) return null;
-    final path = await localFs.writeTempFile('widget_cover_$key.png', bytes);
-    if (path == null) return null;
-    return _widgetCoverCache[key] = path;
+    final failedAt = _coverFailedAt[key];
+    if (failedAt != null &&
+        DateTime.now().difference(failedAt) < _coverRetryWindow) {
+      return null;
+    }
+    return _coverInFlight[key] ??= _fetchWidgetCover(song, key)
+        .whenComplete(() => _coverInFlight.remove(key));
+  }
+
+  Future<String?> _fetchWidgetCover(Song song, int key) async {
+    try {
+      final bytes = await _ref
+          .read(serverAdapterProvider)
+          ?.fetchCoverBytes(song.albumId, size: 256);
+      if (bytes == null) {
+        _coverFailedAt[key] = DateTime.now();
+        return null;
+      }
+      final path = await localFs.writeTempFile('widget_cover_$key.png', bytes);
+      if (path == null) {
+        _coverFailedAt[key] = DateTime.now();
+        return null;
+      }
+      return _widgetCoverCache[key] = path;
+    } catch (_) {
+      _coverFailedAt[key] = DateTime.now();
+      return null;
+    }
   }
 
   // ---------- 系统控制回调 → 全局播放器 ----------

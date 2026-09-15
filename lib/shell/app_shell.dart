@@ -113,7 +113,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 沉浸式顶部导航：透明无卡片，随 AmbientBackground 延伸进状态栏；
   /// 纯图标 + 激活项下划线指示条（对齐设计图首屏）
   Widget _buildTopBar() {
-    final topPadding = MediaQuery.of(context).padding.top;
+    final topPadding = MediaQuery.paddingOf(context).top;
     return Container(
       width: double.infinity,
       color: Colors.transparent,

@@ -30,29 +30,56 @@ class _MarqueeTextState extends State<MarqueeText>
   /// 最近一次布局测得的溢出距离，长按启动滚动时用来定时长
   double _distance = 0;
 
+  bool _overflow = false;
+
+  // 测量结果缓存：卡片重 build（文本/样式/宽度都没变）时零 TextPainter 开销
+  String? _cachedText;
+  TextStyle? _cachedStyle;
+  int? _cachedMaxLines;
+  double _cachedMaxWidth = -1;
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  bool _exceeds(double maxWidth) {
-    if (maxWidth <= 0 || !maxWidth.isFinite) return false;
-    final painter = TextPainter(
-      text: TextSpan(text: widget.text, style: widget.style),
-      maxLines: widget.maxLines,
-      textDirection: Directionality.of(context),
-    )..layout(maxWidth: maxWidth);
-    return painter.didExceedMaxLines;
-  }
-
-  double _singleLineWidth() {
+  /// 溢出判断（按 maxLines 是否截断）与滚动距离（单行全文宽 - 可用宽）。
+  /// 单行放得下时只需一次不限宽布局；两者语义不同，多行溢出时才需要第二次
+  /// 受限布局兜底判断。
+  void _measure(double maxWidth) {
+    if (widget.text == _cachedText &&
+        widget.style == _cachedStyle &&
+        widget.maxLines == _cachedMaxLines &&
+        maxWidth == _cachedMaxWidth) {
+      return;
+    }
+    _cachedText = widget.text;
+    _cachedStyle = widget.style;
+    _cachedMaxLines = widget.maxLines;
+    _cachedMaxWidth = maxWidth;
+    _overflow = false;
+    _distance = 0;
+    if (maxWidth <= 0 || !maxWidth.isFinite) return;
     final painter = TextPainter(
       text: TextSpan(text: widget.text, style: widget.style),
       maxLines: 1,
       textDirection: Directionality.of(context),
     )..layout();
-    return painter.width;
+    final singleWidth = painter.width;
+    if (singleWidth <= maxWidth) return;
+    if (widget.maxLines == 1) {
+      _overflow = true;
+      _distance = singleWidth - maxWidth;
+      return;
+    }
+    painter
+      ..maxLines = widget.maxLines
+      ..layout(maxWidth: maxWidth);
+    if (painter.didExceedMaxLines) {
+      _overflow = true;
+      _distance = singleWidth - maxWidth;
+    }
   }
 
   void _start() {
@@ -75,13 +102,8 @@ class _MarqueeTextState extends State<MarqueeText>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final overflow = _exceeds(constraints.maxWidth);
-        if (!overflow) {
-          _distance = 0;
-          return _clamped();
-        }
-        final overflowBy = _singleLineWidth() - constraints.maxWidth;
-        _distance = overflowBy > 0 ? overflowBy : 0;
+        _measure(constraints.maxWidth);
+        if (!_overflow) return _clamped();
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onLongPressStart: (_) => _start(),
