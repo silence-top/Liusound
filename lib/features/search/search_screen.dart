@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -27,6 +29,67 @@ final searchResultProvider = FutureProvider.autoDispose<SearchResult>((
   if (adapter == null) return const SearchResult();
   return adapter.search(query);
 });
+
+/// 搜索历史（应用级存活 + SharedPreferences 持久化，最多 15 条，去重置顶）。
+/// 只记录两类真实意图：键盘提交搜索、点击结果条目；防抖过程中的中间词不入史
+class SearchHistoryController extends Notifier<List<String>> {
+  static const _key = 'search.history.v1';
+  static const _max = 15;
+
+  @override
+  List<String> build() {
+    // 持久化读取推迟到 build 完成后（build 期同步改 state 会被 Riverpod 拒绝）；
+    // Notifier 与 App 同生命周期，异步回来直接赋值安全（对齐 SongSortController）
+    Future.microtask(() async {
+      final raw = (await SharedPreferences.getInstance()).getString(_key);
+      if (raw == null) return;
+      try {
+        final list = (jsonDecode(raw) as List).whereType<String>().toList();
+        state = list;
+      } catch (_) {
+        // 历史损坏视为无历史，不影响搜索
+      }
+    });
+    return const [];
+  }
+
+  void add(String query) {
+    final q = query.trim();
+    if (q.isEmpty) return;
+    final next = [q, ...state.where((e) => e != q)];
+    if (next.length > _max) next.removeRange(_max, next.length);
+    state = next;
+    unawaited(_persist(next));
+  }
+
+  void remove(String query) {
+    state = state.where((e) => e != query).toList();
+    unawaited(_persist(state));
+  }
+
+  void clear() {
+    state = const [];
+    unawaited(_persist(state));
+  }
+
+  Future<void> _persist(List<String> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (list.isEmpty) {
+        await prefs.remove(_key);
+      } else {
+        await prefs.setString(_key, jsonEncode(list));
+      }
+    } catch (_) {
+      // 持久化失败静默：内存历史已生效，下次成功写入再补
+    }
+  }
+}
+
+final searchHistoryProvider =
+    NotifierProvider<SearchHistoryController, List<String>>(
+      SearchHistoryController.new,
+    );
 
 /// 搜索页（对标 1.x SearchScreen）：
 /// 搜索框（可清除）→ 结果分区：艺人（前 3）→ 专辑（前 5）→ 歌曲。
@@ -67,6 +130,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(searchQueryProvider.notifier).state = '';
   }
 
+  /// 键盘提交：跳过防抖立即生效并记入历史（真实搜索意图）
+  void _submit(String text) {
+    _debounce?.cancel();
+    final q = text.trim();
+    if (q.isEmpty) return;
+    ref.read(searchQueryProvider.notifier).state = q;
+    ref.read(searchHistoryProvider.notifier).add(q);
+  }
+
+  /// 点搜索历史 chip：回填输入框 + 立即搜索 + 置顶该条历史
+  void _searchFromHistory(String q) {
+    _debounce?.cancel();
+    _controller.text = q;
+    ref.read(searchQueryProvider.notifier).state = q;
+    ref.read(searchHistoryProvider.notifier).add(q);
+  }
+
   @override
   Widget build(BuildContext context) {
     // query 不在整页 watch：结果区与清除按钮各自订阅，
@@ -95,6 +175,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: TextField(
                       controller: _controller,
                       onChanged: _onChanged,
+                      onSubmitted: _submit,
                       autocorrect: false,
                       textInputAction: TextInputAction.search,
                       style: TextStyle(
@@ -127,7 +208,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onChanged: (t) => setState(() => _tab = t),
             ),
             Expanded(
-              child: _Results(tab: _tab),
+              child: _Results(tab: _tab, onSearch: _searchFromHistory),
             ),
           ],
         ),
@@ -157,11 +238,14 @@ class _ClearButton extends ConsumerWidget {
   }
 }
 
-/// 结果区：区分「未输入」/「无结果」/「有结果」三种状态
+/// 结果区：区分「未输入（历史）」/「无结果」/「有结果」三种状态
 class _Results extends ConsumerWidget {
-  const _Results({required this.tab});
+  const _Results({required this.tab, required this.onSearch});
 
   final _SearchTab tab;
+
+  /// 空态点历史 chip 回填搜索（回调持有输入框控制器）
+  final ValueChanged<String> onSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -181,7 +265,9 @@ class _Results extends ConsumerWidget {
             ),
           ),
           data: (results) {
-            if (query.trim().isEmpty) return const SizedBox.shrink();
+            if (query.trim().isEmpty) {
+              return _HistoryView(onSearch: onSearch);
+            }
             if (results.isEmpty) {
               return Center(
                 child: Column(
@@ -204,7 +290,12 @@ class _Results extends ConsumerWidget {
                 ),
               );
             }
-            return _ResultList(results: results, tab: tab);
+            return _ResultList(
+              results: results,
+              tab: tab,
+              onRecord: () =>
+                  ref.read(searchHistoryProvider.notifier).add(query),
+            );
           },
         );
   }
@@ -282,10 +373,17 @@ class _SegmentTabs extends StatelessWidget {
 /// 结果列表：Tab 纯前端过滤 —— 全部视图艺人前 3 / 专辑前 5 / 歌曲全部，
 /// 单类 Tab 放开截断渲染对应组
 class _ResultList extends ConsumerWidget {
-  const _ResultList({required this.results, required this.tab});
+  const _ResultList({
+    required this.results,
+    required this.tab,
+    required this.onRecord,
+  });
 
   final SearchResult results;
   final _SearchTab tab;
+
+  /// 点击结果条目时记录搜索历史（在行内跳转/播放前执行）
+  final VoidCallback onRecord;
 
   static const _emptyText = {
     _SearchTab.all: '未找到相关内容',
@@ -365,9 +463,17 @@ class _ResultList extends ConsumerWidget {
     return CustomScrollView(
       slivers: [
         if (artists.isNotEmpty)
-          ...section('艺人', artists.length, (i) => _ArtistRow(artist: artists[i])),
+          ...section(
+            '艺人',
+            artists.length,
+            (i) => _ArtistRow(artist: artists[i], onRecord: onRecord),
+          ),
         if (albums.isNotEmpty)
-          ...section('专辑', albums.length, (i) => _AlbumRowCard(album: albums[i])),
+          ...section(
+            '专辑',
+            albums.length,
+            (i) => _AlbumRowCard(album: albums[i], onRecord: onRecord),
+          ),
         if (results.songs.isNotEmpty)
           ...section(
             '歌曲',
@@ -377,6 +483,7 @@ class _ResultList extends ConsumerWidget {
                 song: results.songs[i],
                 index: i,
                 songs: results.songs,
+                onResultTap: onRecord,
               ),
             ),
           ),
@@ -409,22 +516,26 @@ class _SectionTitle extends StatelessWidget {
 
 /// 艺人行：圆形封面 + 名称 + 「N 张专辑 · N 首」
 class _ArtistRow extends StatelessWidget {
-  const _ArtistRow({required this.artist});
+  const _ArtistRow({required this.artist, required this.onRecord});
 
   final Artist artist;
+  final VoidCallback onRecord;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        fadeRoute<void>(
-          SongListScreen(
-            title: artist.name,
-            pagedSongsProvider: artistSongsProvider(artist.id),
-            coverAlbumId: artist.id,
+      onTap: () {
+        onRecord();
+        Navigator.of(context).push(
+          fadeRoute<void>(
+            SongListScreen(
+              title: artist.name,
+              pagedSongsProvider: artistSongsProvider(artist.id),
+              coverAlbumId: artist.id,
+            ),
           ),
-        ),
-      ),
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -466,24 +577,28 @@ class _ArtistRow extends StatelessWidget {
 
 /// 专辑行：48 封面 + 名称 + 歌手
 class _AlbumRowCard extends StatelessWidget {
-  const _AlbumRowCard({required this.album});
+  const _AlbumRowCard({required this.album, required this.onRecord});
 
   final Album album;
+  final VoidCallback onRecord;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        fadeRoute<void>(
-          SongListScreen(
-            rateTargetId: album.id,
-            songsProvider: albumSongsProvider(album.id),
-            title: album.name,
-            subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-            rating: album.rating,
+      onTap: () {
+        onRecord();
+        Navigator.of(context).push(
+          fadeRoute<void>(
+            SongListScreen(
+              rateTargetId: album.id,
+              songsProvider: albumSongsProvider(album.id),
+              title: album.name,
+              subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+              rating: album.rating,
+            ),
           ),
-        ),
-      ),
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -514,6 +629,131 @@ class _AlbumRowCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 空态：搜索历史 chips（点按回填搜索 / 单条删除 / 一键清空），无历史给引导文案
+class _HistoryView extends ConsumerWidget {
+  const _HistoryView({required this.onSearch});
+
+  final ValueChanged<String> onSearch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(searchHistoryProvider);
+    if (history.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search, size: 48, color: AppTheme.textFaintOf(context)),
+            const SizedBox(height: 12),
+            Text(
+              '搜索音乐、专辑、艺人',
+              style: TextStyle(
+                color: AppTheme.textDimOf(context),
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 4, 0),
+            child: Row(
+              children: [
+                Text(
+                  '搜索历史',
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryOf(context),
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () =>
+                      ref.read(searchHistoryProvider.notifier).clear(),
+                  tooltip: '清空搜索历史',
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 22,
+                    color: AppTheme.textFaintOf(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final q in history)
+                  _HistoryChip(query: q, onSearch: onSearch),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+      ],
+    );
+  }
+}
+
+/// 历史词条：胶囊 chip，点按重新搜索；尾部 × 单条删除（命中区 32×32）
+class _HistoryChip extends ConsumerWidget {
+  const _HistoryChip({required this.query, required this.onSearch});
+
+  final String query;
+  final ValueChanged<String> onSearch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      borderRadius: const BorderRadius.all(Radius.circular(999)),
+      onTap: () => onSearch(query),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(14, 0, 4, 0),
+        decoration: BoxDecoration(
+          color: GlassTokens.tint(context),
+          borderRadius: const BorderRadius.all(Radius.circular(999)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              query,
+              style: TextStyle(
+                color: AppTheme.textPrimaryOf(context),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => ref.read(searchHistoryProvider.notifier).remove(query),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(
+                  Icons.close,
+                  size: 16,
+                  color: AppTheme.textFaintOf(context),
+                ),
               ),
             ),
           ],

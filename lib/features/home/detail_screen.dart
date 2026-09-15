@@ -1143,6 +1143,7 @@ class SongRow extends ConsumerWidget {
     this.selected,
     this.onToggleSelect,
     this.playlistId,
+    this.onResultTap,
   });
 
   final Song song;
@@ -1159,6 +1160,9 @@ class SongRow extends ConsumerWidget {
   /// 非 null 表示当前在歌单详情页，歌曲操作弹窗里会出现「从歌单移除」
   final String? playlistId;
 
+  /// 非 null：点击行播放前附带执行（搜索页记录搜索历史用），不影响默认播放
+  final VoidCallback? onResultTap;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selecting = onToggleSelect != null;
@@ -1167,6 +1171,7 @@ class SongRow extends ConsumerWidget {
       onTap: selecting
           ? onToggleSelect
           : () {
+              onResultTap?.call();
               final actions = ref.read(playerActionsProvider);
               if (identical(songs, const [])) return;
               actions.replaceQueue(songs);
