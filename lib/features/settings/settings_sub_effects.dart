@@ -18,7 +18,6 @@ class _EffectsSettingsPage extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
               foregroundColor: AppTheme.textPrimaryOf(context),
               title: const Text('音效设置'),
             ),

@@ -6,6 +6,7 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 
 /// 专辑封面主色取色（动态背景，对标 Spotify 沉浸式播放页）。
@@ -54,12 +55,12 @@ Color? albumFrostedTint(Color? dominant) => dominant == null
     ? null
     : Color.lerp(dominant, Colors.black, 0.55)!.withValues(alpha: 0.90);
 
-/// 播放页弹层毛玻璃面板（用户要求：试毛玻璃但不要透明）：
-/// 高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是模糊色斑，
-/// 背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色。
-/// [opaque]=true 时完全实色（去模糊层，反正也不可见）：歌曲上下文弹层
-/// （歌曲更多/添加到歌单）用——既然取了封面色就不要任何透明感。
-class AlbumFrostedPanel extends StatelessWidget {
+/// 播放页弹层毛玻璃面板：高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是
+/// 模糊色斑，背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色。
+/// 底色透明度统一乘全局「卡片透明度」系数（设置页滑杆联动，无组件私有硬编码）。
+/// [opaque]=true 时默认全实色（去模糊层，反正也不可见）：歌曲上下文弹层
+/// （歌曲更多/添加到歌单）用——滑杆降到 100% 以下时同样随之变透明。
+class AlbumFrostedPanel extends ConsumerWidget {
   const AlbumFrostedPanel({
     super.key,
     required this.dominant,
@@ -76,12 +77,16 @@ class AlbumFrostedPanel extends StatelessWidget {
   final bool opaque;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
     if (opaque) {
       return ClipRRect(
         borderRadius: borderRadius,
-        child: Container(color: base, padding: padding, child: child),
+        child: Container(
+          color: withGlassTintOpacity(ref, base),
+          padding: padding,
+          child: child,
+        ),
       );
     }
     return ClipRRect(
@@ -89,7 +94,10 @@ class AlbumFrostedPanel extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
         child: Container(
-          color: base.withValues(alpha: 0.90),
+          color: withGlassTintOpacity(
+            ref,
+            base.withValues(alpha: 0.90),
+          ),
           padding: padding,
           child: child,
         ),

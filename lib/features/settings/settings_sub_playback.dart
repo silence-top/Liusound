@@ -20,7 +20,6 @@ class _PlaybackSettingsPage extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
               foregroundColor: AppTheme.textPrimaryOf(context),
               title: const Text('播放设置'),
             ),

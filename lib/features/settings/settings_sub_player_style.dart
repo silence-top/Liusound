@@ -18,7 +18,6 @@ class _PlayerStyleSettingsPage extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
               foregroundColor: AppTheme.textPrimaryOf(context),
               title: const Text('播放器样式'),
             ),

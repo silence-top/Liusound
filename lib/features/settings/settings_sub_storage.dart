@@ -17,7 +17,6 @@ class _StorageSettingsPage extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 56,
-              backgroundColor: Colors.transparent,
               foregroundColor: AppTheme.textPrimaryOf(context),
               title: const Text('存储与缓存'),
             ),
