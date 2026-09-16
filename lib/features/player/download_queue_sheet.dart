@@ -15,7 +15,9 @@ Future<void> showDownloadQueueSheet(BuildContext context) {
     barrierColor: Colors.black38,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(GlassTokens.radiusSheet)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(GlassTokens.radiusSheet),
+      ),
     ),
     builder: (_) => const _DownloadQueueSheet(),
   );
@@ -117,9 +119,7 @@ class _TaskTile extends ConsumerWidget {
       DownloadTaskStatus.running => (
         Icons.downloading,
         primary,
-        task.total > 0
-            ? '${(task.progress! * 100).round()}%'
-            : '连接中…',
+        task.total > 0 ? '${(task.progress! * 100).round()}%' : '连接中…',
       ),
       DownloadTaskStatus.completed => (Icons.check_circle, primary, '已完成'),
       DownloadTaskStatus.failed => (
@@ -161,17 +161,15 @@ class _TaskTile extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: faint, fontSize: 12),
           ),
-          if (task.status == DownloadTaskStatus.running &&
-              task.total > 0) ...[
+          if (task.status == DownloadTaskStatus.running && task.total > 0) ...[
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
                 value: task.progress,
                 minHeight: 3,
-                backgroundColor: AppTheme.textPrimaryOf(
-                  context,
-                ).withValues(alpha: 0.12),
+                backgroundColor: AppTheme.textPrimaryOf(context)
+                    .withValues(alpha: 0.12),
                 color: primary,
               ),
             ),

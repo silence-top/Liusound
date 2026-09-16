@@ -94,10 +94,7 @@ class AlbumFrostedPanel extends ConsumerWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
         child: Container(
-          color: withGlassTintOpacity(
-            ref,
-            base.withValues(alpha: 0.90),
-          ),
+          color: withGlassTintOpacity(ref, base.withValues(alpha: 0.90)),
           padding: padding,
           child: child,
         ),

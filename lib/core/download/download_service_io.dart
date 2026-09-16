@@ -254,7 +254,11 @@ Future<String?> findDownloadedSong(Song song, String serverId) async {
 /// 旧版指纹文件可否认领：无记录（最早期下载）或记录归属本服务器/无归属
 /// 才可认领；已归属其他服务器（同数字 id 不同服）的文件不可跨服共用。
 /// 索引不可用时保持旧行为（认领）
-Future<bool> _legacyAdoptable(Database db, String songId, String serverId) async {
+Future<bool> _legacyAdoptable(
+  Database db,
+  String songId,
+  String serverId,
+) async {
   try {
     final rows = await db.query(
       'download_index',
@@ -270,8 +274,10 @@ Future<bool> _legacyAdoptable(Database db, String songId, String serverId) async
   }
 }
 
-String _songFingerprint(String serverId, String songId) =>
-    sha256.convert(utf8.encode('$serverId|$songId')).toString().substring(0, 16);
+String _songFingerprint(String serverId, String songId) => sha256
+    .convert(utf8.encode('$serverId|$songId'))
+    .toString()
+    .substring(0, 16);
 
 /// 旧版指纹（仅 songId，不含服务器）：用于升级前历史下载/记录的迁移识别
 String _legacySongFingerprint(String songId) =>

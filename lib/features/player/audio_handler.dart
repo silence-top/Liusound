@@ -78,8 +78,11 @@ class AppAudioHandler extends BaseAudioHandler {
         DateTime.now().difference(failedAt) < _coverRetryWindow) {
       return null;
     }
-    return _coverInFlight[key] ??= _fetchWidgetCover(song, key, fileKey)
-        .whenComplete(() => _coverInFlight.remove(key));
+    return _coverInFlight[key] ??= _fetchWidgetCover(
+      song,
+      key,
+      fileKey,
+    ).whenComplete(() => _coverInFlight.remove(key));
   }
 
   Future<String?> _fetchWidgetCover(Song song, String key, int fileKey) async {
@@ -91,7 +94,10 @@ class AppAudioHandler extends BaseAudioHandler {
         _coverFailedAt[key] = DateTime.now();
         return null;
       }
-      final path = await localFs.writeTempFile('widget_cover_$fileKey.png', bytes);
+      final path = await localFs.writeTempFile(
+        'widget_cover_$fileKey.png',
+        bytes,
+      );
       if (path == null) {
         _coverFailedAt[key] = DateTime.now();
         return null;

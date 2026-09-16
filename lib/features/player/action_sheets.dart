@@ -652,11 +652,7 @@ Future<void> downloadSongs(
     showToast('所选歌曲已在下载队列中');
     return;
   }
-  showToast(
-    added == 1
-        ? '已加入下载队列：${songs.first.title}'
-        : '已加入下载队列：$added 首歌曲',
-  );
+  showToast(added == 1 ? '已加入下载队列：${songs.first.title}' : '已加入下载队列：$added 首歌曲');
 }
 
 // ---------- 添加到歌单 ----------

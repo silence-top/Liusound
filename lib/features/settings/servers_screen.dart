@@ -9,6 +9,7 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/toast.dart';
 import '../../shared/widgets/motion.dart';
 import '../auth/auth_controller.dart';
+import '../auth/edit_server_screen.dart';
 import '../auth/login_screen.dart';
 
 class ServersScreen extends ConsumerWidget {
@@ -248,6 +249,16 @@ class _ServerCard extends ConsumerWidget {
                       ),
                     ),
                   const PopupMenuItem(
+                    value: _Action.edit,
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('编辑'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: _Action.test,
                     child: Row(
                       children: [
@@ -292,6 +303,10 @@ class _ServerCard extends ConsumerWidget {
     switch (action) {
       case _Action.switchTo:
         await _switchTo(ref);
+      case _Action.edit:
+        if (!context.mounted) return;
+        Navigator.of(context)
+            .push(fadeRoute<void>(EditServerScreen(config: config)));
       case _Action.test:
         await _testConnection(context, ref);
       case _Action.delete:
@@ -340,7 +355,7 @@ class _ServerCard extends ConsumerWidget {
   }
 }
 
-enum _Action { switchTo, test, delete }
+enum _Action { switchTo, edit, test, delete }
 
 class _ServerIcon extends StatelessWidget {
   const _ServerIcon({required this.type});

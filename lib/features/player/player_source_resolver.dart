@@ -98,9 +98,7 @@ mixin PlayerSourceResolver
     }
     _applyReplayGain(song);
     unawaited(_player.play());
-    unawaited(
-      AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit),
-    );
+    unawaited(AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit));
   }
 
   /// 静默 seek：流未就绪/加载中断导致的失败保持可重试，不向调用方抛出

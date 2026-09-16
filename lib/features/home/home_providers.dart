@@ -176,9 +176,7 @@ class RandomAlbumsController extends HomeSectionController<Album> {
 }
 
 /// 每日推荐：随机歌曲 50 首（对标 1.x dailyRecommendResponse）
-final dailySongsProvider = HomeSectionProvider<Song>(
-  DailySongsController.new,
-);
+final dailySongsProvider = HomeSectionProvider<Song>(DailySongsController.new);
 
 class DailySongsController extends HomeSectionController<Song> {
   @override

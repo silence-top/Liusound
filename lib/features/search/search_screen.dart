@@ -229,11 +229,7 @@ class _ClearButton extends ConsumerWidget {
     return IconButton(
       onPressed: onClear,
       visualDensity: VisualDensity.compact,
-      icon: Icon(
-        Icons.cancel,
-        size: 20,
-        color: AppTheme.textDimOf(context),
-      ),
+      icon: Icon(Icons.cancel, size: 20, color: AppTheme.textDimOf(context)),
     );
   }
 }
@@ -447,9 +443,7 @@ class _ResultList extends ConsumerWidget {
           titleSliver,
           SliverToBoxAdapter(
             child: group(
-              Column(
-                children: [for (var i = 0; i < count; i++) row(i)],
-              ),
+              Column(children: [for (var i = 0; i < count; i++) row(i)]),
             ),
           ),
         ];
@@ -745,7 +739,8 @@ class _HistoryChip extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
             GestureDetector(
-              onTap: () => ref.read(searchHistoryProvider.notifier).remove(query),
+              onTap: () =>
+                  ref.read(searchHistoryProvider.notifier).remove(query),
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.all(6),

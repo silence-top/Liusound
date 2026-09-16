@@ -127,6 +127,71 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(activeServerId: id, activeSecrets: secrets);
   }
 
+  /// 编辑表单预填用：读取该服务器存储的密码明文（登录/编辑时随 secrets 存了一份）
+  Future<String?> storedPassword(String id) async {
+    try {
+      return (await _repo.loadSecrets(id))['password'];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 编辑服务器（地址/端口/用户名/密码/备注名）：地址或凭证有变化时用新凭证
+  /// 完整走一次 signIn（成功拿到新鲜 secrets 一并持久化），失败抛出由 UI 提示、
+  /// 原配置不动；仅改备注名跳过网络直接保存。
+  /// 编辑当前激活服务器时 state 变更会重建 adapter，新地址/凭证即刻生效
+  Future<void> editServer({
+    required String id,
+    required String serverUrl,
+    required String username,
+    required String password,
+    String? name,
+  }) async {
+    final config = state.servers.cast<ServerConfig?>().firstWhere(
+      (s) => s?.id == id,
+      orElse: () => null,
+    );
+    if (config == null) return;
+    final url = normalizeServerUrl(serverUrl);
+    final stored = await _repo.loadSecrets(id);
+    final credentialsChanged =
+        url != config.serverUrl ||
+        username != config.username ||
+        password != (stored['password'] ?? '');
+    final newName = (name == null || name.trim().isEmpty)
+        ? config.name
+        : name.trim();
+    if (!credentialsChanged && newName == config.name) return;
+    var secrets = stored;
+    if (credentialsChanged) {
+      final result = await config.type.signIn(
+        AuthRequest(serverUrl: url, username: username, password: password),
+      );
+      secrets = {...result.secrets, 'password': password};
+    }
+    final updated = ServerConfig(
+      id: config.id,
+      type: config.type,
+      name: newName,
+      serverUrl: url,
+      username: username,
+      meta: config.meta,
+    );
+    final servers = state.servers.map((s) => s.id == id ? updated : s).toList();
+    await _repo.saveServers(servers);
+    if (credentialsChanged) {
+      await _repo.saveSecrets(id, secrets);
+    }
+    // copyWith 传 null = 保留原值：非激活服务器不动 activeSecrets；
+    // 激活服务器换凭证时传入新 secrets（adapter 随 state 重建即刻生效）
+    state = state.copyWith(
+      servers: servers,
+      activeSecrets: id == state.activeServerId && credentialsChanged
+          ? secrets
+          : null,
+    );
+  }
+
   /// 检测指定服务器，不能复用当前激活服务器的 adapter。
   Future<bool> validateServer(String id) async {
     final config = state.servers.cast<ServerConfig?>().firstWhere(
