@@ -33,15 +33,12 @@ class ArtistListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(title), backgroundColor: Colors.transparent),
-        body: _ArtistListBody(
-          async: async,
-          provider: provider,
-          openAlbums: openAlbums,
-        ),
+    return AmbientScaffold(
+      appBar: AppBar(title: Text(title)),
+      body: _ArtistListBody(
+        async: async,
+        provider: provider,
+        openAlbums: openAlbums,
       ),
     );
   }
@@ -464,15 +461,9 @@ class GenrePage extends ConsumerWidget {
         },
       );
     }
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text('流派'),
-          backgroundColor: Colors.transparent,
-        ),
-        body: body,
-      ),
+    return AmbientScaffold(
+      appBar: AppBar(title: const Text('流派')),
+      body: body,
     );
   }
 }
@@ -544,15 +535,9 @@ class RadioPage extends ConsumerWidget {
         },
       );
     }
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text('电台'),
-          backgroundColor: Colors.transparent,
-        ),
-        body: body,
-      ),
+    return AmbientScaffold(
+      appBar: AppBar(title: const Text('电台')),
+      body: body,
     );
   }
 }

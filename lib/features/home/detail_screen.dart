@@ -309,64 +309,59 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
     // 资料库入口没有固定封面：回退用第一首歌的专辑封面（艺人页传 artistId）
     final coverAlbumId =
         widget.coverAlbumId ?? (all.isEmpty ? null : all.first.albumId);
-    // 统一背景系统：图片背景最高优先级 + 皮肤舞台（与壳层三页一致），
-    // 不再使用主题联动的固定 detailBgOf 底色
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        bottomNavigationBar: selectMode
-            ? _BatchBar(
-                count: selectedCount,
-                canDownload: canDownload,
-                onPlayNext: () => batchPlayNext(songs),
-                onAddToPlaylist: () => batchAddToPlaylist(songs),
-                onStar: () => batchStar(songs),
-                onDownload: () => batchDownload(songs),
-              )
-            : const MiniPlayer(),
-        body: _bodyWithRefresh(
-          CustomScrollView(
-            physics: widget.onRefresh != null
-                ? const AlwaysScrollableScrollPhysics()
-                : null,
-            slivers: [
-              _detailAppBar(
-                context: context,
+    return AmbientScaffold(
+      appBar: _detailAppBar(
+        context: context,
+        title: widget.title,
+        selectMode: selectMode,
+        selectedCount: selectedCount,
+        totalCount: songs.length,
+        onToggleSelectMode: toggleSelectMode,
+        onSelectAll: () => toggleSelectAll(songs),
+        filterExpanded: _filterExpanded,
+        onToggleFilter: _toggleFilter,
+        sortActive: ref.watch(songSortPrefProvider) != null,
+        onToggleSort: () => _showSortSheet(context),
+        primaryColor: Theme.of(context).colorScheme.primary,
+      ),
+      bottomNavigationBar: selectMode
+          ? _BatchBar(
+              count: selectedCount,
+              canDownload: canDownload,
+              onPlayNext: () => batchPlayNext(songs),
+              onAddToPlaylist: () => batchAddToPlaylist(songs),
+              onStar: () => batchStar(songs),
+              onDownload: () => batchDownload(songs),
+            )
+          : const MiniPlayer(),
+      body: _bodyWithRefresh(
+        CustomScrollView(
+          physics: widget.onRefresh != null
+              ? const AlwaysScrollableScrollPhysics()
+              : null,
+          slivers: [
+            SliverToBoxAdapter(
+              child: _Header(
                 title: widget.title,
-                selectMode: selectMode,
-                selectedCount: selectedCount,
-                totalCount: songs.length,
-                onToggleSelectMode: toggleSelectMode,
-                onSelectAll: () => toggleSelectAll(songs),
-                filterExpanded: _filterExpanded,
-                onToggleFilter: _toggleFilter,
-                sortActive: ref.watch(songSortPrefProvider) != null,
-                onToggleSort: () => _showSortSheet(context),
-                primaryColor: Theme.of(context).colorScheme.primary,
+                subtitle: widget.date ?? subtitle,
+                coverAlbumId: coverAlbumId,
+                rating: canRate ? _rating : null,
+                onRating: canRate ? _rate : null,
               ),
-              SliverToBoxAdapter(
-                child: _Header(
-                  title: widget.title,
-                  subtitle: widget.date ?? subtitle,
-                  coverAlbumId: coverAlbumId,
-                  rating: canRate ? _rating : null,
-                  onRating: canRate ? _rate : null,
-                ),
+            ),
+            SliverToBoxAdapter(
+              child: _ListTop(
+                count: songs.length,
+                onPlayAll: () => _playAll(songs),
+                onShuffle: () => _playShuffle(songs),
+                onQueue: () => _enqueue(songs),
+                onChanged: (v) => setState(() => _search = v),
+                controller: _filterController,
+                expanded: _filterExpanded,
               ),
-              SliverToBoxAdapter(
-                child: _ListTop(
-                  count: songs.length,
-                  onPlayAll: () => _playAll(songs),
-                  onShuffle: () => _playShuffle(songs),
-                  onQueue: () => _enqueue(songs),
-                  onChanged: (v) => setState(() => _search = v),
-                  controller: _filterController,
-                  expanded: _filterExpanded,
-                ),
-              ),
-              ..._listSlivers(paged: paged, async: async, songs: songs),
-            ],
-          ),
+            ),
+            ..._listSlivers(paged: paged, async: async, songs: songs),
+          ],
         ),
       ),
     );
@@ -699,7 +694,7 @@ Widget _filterAction({
 
 /// 详情页顶栏（专辑页与歌单页共用）：
 /// 常态「标题 + 批量选择 + 筛选」，选择态换成「已选 N 首 + 全选 + 退出」
-SliverAppBar _detailAppBar({
+AppBar _detailAppBar({
   required BuildContext context,
   required String title,
   required bool selectMode,
@@ -716,10 +711,8 @@ SliverAppBar _detailAppBar({
   // 空列表没得选，入口直接禁用并置灰，省得点进去是一个空的选择态
   final canSelect = totalCount > 0;
   final allSelected = canSelect && selectedCount == totalCount;
-  return SliverAppBar(
-    pinned: true,
+  return AppBar(
     toolbarHeight: 56,
-    backgroundColor: Colors.transparent,
     leading: const BackButton(),
     title: Text(
       selectMode ? '已选 $selectedCount 首' : title,
@@ -780,6 +773,7 @@ SliverAppBar _detailAppBar({
 Future<void> _showSortSheet(BuildContext context) {
   return glassBottomSheet<void>(
     context,
+    scrollable: true,
     Consumer(
       builder: (context, ref, _) {
         final pref = ref.watch(songSortPrefProvider);
@@ -1068,31 +1062,37 @@ class _PlayAllBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPlayAll,
-            child: Row(
-              children: [
-                Text(
-                  '全部播放',
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryOf(context),
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
-                  ),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onPlayAll,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '全部播放',
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryOf(context),
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '（共$count首）',
+                      style: TextStyle(
+                        color: AppTheme.textDimOf(context),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '（共$count首）',
-                  style: TextStyle(
-                    color: AppTheme.textDimOf(context),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          const Spacer(),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(

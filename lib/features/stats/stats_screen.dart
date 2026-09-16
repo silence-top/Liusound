@@ -21,59 +21,54 @@ class StatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dim = AppTheme.textDimOf(context);
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: RefreshIndicator(
-          onRefresh: () => _refresh(ref),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                toolbarHeight: 56,
-                backgroundColor: Colors.transparent,
-                foregroundColor: AppTheme.textPrimaryOf(context),
-                title: const Text('听歌统计'),
+    return AmbientScaffold(
+      appBar: AppBar(
+        toolbarHeight: 56,
+        foregroundColor: AppTheme.textPrimaryOf(context),
+        title: const Text('听歌统计'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _refresh(ref),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  const _SummaryGrid(),
+                  const SizedBox(height: 28),
+                  Text(
+                    '最常听的歌曲',
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const _TopSongs(),
+                  const SizedBox(height: 28),
+                  Text(
+                    '最爱歌手',
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryOf(context),
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const _TopArtists(),
+                  const SizedBox(height: 12),
+                  Text(
+                    '统计来自本机播放记录，仅计当前服务器',
+                    style: TextStyle(color: dim, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ]),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    const _SummaryGrid(),
-                    const SizedBox(height: 28),
-                    Text(
-                      '最常听的歌曲',
-                      style: TextStyle(
-                        color: AppTheme.textPrimaryOf(context),
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const _TopSongs(),
-                    const SizedBox(height: 28),
-                    Text(
-                      '最爱歌手',
-                      style: TextStyle(
-                        color: AppTheme.textPrimaryOf(context),
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const _TopArtists(),
-                    const SizedBox(height: 12),
-                    Text(
-                      '统计来自本机播放记录，仅计当前服务器',
-                      style: TextStyle(color: dim, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ]),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

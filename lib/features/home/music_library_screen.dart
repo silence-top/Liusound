@@ -985,16 +985,10 @@ class _AlbumListPageState extends ConsumerState<AlbumListPage> {
   @override
   Widget build(BuildContext context) {
     final body = widget.paged != null ? _buildPaged() : _buildOneShot();
-    return AmbientBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: Text(widget.title),
-          backgroundColor: Colors.transparent,
-        ),
-        bottomNavigationBar: const MiniPlayer(),
-        body: body,
-      ),
+    return AmbientScaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      bottomNavigationBar: const MiniPlayer(),
+      body: body,
     );
   }
 

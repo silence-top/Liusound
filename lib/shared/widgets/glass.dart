@@ -702,6 +702,46 @@ Future<T?> glassDialog<T>(
   );
 }
 
+class AmbientScaffold extends StatelessWidget {
+  const AmbientScaffold({
+    super.key,
+    required this.appBar,
+    required this.body,
+    this.bottomNavigationBar,
+  });
+
+  final PreferredSizeWidget appBar;
+  final Widget body;
+  final Widget? bottomNavigationBar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ColoredBox(
+      color: SkinTokens.of(context).shell,
+      child: AmbientBackground(
+        child: Theme(
+          data: theme.copyWith(
+            appBarTheme: theme.appBarTheme.copyWith(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+            ),
+          ),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: appBar,
+            body: ClipRect(child: body),
+            bottomNavigationBar: bottomNavigationBar,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AmbientBackground extends ConsumerWidget {
   const AmbientBackground({super.key, this.child});
 
