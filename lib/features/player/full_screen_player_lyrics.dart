@@ -411,11 +411,9 @@ class _LyricsTabState extends ConsumerState<_LyricsTab>
       });
     });
 
-    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色毛玻璃底（底色近实色不透底）
-    final current = ref.watch(currentSongProvider);
-    final panelDominant = current == null
-        ? null
-        : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull;
+    // 歌词页浮层（LRC 菜单/音轨/偏移/音量）随封面主色毛玻璃底
+    // （底色近实色不透底）；取色中沿用上一首
+    final panelDominant = ref.watch(currentAlbumDominantProvider);
 
     final hasLyrics = _displayLines.isNotEmpty;
     if (!hasLyrics) {

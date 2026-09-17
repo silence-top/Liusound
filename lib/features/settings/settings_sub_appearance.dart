@@ -73,7 +73,7 @@ class _AppearanceSettingsPage extends ConsumerWidget {
                     _divider,
                     _ActionTile(
                       icon: Icons.opacity_outlined,
-                      title: '卡片透明度',
+                      title: '面板透明度',
                       subtitle: '${(tintOpacity * 100).round()}%',
                       onTap: () => _showGlassOpacitySheet(context, ref),
                     ),

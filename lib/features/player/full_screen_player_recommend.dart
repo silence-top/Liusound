@@ -30,10 +30,8 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
         ? null
         : ref.watch(hotSongsProvider(song.artistId));
     final bio = canBio ? ref.watch(artistBioProvider(song.artistId)) : null;
-    // 歌手简介卡片随封面主色毛玻璃底（底色近实色不透底）
-    final bioDominant = ref
-        .watch(albumDominantColorProvider(song.albumId))
-        .valueOrNull;
+    // 歌手简介卡片随封面主色毛玻璃底（底色近实色不透底）；取色中沿用上一首
+    final bioDominant = ref.watch(currentAlbumDominantProvider);
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),

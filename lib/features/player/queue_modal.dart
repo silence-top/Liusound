@@ -45,10 +45,8 @@ class _QueueSheet extends ConsumerWidget {
     final tokens = SkinTokens.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     // 弹层面板底色随当前歌曲封面主色（内容驱动取色）：与播放页同色系，
-    // 毛玻璃但底色近实色（用户要求：试毛玻璃但不要透明）
-    final panelDominant = current == null
-        ? null
-        : ref.watch(albumDominantColorProvider(current.albumId)).valueOrNull;
+    // 毛玻璃但底色近实色（用户要求：试毛玻璃但不要透明）；取色中沿用上一首
+    final panelDominant = ref.watch(currentAlbumDominantProvider);
     final modeIcon = switch (mode) {
       PlayMode.order => Icons.repeat,
       PlayMode.shuffle => Icons.shuffle,

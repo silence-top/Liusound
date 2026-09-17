@@ -344,7 +344,7 @@ class _LetterIndexBar extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
         decoration: BoxDecoration(
-          // 浮层底乘全局「卡片透明度」系数联动
+          // 浮层底乘全局「面板透明度」系数联动
           color: withGlassTintOpacity(
             ref,
             Colors.black.withValues(alpha: 0.15),
@@ -410,6 +410,7 @@ class GenrePage extends ConsumerWidget {
           final hue = (genre.value.hashCode % 360).abs().toDouble();
           final color = HSLColor.fromAHSL(1, hue, 0.45, 0.42).toColor();
           return FadeSlideIn(
+            index: index,
             child: InkWell(
               onTap: () => Navigator.of(context).push(
                 fadeRoute<void>(
@@ -422,7 +423,7 @@ class GenrePage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(AppRadius.m),
               child: Container(
                 decoration: BoxDecoration(
-                  // 瓷砖填充乘全局「卡片透明度」系数联动
+                  // 瓷砖填充乘全局「面板透明度」系数联动
                   color: withGlassTintOpacity(
                     ref,
                     color.withValues(alpha: 0.85),

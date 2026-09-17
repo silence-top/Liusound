@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import 'glass.dart';
 
 /// 全站弹窗提示（替代 Material SnackBar）：玻璃胶囊挂在页面顶部滑入淡出，
-/// 面板样式走 GlassSurface，随皮肤/卡片透明度联动（悬浮表面，不受卡片展示开关影响）。
+/// 面板样式走 GlassSurface，随皮肤/面板透明度联动（悬浮表面，不受卡片展示开关影响）。
 /// [showToast] 不依赖 BuildContext：异步间隙、路由切换后仍可安全调用。
 class AppToaster extends StatefulWidget {
   const AppToaster({super.key, required this.child});

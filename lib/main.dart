@@ -123,18 +123,14 @@ class MusicApp extends ConsumerWidget {
     final skin = ref.watch(appSkinProvider);
     final accent = ref.watch(appAccentProvider);
     final explicit = ref.watch(accentExplicitProvider);
-    // 卡片透明度全局系数：Tooltip/PopupMenu 等主题层弹层的透明度
+    // 面板透明度全局系数：Tooltip/PopupMenu 等主题层弹层的透明度
     // 在 AppTheme.build 接入，滑杆变动随此 watch 整树重建生效
     final tintOpacity = ref.watch(glassTintOpacityProvider);
-    // 封面取色皮肤：全局跟随当前播放封面主色（与播放页同一取色 provider）。
+    // 封面取色皮肤：全局跟随当前播放封面主色（与播放页同一「生效主色」：
+    // 本次取色 ?? 上一首成功取色，切歌取色间隙不闪回默认皮肤色）。
     // select 只在专辑变化时重建组合根，歌曲其它字段更新不触发整页换肤
-    final currentAlbumId = ref.watch(
-      currentSongProvider.select((s) => s?.albumId),
-    );
     final albumDominant = skin == AppSkin.albumTint
-        ? ref
-              .watch(albumDominantColorProvider(currentAlbumId ?? ''))
-              .valueOrNull
+        ? ref.watch(currentAlbumDominantProvider)
         : null;
     // 从一个已激活服务器切换到另一台（登出/换服）→ 同步清空播放器与持久化
     // 播放状态。prev 的 serverId 必须非 null——否则冷启动 auth 从「未就绪」

@@ -83,7 +83,7 @@ abstract final class AppTheme {
   /// 按皮肤 + 主题色构建深色 ThemeData（§8.1 / P1 主题系统化）：
   /// ColorScheme.fromSeed 会做 tone-mapping，这里用 copyWith(primary:) 强制
   /// 主色等于用户选的色值，保证按钮/激活态颜色与预设完全一致。
-  /// [tintOpacity] 为全局「卡片透明度」系数：Tooltip/PopupMenu 等
+  /// [tintOpacity] 为全局「面板透明度」系数：Tooltip/PopupMenu 等
   /// Material 默认弹层不经过 GlassSurface，透明度由主题在此统一接入，
   /// 与 GlassSurface 降级路径同公式（tint 压到 surface 实色上再乘系数）。
   static ThemeData build(

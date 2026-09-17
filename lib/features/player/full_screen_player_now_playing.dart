@@ -23,6 +23,12 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     duration: const Duration(milliseconds: 420),
   );
 
+  // 唱片背后主色呼吸光晕（4s 循环）：仅播放时呼吸，暂停冻结，省电不转
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationHalo,
+  );
+
   @override
   bool get wantKeepAlive => true;
 
@@ -47,13 +53,19 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
   }
 
   /// 只有会旋转的形态（黑胶 / CD）才让 _spin 持续 tick：
-  /// 本 Tab 常驻存活，方形卡片与全屏大图没必要空转一个 18s 控制器
+  /// 本 Tab 常驻存活，方形卡片与全屏大图没必要空转一个 18s 控制器；
+  /// 呼吸光晕同为唱片专属装饰，且省电模式（§8.5）下静止
   void _syncAnimations() {
     final style = ref.read(coverStyleProvider);
     if (_playing && style.spins) {
       if (!_spin.isAnimating) _spin.repeat();
     } else {
       _spin.stop();
+    }
+    if (_playing && style.spins && !ref.read(powerSaveProvider)) {
+      if (!_glow.isAnimating) _glow.repeat();
+    } else if (_glow.isAnimating) {
+      _glow.stop();
     }
     if (_playing) {
       _arm.forward();
@@ -67,6 +79,7 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     _playingSub?.cancel();
     _spin.dispose();
     _arm.dispose();
+    _glow.dispose();
     super.dispose();
   }
 
@@ -78,6 +91,12 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     final style = ref.watch(coverStyleProvider);
     final quality = ref.watch(currentQualityProvider);
     ref.listen(coverStyleProvider, (_, _) => _syncAnimations());
+    // 省电开关切换即时生效（光晕停转/恢复）
+    ref.listen(powerSaveProvider, (_, _) => _syncAnimations());
+    // 光晕颜色取封面主色（取色中沿用上一首；从未取到回退莫奈主色）
+    final glowColor =
+        ref.watch(currentAlbumDominantProvider) ??
+        Theme.of(context).colorScheme.primary;
 
     return Stack(
       children: [
@@ -110,7 +129,12 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _coverBlock(song.albumId, style, song.localCoverPath),
+                _coverBlock(
+                  song.albumId,
+                  style,
+                  song.localCoverPath,
+                  glowColor,
+                ),
                 const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -170,30 +194,38 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
 
   /// 四种唱片形态（§4.2）；方形卡片与全屏大图共用同一张静态玻璃卡。
   /// 双击封面 = 收藏/取消收藏（乐观更新，失败回滚，与底部爱心一致）
-  Widget _coverBlock(String albumId, CoverStyle style, String? localCover) =>
-      GestureDetector(
-        onDoubleTap: () {
-          final song = ref.read(currentSongProvider);
-          if (song != null) _toggleStar(song);
-        },
-        child: switch (style) {
-          CoverStyle.vinyl => _VinylDisc(
-            albumId: albumId,
-            spin: _spin,
-            arm: _arm,
-            localCover: localCover,
-          ),
-          CoverStyle.cd => _CdDisc(
-            albumId: albumId,
-            spin: _spin,
-            localCover: localCover,
-          ),
-          CoverStyle.square || CoverStyle.fullBlur => _SquareCover(
-            albumId: albumId,
-            localCover: localCover,
-          ),
-        },
-      );
+  Widget _coverBlock(
+    String albumId,
+    CoverStyle style,
+    String? localCover,
+    Color glowColor,
+  ) => GestureDetector(
+    onDoubleTap: () {
+      final song = ref.read(currentSongProvider);
+      if (song != null) _toggleStar(song);
+    },
+    child: switch (style) {
+      CoverStyle.vinyl => _GlowWrap(
+        glow: _glow,
+        color: glowColor,
+        child: _VinylDisc(
+          albumId: albumId,
+          spin: _spin,
+          arm: _arm,
+          localCover: localCover,
+        ),
+      ),
+      CoverStyle.cd => _GlowWrap(
+        glow: _glow,
+        color: glowColor,
+        child: _CdDisc(albumId: albumId, spin: _spin, localCover: localCover),
+      ),
+      CoverStyle.square || CoverStyle.fullBlur => _SquareCover(
+        albumId: albumId,
+        localCover: localCover,
+      ),
+    },
+  );
 
   Future<void> _toggleStar(Song song) async {
     final newStarred = !song.starred;
@@ -398,7 +430,8 @@ class _SquareCover extends StatelessWidget {
   }
 }
 
-/// 切歌淡入过渡，三种形态共用
+/// 切歌过渡：淡入 + 0.92 punch-in 放大落位，三种形态共用；
+/// 新封面落位后一道斜向扫光掠过（见 _Sheen）
 Widget _fadeCover(
   String albumId,
   double size,
@@ -406,9 +439,18 @@ Widget _fadeCover(
   String? localCover,
 ]) => AnimatedSwitcher(
   duration: MotionTokens.durationCoverFade,
+  switchInCurve: MotionTokens.curveStandard,
+  switchOutCurve: Curves.easeIn,
+  transitionBuilder: (child, animation) => FadeTransition(
+    opacity: animation,
+    child: ScaleTransition(
+      scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
+      child: child,
+    ),
+  ),
   child: KeyedSubtree(
     key: ValueKey(albumId),
-    child: CoverArt(
+    child: _SheenCover(
       albumId: albumId,
       size: size,
       radius: radius,
@@ -416,6 +458,155 @@ Widget _fadeCover(
     ),
   ),
 );
+
+/// 封面 + 一次性斜向扫光：裁剪与封面圆角一致，扫光仅装饰不拦截手势。
+class _SheenCover extends StatelessWidget {
+  const _SheenCover({
+    required this.albumId,
+    required this.size,
+    required this.radius,
+    this.localCover,
+  });
+
+  final String albumId;
+  final double size;
+  final double radius;
+  final String? localCover;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: CoverArt(
+                albumId: albumId,
+                size: size,
+                radius: 0,
+                localCover: localCover,
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(child: _Sheen(size: size)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 斜向高光带：新 key 落位即自播放一次（TweenAnimationBuilder 自驱动），
+/// 从封面左侧扫到右侧，0.4s 后启动避免与 punch-in 抢戏。
+class _Sheen extends StatelessWidget {
+  const _Sheen({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 950),
+      curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
+      builder: (_, t, _) {
+        if (t == 0) return const SizedBox.shrink();
+        return Transform.translate(
+          // t ∈ 0..1 映射为「带中心」从封面左侧外扫到右侧外
+          offset: Offset((size + 140) * (t * 2 - 1), 0),
+          child: Transform.rotate(
+            angle: 0.5,
+            child: Container(
+              width: 90,
+              height: 600,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0),
+                    Colors.white.withValues(alpha: 0.16),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 唱片背后主色呼吸光晕：布局占位仍是唱片框（OverflowBox 外溢绘制），
+/// 不挤动标题/控制区排版；光晕中心留在盘体后面，只露出外圈光环。
+class _GlowWrap extends StatelessWidget {
+  const _GlowWrap({
+    required this.glow,
+    required this.color,
+    required this.child,
+  });
+
+  final Animation<double> glow;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _discSize,
+      height: _discSize,
+      child: OverflowBox(
+        maxWidth: _discSize + 96,
+        maxHeight: _discSize + 96,
+        alignment: Alignment.center,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            _DiscGlow(glow: glow, color: color),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscGlow extends StatelessWidget {
+  const _DiscGlow({required this.glow, required this.color});
+
+  final Animation<double> glow;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: glow,
+      builder: (_, _) {
+        final t = 0.5 + 0.5 * math.sin(glow.value * math.pi * 2);
+        return Container(
+          width: _discSize + 88,
+          height: _discSize + 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                color.withValues(alpha: 0.28 * t),
+                color.withValues(alpha: 0),
+              ],
+              stops: const [0.55, 1.0],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 /// 唱针：支点固定在右上角，播放时平滑摆下贴住唱片，暂停时抬起。
 class _Tonearm extends StatelessWidget {

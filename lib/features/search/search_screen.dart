@@ -473,6 +473,7 @@ class _ResultList extends ConsumerWidget {
             '歌曲',
             results.songs.length,
             (i) => FadeSlideIn(
+              index: i,
               child: SongRow(
                 song: results.songs[i],
                 index: i,

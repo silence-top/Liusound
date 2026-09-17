@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/local_image.dart';
 import '../../core/theme/background.dart';
 import '../../core/theme/glass_theme.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import 'glass_quality.dart';
@@ -747,19 +748,6 @@ class AmbientBackground extends ConsumerWidget {
 
   final Widget? child;
 
-  static Widget _blob(double size, Color color) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bg = ref.watch(backgroundProvider);
@@ -772,26 +760,129 @@ class AmbientBackground extends ConsumerWidget {
     final bgImage = hasImage ? localFileImage(bg.path!) : null;
     return Stack(
       children: [
-        if (!hasImage) ...[
-          // 液态玻璃独有的折射光源（减淡版：低强度，保留模糊可折物但不抢戏）。
+        if (!hasImage)
+          Positioned.fill(
+            child: _AmbientStage(tokens: tokens, primary: primary),
+          ),
+        if (bgImage != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: bg.opacity.clamp(0.0, 1.0),
+                child: bg.blur > 0
+                    ? ImageFiltered(
+                        imageFilter: ui.ImageFilter.blur(
+                          sigmaX: bg.blur,
+                          sigmaY: bg.blur,
+                        ),
+                        child: Image(
+                          image: bgImage,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        ),
+                      )
+                    : Image(
+                        image: bgImage,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+              ),
+            ),
+          ),
+        ?child,
+      ],
+    );
+  }
+}
+
+/// 皮肤舞台层：各主题专属装饰 + 氛围漂移动效。
+/// 循环动画共用「装饰运动」开关：省电模式（§8.5）完全静止回退静态舞台，
+/// RepaintBoundary 把循环重绘限制在本层，页面内容零重绘。
+class _AmbientStage extends ConsumerStatefulWidget {
+  const _AmbientStage({required this.tokens, required this.primary});
+
+  final SkinTokens tokens;
+  final Color primary;
+
+  @override
+  ConsumerState<_AmbientStage> createState() => _AmbientStageState();
+}
+
+class _AmbientStageState extends ConsumerState<_AmbientStage>
+    with TickerProviderStateMixin {
+  late final AnimationController _drift = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationAmbientLoop,
+  );
+  late final AnimationController _twinkle = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationTwinkle,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _syncLoops();
+  }
+
+  /// 省电开关切换即时生效：开 → 光斑漂移/星点闪烁停转
+  void _syncLoops() {
+    final run = !ref.read(powerSaveProvider);
+    void toggle(AnimationController c) {
+      if (run && !c.isAnimating) {
+        c.repeat();
+      } else if (!run && c.isAnimating) {
+        c.stop();
+      }
+    }
+
+    toggle(_drift);
+    toggle(_twinkle);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(powerSaveProvider, (_, _) => _syncLoops());
+    final tokens = widget.tokens;
+    final primary = widget.primary;
+    return RepaintBoundary(
+      child: Stack(
+        children: [
+          // 液态玻璃独有的折射光源（减淡版）：双光斑 Lissajous 缓慢游移。
           // 其他主题绝不复用此舞台。
           if (tokens.language == SurfaceLanguage.liquidGlass) ...[
             Positioned(
               top: -140,
               left: -100,
-              child: _blob(340, primary.withValues(alpha: 0.10)),
+              child: _DriftBox(
+                drift: _drift,
+                phase: 0,
+                child: _blob(340, primary.withValues(alpha: 0.10)),
+              ),
             ),
             Positioned(
               bottom: -80,
               left: 20,
-              child: _blob(300, primary.withValues(alpha: 0.075)),
+              child: _DriftBox(
+                drift: _drift,
+                phase: 0.5,
+                child: _blob(300, primary.withValues(alpha: 0.075)),
+              ),
             ),
           ],
-          // 深空主题采用星图/扫描线，不使用玻璃光斑。
+          // 深空主题：星图/扫描线 + 星点呼吸闪烁。
           if (tokens.language == SurfaceLanguage.deepSpace)
             Positioned.fill(
               child: IgnorePointer(
-                child: CustomPaint(painter: _DeepSpaceStagePainter(primary)),
+                child: AnimatedBuilder(
+                  animation: _twinkle,
+                  builder: (_, _) => CustomPaint(
+                    painter: _DeepSpaceStagePainter(
+                      primary,
+                      twinkle: _twinkle.value,
+                    ),
+                  ),
+                ),
               ),
             ),
           // 极简：暖炭纸纹颗粒（细微质感，区别于纯色扁平）。
@@ -803,12 +894,16 @@ class AmbientBackground extends ConsumerWidget {
                 ),
               ),
             ),
-          // Material You：M3 柔光球（跟随动态主色）。
+          // Material You：M3 柔光球（跟随动态主色）缓慢漂移。
           if (tokens.language == SurfaceLanguage.materialYou)
             Positioned(
               top: -120,
               right: -80,
-              child: _blob(360, primary.withValues(alpha: 0.16)),
+              child: _DriftBox(
+                drift: _drift,
+                phase: 0.3,
+                child: _blob(360, primary.withValues(alpha: 0.16)),
+              ),
             ),
           // 落日：低垂夕阳暖光球 + 顶部暖晕。
           if (tokens.language == SurfaceLanguage.sunset)
@@ -853,41 +948,60 @@ class AmbientBackground extends ConsumerWidget {
               ),
             ),
         ],
-        if (bgImage != null)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: bg.opacity.clamp(0.0, 1.0),
-                child: bg.blur > 0
-                    ? ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(
-                          sigmaX: bg.blur,
-                          sigmaY: bg.blur,
-                        ),
-                        child: Image(
-                          image: bgImage,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                        ),
-                      )
-                    : Image(
-                        image: bgImage,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                      ),
-              ),
-            ),
-          ),
-        ?child,
-      ],
+      ),
+    );
+  }
+
+  static Widget _blob(double size, Color color) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+        ),
+      ),
+    );
+  }
+}
+
+/// 光斑漂移：双轴不同频率的 Lissajous 轨迹，绕初始位置缓慢游移；
+/// phase 错开让多颗光斑不同步。Transform-only，无布局开销。
+class _DriftBox extends StatelessWidget {
+  const _DriftBox({
+    required this.drift,
+    required this.phase,
+    required this.child,
+  });
+
+  final Animation<double> drift;
+  final double phase;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: drift,
+      builder: (_, child) {
+        final t = (drift.value + phase) % 1.0;
+        return Transform.translate(
+          offset: Offset(16 * sin(t * pi * 2), 12 * sin(t * pi * 4)),
+          child: child,
+        );
+      },
+      child: child,
     );
   }
 }
 
 class _DeepSpaceStagePainter extends CustomPainter {
-  const _DeepSpaceStagePainter(this.primary);
+  const _DeepSpaceStagePainter(this.primary, {this.twinkle = 0});
 
   final Color primary;
+
+  /// 星点闪烁相位（0..1 循环）；省电/静态时传 0
+  final double twinkle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -901,24 +1015,30 @@ class _DeepSpaceStagePainter extends CustomPainter {
     for (var y = 0.0; y < size.height; y += step) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
-    final star = Paint()..color = primary.withValues(alpha: 0.45);
-    for (final point in const [
+    const points = [
       Offset(34, 96),
       Offset(164, 178),
       Offset(294, 72),
       Offset(92, 486),
       Offset(342, 624),
       Offset(226, 744),
-    ]) {
-      if (point.dx < size.width && point.dy < size.height) {
-        canvas.drawCircle(point, 1.3, star);
-      }
+    ];
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+      if (point.dx >= size.width || point.dy >= size.height) continue;
+      // 每颗星按自身相位呼吸：亮度 + 半径同步起伏
+      final pulse = 0.55 + 0.45 * sin((twinkle + i / points.length) * pi * 2);
+      canvas.drawCircle(
+        point,
+        0.9 + 0.7 * pulse,
+        Paint()..color = primary.withValues(alpha: 0.45 * pulse),
+      );
     }
   }
 
   @override
   bool shouldRepaint(_DeepSpaceStagePainter oldDelegate) =>
-      oldDelegate.primary != primary;
+      oldDelegate.primary != primary || oldDelegate.twinkle != twinkle;
 }
 
 /// 纸纹颗粒：seeded Random 保证每帧点位固定（静态背景不闪烁），density 控密度。

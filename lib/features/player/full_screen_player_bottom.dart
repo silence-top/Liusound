@@ -28,12 +28,14 @@ class _BottomArea extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final song = ref.watch(currentSongProvider);
     // 底部控制栏 tint 跟随封面主色（内容驱动取色）：与歌词区背景同一色系，
-    // 半透明叠在模糊背景上，整页上下连成一体而不是固定深色两截
-    final tint = song == null
-        ? null
-        : ref.watch(albumDominantColorProvider(song.albumId)).valueOrNull;
+    // 半透明叠在模糊背景上，整页上下连成一体而不是固定深色两截；
+    // 取色中沿用上一首，从未取到回退莫奈主色
     final barTint =
-        albumAdaptiveTint(tint) ?? Colors.black.withValues(alpha: 0.55);
+        albumAdaptiveTint(
+          ref.watch(currentAlbumDominantProvider) ??
+              Theme.of(context).colorScheme.primary,
+        ) ??
+        Colors.black.withValues(alpha: 0.55);
 
     // 播放页材质与皮肤解耦（钦定：播放页不与主题关联）：不用 GlassSurface
     // （非玻璃皮肤会换成表面色 + hairline 描边，控制区上沿出现一条横线），
@@ -88,14 +90,17 @@ class _BottomArea extends ConsumerWidget {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(
-                          (song?.starred ?? false)
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          size: 22,
-                          color: (song?.starred ?? false)
-                              ? const Color(0xFFE57373)
-                              : Colors.white,
+                        icon: PopOnChange(
+                          value: song?.starred ?? false,
+                          child: Icon(
+                            (song?.starred ?? false)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            size: 22,
+                            color: (song?.starred ?? false)
+                                ? const Color(0xFFE57373)
+                                : Colors.white,
+                          ),
                         ),
                         onPressed: song == null
                             ? null
@@ -255,44 +260,160 @@ class _ModeButton extends ConsumerWidget {
     return IconButton(
       iconSize: 24,
       color: Colors.white,
-      icon: Icon(icon),
+      icon: PopOnChange(value: mode, child: Icon(icon)),
       onPressed: () => ref.read(playerActionsProvider).cyclePlayMode(),
     );
   }
 }
 
 /// 播放/暂停大按钮：56 圆形白描边 + 半透明底（对齐 1.x playPauseBtn）
-/// 缓冲中（起播/卡顿加载）显示 spinner，给出「在加载」的可见反馈
-class _PlayButton extends ConsumerWidget {
+/// 缓冲中（起播/卡顿加载）显示 spinner，给出「在加载」的可见反馈。
+/// 播放中呼吸光环 + 点击扩散脉冲 + 图标 morph；省电模式光环静止（§8.5）。
+class _PlayButton extends ConsumerStatefulWidget {
   const _PlayButton();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PlayButton> createState() => _PlayButtonState();
+}
+
+class _PlayButtonState extends ConsumerState<_PlayButton>
+    with TickerProviderStateMixin {
+  // 播放中呼吸光环；暂停/省电停转
+  late final AnimationController _halo = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationHalo,
+  );
+
+  // 点击扩散脉冲：一圈白光从按钮边缘扩散淡出
+  late final AnimationController _ping = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationPulse,
+  );
+
+  void _syncHalo(bool isPlaying) {
+    final run = isPlaying && !ref.read(powerSaveProvider);
+    if (run && !_halo.isAnimating) {
+      _halo.repeat();
+    } else if (!run && _halo.isAnimating) {
+      _halo.stop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncHalo(ref.read(isPlayingProvider).valueOrNull ?? false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isPlaying = ref.watch(isPlayingProvider).valueOrNull ?? false;
     final buffering = ref.watch(isBufferingProvider).valueOrNull ?? false;
-    return GestureDetector(
-      onTap: () => ref.read(playerActionsProvider).toggle(),
-      child: Container(
-        width: 56,
-        height: 56,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: ShapeDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          shape: CircleBorder(side: BorderSide(color: Colors.white, width: 2)),
-        ),
-        child: buffering
-            ? const Padding(
-                padding: EdgeInsets.all(15),
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
+    ref.listen(isPlayingProvider, (_, next) {
+      _syncHalo(next.valueOrNull ?? false);
+    });
+    ref.listen(powerSaveProvider, (_, _) {
+      _syncHalo(ref.read(isPlayingProvider).valueOrNull ?? false);
+    });
+
+    final icon = buffering
+        ? const Padding(
+            padding: EdgeInsets.all(15),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Colors.white,
+            ),
+          )
+        : AnimatedSwitcher(
+            duration: MotionTokens.durationNormal,
+            switchInCurve: MotionTokens.curveStandard,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.6, end: 1).animate(animation),
+                child: RotationTransition(
+                  turns: Tween<double>(begin: 0.8, end: 1).animate(animation),
+                  child: child,
                 ),
-              )
-            : Icon(
-                isPlaying ? Icons.pause : Icons.play_arrow,
-                size: 36,
-                color: Colors.white,
               ),
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause : Icons.play_arrow,
+              key: ValueKey(isPlaying),
+              size: 36,
+              color: Colors.white,
+            ),
+          );
+
+    return GestureDetector(
+      onTap: () {
+        _ping
+          ..reset()
+          ..forward();
+        ref.read(playerActionsProvider).toggle();
+      },
+      // 布局占位与原 56 按钮 + 水平 margin 一致，光环/脉冲 OverflowBox 外溢
+      child: SizedBox(
+        width: 72,
+        height: 56,
+        child: OverflowBox(
+          maxWidth: 88,
+          maxHeight: 88,
+          alignment: Alignment.center,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // 呼吸光环（播放中）
+              AnimatedBuilder(
+                animation: _halo,
+                builder: (_, _) {
+                  final t = 0.5 + 0.5 * math.sin(_halo.value * math.pi * 2);
+                  return Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22 * t),
+                        width: 1.5,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // 点击扩散脉冲（一次性）
+              AnimatedBuilder(
+                animation: _ping,
+                builder: (_, _) {
+                  final t = Curves.easeOut.transform(_ping.value);
+                  return Container(
+                    width: 56 + 28 * t,
+                    height: 56 + 28 * t,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35 * (1 - t)),
+                        width: 1.5,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: ShapeDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: CircleBorder(
+                    side: BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                child: icon,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

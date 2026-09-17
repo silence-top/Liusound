@@ -41,6 +41,7 @@ List<Widget> _songSlivers(
       itemBuilder: (context, index) {
         final song = songs[index];
         return FadeSlideIn(
+          index: index,
           child: SongRow(
             song: song,
             index: index,
@@ -610,7 +611,7 @@ class _ListTop extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 列表头面板白玻璃微透明：乘全局「卡片透明度」系数联动
+    // 列表头面板白玻璃微透明：乘全局「面板透明度」系数联动
     final panel = Colors.white.withValues(alpha: 0.08);
     final panelFaint = Colors.white.withValues(alpha: 0.03);
     final panelBorder = withGlassTintOpacity(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,23 +48,35 @@ PageRoute<T> fadeRoute<T>(Widget page) {
   );
 }
 
-/// 列表项入场动效：淡入 + 上移 12px（320ms easeOutCubic）。
+/// 列表项入场动效：淡入 + 上移 14px（320ms easeOutCubic）。
+/// 传 index 时同批进入的相邻项按 35ms/项错峰（封顶 25% 延迟），
 /// 包在列表/网格 item 外层即可，滚动到可视区自动触发，无状态管理。
 class FadeSlideIn extends StatelessWidget {
-  const FadeSlideIn({super.key, required this.child});
+  const FadeSlideIn({super.key, required this.child, this.index});
 
   final Widget child;
 
+  /// 同批入场的序号（可选）：用于错峰编排
+  final int? index;
+
   @override
   Widget build(BuildContext context) {
+    final i = index;
+    final curve = i == null
+        ? MotionTokens.curveStandard
+        : Interval(
+            math.min(i * 0.035, 0.25),
+            1.0,
+            curve: MotionTokens.curveStandard,
+          );
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 320),
-      curve: MotionTokens.curveStandard,
+      duration: MotionTokens.durationEntrance,
+      curve: curve,
       builder: (_, t, child) => Opacity(
         opacity: t,
         child: Transform.translate(
-          offset: Offset(0, 12 * (1 - t)),
+          offset: Offset(0, 14 * (1 - t)),
           child: child,
         ),
       ),
@@ -106,6 +120,68 @@ class _PressableScaleState extends State<PressableScale> {
         curve: Curves.easeOut,
         child: widget.child,
       ),
+    );
+  }
+}
+
+/// 值变更时弹跳反馈：缩放过冲回落（1 → 1.25 → 1），
+/// 用于收藏爱心等状态切换图标的确认动效。
+class PopOnChange extends StatefulWidget {
+  const PopOnChange({super.key, required this.value, required this.child});
+
+  final Object value;
+  final Widget child;
+
+  @override
+  State<PopOnChange> createState() => _PopOnChangeState();
+}
+
+class _PopOnChangeState extends State<PopOnChange>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: MotionTokens.durationPop,
+  );
+
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: 1.25,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 45,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.25,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+      weight: 55,
+    ),
+  ]).animate(_ctrl);
+
+  @override
+  void didUpdateWidget(PopOnChange oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _ctrl
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
+      child: widget.child,
     );
   }
 }

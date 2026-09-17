@@ -66,10 +66,9 @@ class MiniPlayer extends ConsumerWidget {
       ],
     );
 
-    // 迷你条底色随封面主色（与播放页弹层同款实色，去玻璃、不随主题变脸）
-    final dominant = ref
-        .watch(albumDominantColorProvider(song.albumId))
-        .valueOrNull;
+    // 迷你条底色随封面主色（与播放页弹层同款实色，去玻璃、不随主题变脸）；
+    // 取色中沿用上一首，切歌不闪默认底色
+    final dominant = ref.watch(currentAlbumDominantProvider);
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
 
     final content = switch (barStyle) {

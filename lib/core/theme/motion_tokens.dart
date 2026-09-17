@@ -26,4 +26,22 @@ abstract final class MotionTokens {
 
   /// 氛围/背景类大渐变过渡
   static const Duration durationAmbient = Duration(milliseconds: 600);
+
+  /// 列表项入场（FadeSlideIn）
+  static const Duration durationEntrance = Duration(milliseconds: 320);
+
+  /// 图标状态切换弹跳（PopOnChange）
+  static const Duration durationPop = Duration(milliseconds: 380);
+
+  /// 播放键点击扩散脉冲
+  static const Duration durationPulse = Duration(milliseconds: 320);
+
+  /// 播放键呼吸光环循环周期
+  static const Duration durationHalo = Duration(milliseconds: 2400);
+
+  /// 背景光斑漂移循环周期（Lissajous 一整圈）
+  static const Duration durationAmbientLoop = Duration(seconds: 26);
+
+  /// 深空星点闪烁循环周期
+  static const Duration durationTwinkle = Duration(seconds: 4);
 }

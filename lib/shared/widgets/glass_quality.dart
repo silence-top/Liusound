@@ -50,7 +50,7 @@ final glassQualityProvider =
       GlassQualityController.new,
     );
 
-/// 玻璃面透明度系数（0.2–1.0）：1.0 = 跟随皮肤原值（默认）。
+/// 面板透明度系数（0.2–1.0）：1.0 = 跟随皮肤原值（默认）。
 /// 与 [GlassLevel] 解耦——档位只管模糊强度，透明度全局所有皮肤生效，
 /// 作用于玻璃 tint 与非玻璃皮肤的面板底色。
 class GlassTintOpacityController extends Notifier<double> {

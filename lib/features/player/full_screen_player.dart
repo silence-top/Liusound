@@ -17,6 +17,7 @@ import '../../core/platform/local_fs.dart';
 import '../../core/storage/app_db.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
+import '../../core/theme/settings_prefs.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
@@ -196,16 +197,15 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     if (song == null) return const SizedBox.shrink();
 
     final tabs = const ['推荐', '歌曲', '歌词'];
-    // 封面主色 → 播放器背景渐变（取色中/失败回退框架色）
-    final tint = ref
-        .watch(albumDominantColorProvider(song.albumId))
-        .valueOrNull;
-    final top = tint == null
-        ? AppTheme.shellOf(context)
-        : Color.lerp(tint, Colors.black, 0.42)!;
-    final bottom = tint == null
-        ? AppTheme.shellOf(context)
-        : Color.lerp(tint, Colors.black, 0.85)!;
+    // 封面主色 → 播放器背景渐变（取色中沿用上一首；从未取到过回退莫奈主色，
+    // 不再闪灰底）
+    final tintBase =
+        ref.watch(currentAlbumDominantProvider) ??
+        Theme.of(context).colorScheme.primary;
+    final top = Color.lerp(tintBase, Colors.black, 0.42)!;
+    final bottom = Color.lerp(tintBase, Colors.black, 0.85)!;
+    // 级联入场复用打开路由的时间线（openFullScreenPlayer 的 420ms）
+    final routeAnim = ModalRoute.of(context)?.animation;
 
     return Scaffold(
       backgroundColor: AppTheme.shellOf(context),
@@ -253,104 +253,130 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                   // 顶栏：下滑关闭 + 居中三 Tab（对齐 1.x）
                   // width: double.infinity —— 否则 Stack 收缩到 Tab 行宽度，
                   // 左侧关闭图标会与「推荐」文字重叠，点击也被 Tab 手势拦截
-                  SizedBox(
-                    height: 48,
-                    width: double.infinity,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned(
-                          left: 0,
-                          child: IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            iconSize: 32,
-                            color: Colors.white,
-                            onPressed: widget.onClose,
+                  _CascadeIn(
+                    anim: routeAnim,
+                    begin: 0,
+                    end: 0.45,
+                    dy: 14,
+                    child: SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            left: 0,
+                            child: IconButton(
+                              icon: const Icon(Icons.keyboard_arrow_down),
+                              iconSize: 32,
+                              color: Colors.white,
+                              onPressed: widget.onClose,
+                            ),
                           ),
-                        ),
-                        ListenableBuilder(
-                          listenable: _tab.animation!,
-                          builder: (_, _) {
-                            // animation.value 就是 TabBarView 摆放页面的实时位置
-                            // （拖动/动画每帧更新），与可见页严格同步，
-                            // 高亮随手指过渡而不是等落页才跳变
-                            final p = _tab.animation!.value;
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                for (var i = 0; i < tabs.length; i++)
-                                  GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => _tab.animateTo(i),
-                                    child: Builder(
-                                      builder: (context) {
-                                        final t = (1 - (i - p).abs()).clamp(
-                                          0.0,
-                                          1.0,
-                                        );
-                                        return Container(
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 2,
-                                            vertical: 6,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 18,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.12 * t,
+                          ListenableBuilder(
+                            listenable: _tab.animation!,
+                            builder: (_, _) {
+                              // animation.value 就是 TabBarView 摆放页面的实时位置
+                              // （拖动/动画每帧更新），与可见页严格同步，
+                              // 高亮随手指过渡而不是等落页才跳变
+                              final p = _tab.animation!.value;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (var i = 0; i < tabs.length; i++)
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _tab.animateTo(i),
+                                      child: Builder(
+                                        builder: (context) {
+                                          final t = (1 - (i - p).abs()).clamp(
+                                            0.0,
+                                            1.0,
+                                          );
+                                          return Container(
+                                            margin: const EdgeInsets.symmetric(
+                                              horizontal: 2,
+                                              vertical: 6,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
-                                            border: t > 0
-                                                ? Border.all(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: 0.15 * t,
-                                                        ),
-                                                    width: 0.5,
-                                                  )
-                                                : null,
-                                          ),
-                                          child: Text(
-                                            tabs[i],
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: t >= 0.5
-                                                  ? FontWeight.bold
-                                                  : FontWeight.w400,
-                                              color: Color.lerp(
-                                                const Color(0xFF888888),
-                                                Colors.white,
-                                                t,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.12 * t,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    20,
+                                                  ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
+                                              border: t > 0
+                                                  ? Border.all(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.15 * t,
+                                                          ),
+                                                      width: 0.5,
+                                                    )
+                                                  : null,
+                                            ),
+                                            child: Text(
+                                              tabs[i],
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: t >= 0.5
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w400,
+                                                color: Color.lerp(
+                                                  const Color(0xFF888888),
+                                                  Colors.white,
+                                                  t,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   // Tab 内容（三页全部保活，对齐 1.x 保持挂载策略）
                   Expanded(
-                    child: TabBarView(
-                      controller: _tab,
-                      children: [
-                        const _RecommendTab(),
-                        const _NowPlayingTab(),
-                        _LyricsTab(song: song),
-                      ],
+                    child: _CascadeIn(
+                      anim: routeAnim,
+                      begin: 0.10,
+                      end: 0.62,
+                      dy: 30,
+                      child: TabBarView(
+                        controller: _tab,
+                        children: [
+                          for (var i = 0; i < 3; i++)
+                            _TabZoom(
+                              position: _tab.animation!,
+                              index: i,
+                              child: switch (i) {
+                                0 => const _RecommendTab(),
+                                1 => const _NowPlayingTab(),
+                                _ => _LyricsTab(song: song),
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  const _BottomArea(),
+                  _CascadeIn(
+                    anim: routeAnim,
+                    begin: 0.22,
+                    end: 0.75,
+                    dy: 36,
+                    child: const _BottomArea(),
+                  ),
                 ],
               ),
             ),
@@ -372,5 +398,76 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
     } else {
       _beginSettle(0, curve: Curves.easeOutBack);
     }
+  }
+}
+
+/// 播放页级联入场：复用打开路由的动画时间线，顶栏/封面/底栏按区间
+/// 错峰上滑淡入，关闭时反向错峰退场（后入场先出场）。路由动画为空时原样展示。
+class _CascadeIn extends StatelessWidget {
+  const _CascadeIn({
+    required this.anim,
+    required this.begin,
+    required this.end,
+    required this.dy,
+    required this.child,
+  });
+
+  final Animation<double>? anim;
+  final double begin;
+  final double end;
+
+  /// 入场位移（px）
+  final double dy;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = anim;
+    if (a == null) return child;
+    final curved = CurvedAnimation(
+      parent: a,
+      curve: Interval(begin, end, curve: MotionTokens.curveStandard),
+      reverseCurve: Interval(begin, end, curve: Curves.easeInCubic),
+    );
+    return AnimatedBuilder(
+      animation: curved,
+      builder: (_, child) => Opacity(
+        opacity: curved.value.clamp(0.0, 1.0),
+        child: Transform.translate(
+          offset: Offset(0, dy * (1 - curved.value)),
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Tab 左右滑联动：当前页满幅，相邻页轻微缩小降透明，
+/// 拖动每帧只重建 Transform/Opacity 壳，子页零重建（性能红线）。
+class _TabZoom extends StatelessWidget {
+  const _TabZoom({
+    required this.position,
+    required this.index,
+    required this.child,
+  });
+
+  final Animation<double> position;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: position,
+      builder: (_, child) {
+        final t = (1 - (position.value - index).abs()).clamp(0.0, 1.0);
+        return Transform.scale(
+          scale: 0.96 + 0.04 * t,
+          child: Opacity(opacity: 0.55 + 0.45 * t, child: child),
+        );
+      },
+      child: child,
+    );
   }
 }
