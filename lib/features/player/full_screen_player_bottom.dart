@@ -221,6 +221,7 @@ class _ControlsRow extends ConsumerWidget {
         children: [
           const _ModeButton(),
           IconButton(
+            tooltip: '上一首',
             iconSize: 28,
             color: Colors.white,
             icon: const Icon(Icons.skip_previous),
@@ -228,12 +229,14 @@ class _ControlsRow extends ConsumerWidget {
           ),
           const _PlayButton(),
           IconButton(
+            tooltip: '下一首',
             iconSize: 28,
             color: Colors.white,
             icon: const Icon(Icons.skip_next),
             onPressed: () => ref.read(playerActionsProvider).playNext(),
           ),
           IconButton(
+            tooltip: '播放队列',
             iconSize: 24,
             color: Colors.white,
             icon: const Icon(Icons.queue_music),
@@ -258,6 +261,11 @@ class _ModeButton extends ConsumerWidget {
       PlayMode.repeatOne => Icons.repeat_one,
     };
     return IconButton(
+      tooltip: switch (mode) {
+        PlayMode.order => '顺序播放',
+        PlayMode.shuffle => '随机播放',
+        PlayMode.repeatOne => '单曲循环',
+      },
       iconSize: 24,
       color: Colors.white,
       icon: PopOnChange(value: mode, child: Icon(icon)),
@@ -277,7 +285,10 @@ class _PlayButton extends ConsumerStatefulWidget {
 }
 
 class _PlayButtonState extends ConsumerState<_PlayButton>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  bool _visible = false;
+  bool _foreground = true;
+  bool _reduceMotion = false;
   // 播放中呼吸光环；暂停/省电停转
   late final AnimationController _halo = AnimationController(
     vsync: this,
@@ -291,7 +302,12 @@ class _PlayButtonState extends ConsumerState<_PlayButton>
   );
 
   void _syncHalo(bool isPlaying) {
-    final run = isPlaying && !ref.read(powerSaveProvider);
+    final run =
+        isPlaying &&
+        _visible &&
+        _foreground &&
+        !_reduceMotion &&
+        !ref.read(powerSaveProvider);
     if (run && !_halo.isAnimating) {
       _halo.repeat();
     } else if (!run && _halo.isAnimating) {
@@ -302,7 +318,34 @@ class _PlayButtonState extends ConsumerState<_PlayButton>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible =
+        TickerMode.valuesOf(context).enabled &&
+        (ModalRoute.isCurrentOf(context) ?? true);
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
     _syncHalo(ref.read(isPlayingProvider).valueOrNull ?? false);
+    if (_reduceMotion) _ping.stop();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncHalo(ref.read(isPlayingProvider).valueOrNull ?? false);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _halo.dispose();
+    _ping.dispose();
+    super.dispose();
   }
 
   @override
@@ -325,17 +368,17 @@ class _PlayButtonState extends ConsumerState<_PlayButton>
             ),
           )
         : AnimatedSwitcher(
-            duration: MotionTokens.durationNormal,
+            duration: AppMotion.duration(context, MotionTokens.durationNormal),
             switchInCurve: MotionTokens.curveStandard,
             switchOutCurve: Curves.easeIn,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
               child: ScaleTransition(
-                scale: Tween<double>(begin: 0.6, end: 1).animate(animation),
-                child: RotationTransition(
-                  turns: Tween<double>(begin: 0.8, end: 1).animate(animation),
-                  child: child,
-                ),
+                scale: Tween<double>(
+                  begin: _reduceMotion ? 1 : 0.88,
+                  end: 1,
+                ).animate(animation),
+                child: child,
               ),
             ),
             child: Icon(
@@ -346,72 +389,79 @@ class _PlayButtonState extends ConsumerState<_PlayButton>
             ),
           );
 
-    return GestureDetector(
-      onTap: () {
-        _ping
-          ..reset()
-          ..forward();
-        ref.read(playerActionsProvider).toggle();
-      },
-      // 布局占位与原 56 按钮 + 水平 margin 一致，光环/脉冲 OverflowBox 外溢
-      child: SizedBox(
-        width: 72,
-        height: 56,
-        child: OverflowBox(
-          maxWidth: 88,
-          maxHeight: 88,
-          alignment: Alignment.center,
-          child: Stack(
+    return Semantics(
+      button: true,
+      label: isPlaying ? '暂停' : '播放',
+      child: InkResponse(
+        radius: 44,
+        onTap: () {
+          if (!_reduceMotion && !ref.read(powerSaveProvider)) {
+            _ping
+              ..reset()
+              ..forward();
+          }
+          ref.read(playerActionsProvider).toggle();
+        },
+        // 布局占位与原 56 按钮 + 水平 margin 一致，光环/脉冲 OverflowBox 外溢
+        child: SizedBox(
+          width: 72,
+          height: 56,
+          child: OverflowBox(
+            maxWidth: 88,
+            maxHeight: 88,
             alignment: Alignment.center,
-            children: [
-              // 呼吸光环（播放中）
-              AnimatedBuilder(
-                animation: _halo,
-                builder: (_, _) {
-                  final t = 0.5 + 0.5 * math.sin(_halo.value * math.pi * 2);
-                  return Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.22 * t),
-                        width: 1.5,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 呼吸光环（播放中）
+                AnimatedBuilder(
+                  animation: _halo,
+                  builder: (_, _) {
+                    final t = 0.5 + 0.5 * math.sin(_halo.value * math.pi * 2);
+                    return Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22 * t),
+                          width: 1.5,
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              // 点击扩散脉冲（一次性）
-              AnimatedBuilder(
-                animation: _ping,
-                builder: (_, _) {
-                  final t = Curves.easeOut.transform(_ping.value);
-                  return Container(
-                    width: 56 + 28 * t,
-                    height: 56 + 28 * t,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.35 * (1 - t)),
-                        width: 1.5,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              Container(
-                width: 56,
-                height: 56,
-                decoration: ShapeDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  shape: CircleBorder(
-                    side: BorderSide(color: Colors.white, width: 2),
-                  ),
+                    );
+                  },
                 ),
-                child: icon,
-              ),
-            ],
+                // 点击扩散脉冲（一次性）
+                AnimatedBuilder(
+                  animation: _ping,
+                  builder: (_, _) {
+                    final t = Curves.easeOut.transform(_ping.value);
+                    return Container(
+                      width: 56 + 28 * t,
+                      height: 56 + 28 * t,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35 * (1 - t)),
+                          width: 1.5,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: ShapeDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    shape: CircleBorder(
+                      side: BorderSide(color: Colors.white, width: 2),
+                    ),
+                  ),
+                  child: icon,
+                ),
+              ],
+            ),
           ),
         ),
       ),

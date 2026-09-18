@@ -86,11 +86,17 @@ void openFullScreenPlayer(BuildContext context) {
     PageRouteBuilder<void>(
       // 不透明路由：转场期间下层页面持续可见，配合淡入产生「展开」层次感
       opaque: false,
-      transitionDuration: const Duration(milliseconds: 420),
-      reverseTransitionDuration: const Duration(milliseconds: 300),
+      transitionDuration: AppMotion.duration(
+        context,
+        MotionTokens.durationSlow,
+      ),
+      reverseTransitionDuration: AppMotion.duration(
+        context,
+        MotionTokens.durationTransition,
+      ),
       pageBuilder: (_, _, _) =>
           FullScreenPlayer(onClose: () => Navigator.of(context).pop()),
-      transitionsBuilder: (_, animation, _, child) {
+      transitionsBuilder: (context, animation, _, child) {
         final curved = CurvedAnimation(
           parent: animation,
           curve: Curves.easeOutCubic,
@@ -100,11 +106,16 @@ void openFullScreenPlayer(BuildContext context) {
           opacity: Tween<double>(begin: 0, end: 1).animate(curved),
           child: SlideTransition(
             position: Tween(
-              begin: const Offset(0, 0.06),
+              begin: AppMotion.reduceMotion(context)
+                  ? Offset.zero
+                  : const Offset(0, 0.06),
               end: Offset.zero,
             ).animate(curved),
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+              scale: Tween<double>(
+                begin: AppMotion.reduceMotion(context) ? 1 : 0.94,
+                end: 1,
+              ).animate(curved),
               child: child,
             ),
           ),
@@ -259,89 +270,108 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                     end: 0.45,
                     dy: 14,
                     child: SizedBox(
-                      height: 48,
-                      width: double.infinity,
-                      child: Stack(
-                        alignment: Alignment.center,
+                      height:
+                          AppSpacing.xl +
+                          MediaQuery.textScalerOf(context).scale(16) * 1.5,
+                      child: Row(
                         children: [
-                          Positioned(
-                            left: 0,
-                            child: IconButton(
-                              icon: const Icon(Icons.keyboard_arrow_down),
-                              iconSize: 32,
-                              color: Colors.white,
-                              onPressed: widget.onClose,
-                            ),
+                          IconButton(
+                            tooltip: '收起播放器',
+                            icon: const Icon(Icons.keyboard_arrow_down),
+                            iconSize: AppSpacing.xxl,
+                            color: Colors.white,
+                            onPressed: widget.onClose,
                           ),
-                          ListenableBuilder(
-                            listenable: _tab.animation!,
-                            builder: (_, _) {
-                              // animation.value 就是 TabBarView 摆放页面的实时位置
-                              // （拖动/动画每帧更新），与可见页严格同步，
-                              // 高亮随手指过渡而不是等落页才跳变
-                              final p = _tab.animation!.value;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (var i = 0; i < tabs.length; i++)
-                                    GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _tab.animateTo(i),
-                                      child: Builder(
-                                        builder: (context) {
-                                          final t = (1 - (i - p).abs()).clamp(
-                                            0.0,
-                                            1.0,
-                                          );
-                                          return Container(
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 2,
-                                              vertical: 6,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 18,
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.12 * t,
-                                              ),
+                          Expanded(
+                            child: ListenableBuilder(
+                              listenable: _tab.animation!,
+                              builder: (context, _) {
+                                final p = _tab.animation!.value;
+                                return Row(
+                                  children: [
+                                    for (var i = 0; i < tabs.length; i++)
+                                      Expanded(
+                                        child: Semantics(
+                                          selected: _tab.index == i,
+                                          child: Material(
+                                            type: MaterialType.transparency,
+                                            child: InkWell(
                                               borderRadius:
                                                   BorderRadius.circular(
-                                                    20,
-                                                  ), // 圆角豁免：Tab 胶囊需随高度全圆贴合
-                                              border: t > 0
-                                                  ? Border.all(
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: 0.15 * t,
-                                                          ),
-                                                      width: 0.5,
+                                                    AppRadius.pill,
+                                                  ),
+                                              onTap: () => _tab.animateTo(
+                                                i,
+                                                duration:
+                                                    AppMotion.reduceMotion(
+                                                      context,
                                                     )
-                                                  : null,
-                                            ),
-                                            child: Text(
-                                              tabs[i],
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: t >= 0.5
-                                                    ? FontWeight.bold
-                                                    : FontWeight.w400,
-                                                color: Color.lerp(
-                                                  const Color(0xFF888888),
-                                                  Colors.white,
-                                                  t,
+                                                    ? Duration.zero
+                                                    : AppMotion.duration(
+                                                        context,
+                                                        MotionTokens
+                                                            .durationTransition,
+                                                      ),
+                                              ),
+                                              child: Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight:
+                                                          AppSpacing.xxxl,
+                                                    ),
+                                                alignment: Alignment.center,
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: AppSpacing.xs,
+                                                    ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: AppSpacing.s,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(
+                                                        alpha:
+                                                            0.12 *
+                                                            (1 - (i - p).abs())
+                                                                .clamp(
+                                                                  0.0,
+                                                                  1.0,
+                                                                ),
+                                                      ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        AppRadius.pill,
+                                                      ),
+                                                ),
+                                                child: Text(
+                                                  tabs[i],
+                                                  style: AppText.body.copyWith(
+                                                    fontWeight: _tab.index == i
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w400,
+                                                    color: Color.lerp(
+                                                      _RecordTokens
+                                                          .textSecondary,
+                                                      _RecordTokens.textPrimary,
+                                                      (1 - (i - p).abs()).clamp(
+                                                        0.0,
+                                                        1.0,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                ],
-                              );
-                            },
+                                  ],
+                                );
+                              },
+                            ),
                           ),
+                          const SizedBox(width: AppSpacing.xxxl),
                         ],
                       ),
                     ),
@@ -424,17 +454,18 @@ class _CascadeIn extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = anim;
     if (a == null) return child;
-    final curved = CurvedAnimation(
-      parent: a,
-      curve: Interval(begin, end, curve: MotionTokens.curveStandard),
-      reverseCurve: Interval(begin, end, curve: Curves.easeInCubic),
+    final reduce = AppMotion.reduceMotion(context);
+    final curved = a.drive(
+      CurveTween(
+        curve: Interval(begin, end, curve: MotionTokens.curveStandard),
+      ),
     );
     return AnimatedBuilder(
       animation: curved,
       builder: (_, child) => Opacity(
         opacity: curved.value.clamp(0.0, 1.0),
         child: Transform.translate(
-          offset: Offset(0, dy * (1 - curved.value)),
+          offset: Offset(0, reduce ? 0 : dy * (1 - curved.value)),
           child: child,
         ),
       ),
@@ -458,13 +489,17 @@ class _TabZoom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduce = AppMotion.reduceMotion(context);
     return AnimatedBuilder(
       animation: position,
       builder: (_, child) {
         final t = (1 - (position.value - index).abs()).clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: 0.96 + 0.04 * t,
-          child: Opacity(opacity: 0.55 + 0.45 * t, child: child),
+        return TickerMode(
+          enabled: t > 0,
+          child: Transform.scale(
+            scale: reduce ? 1 : 0.96 + 0.04 * t,
+            child: Opacity(opacity: 0.55 + 0.45 * t, child: child),
+          ),
         );
       },
       child: child,

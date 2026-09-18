@@ -1,75 +1,175 @@
 part of 'settings_screen.dart';
 
 Future<void> _showAccentPicker(BuildContext context, WidgetRef ref) {
-  final current = ref.read(appAccentProvider);
   return glassBottomSheet<void>(
     context,
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text(
-            '主题色',
-            style: TextStyle(
-              color: AppTheme.textPrimaryOf(context),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              for (final a in AppAccent.values)
-                GestureDetector(
-                  onTap: () {
-                    ref.read(appAccentProvider.notifier).setAccent(a);
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: a.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: a == current
-                            ? AppTheme.textPrimaryOf(context)
-                            : Colors.transparent,
-                        width: 3,
-                      ),
-                    ),
-                    child: a == current
-                        ? Icon(
-                            Icons.check,
-                            color: AppTheme.textPrimaryOf(context),
-                            size: 24,
-                          )
-                        : null,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (final a in AppAccent.values)
-          if (a == current)
+    Consumer(
+      builder: (context, ref, _) {
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final tokens = SkinTokens.of(context);
+        final current = ref.watch(appAccentProvider);
+        final followsSystem =
+            ref.watch(appSkinProvider) == AppSkin.materialYou &&
+            !ref.watch(accentExplicitProvider);
+        final reduceMotion = MediaQuery.disableAnimationsOf(context);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
               child: Text(
-                a.label,
-                style: TextStyle(
-                  color: AppTheme.textFaintOf(context),
-                  fontSize: 13,
-                ),
+                '主题色',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
               ),
             ),
-      ],
+            Text('用于按钮与重点，不改变主题底色。', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: AppSpacing.s),
+            Row(
+              children: [
+                ExcludeSemantics(
+                  child: Icon(
+                    Icons.circle,
+                    color: scheme.primary,
+                    size: AppSpacing.l,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.s),
+                Expanded(
+                  child: Text(
+                    followsSystem
+                        ? '当前跟随系统，不可用时使用预设。选择下方颜色可覆盖。'
+                        : '当前：${current.label}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: tokens.textDim,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.l),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const gap = AppSpacing.m;
+                final fontSize =
+                    theme.textTheme.titleSmall?.fontSize ??
+                    AppText.aux.fontSize!;
+                final scale =
+                    MediaQuery.textScalerOf(context).scale(fontSize) / fontSize;
+                final minWidth = 96 * scale.clamp(1.0, 2.0);
+                final columns =
+                    ((constraints.maxWidth + gap) / (minWidth + gap))
+                        .floor()
+                        .clamp(1, 3);
+                final width =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    for (final accent in AppAccent.values)
+                      SizedBox(
+                        width: width,
+                        child: Semantics(
+                          selected: !followsSystem && accent == current,
+                          inMutuallyExclusiveGroup: true,
+                          child: OutlinedButton(
+                            style: ButtonStyle(
+                              animationDuration: reduceMotion
+                                  ? Duration.zero
+                                  : MotionTokens.durationFast,
+                              splashFactory: reduceMotion
+                                  ? NoSplash.splashFactory
+                                  : null,
+                              padding: const WidgetStatePropertyAll(
+                                EdgeInsets.all(AppSpacing.m),
+                              ),
+                              shape: WidgetStatePropertyAll(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.m,
+                                  ),
+                                ),
+                              ),
+                              side: WidgetStateProperty.resolveWith(
+                                (states) => BorderSide(
+                                  color: states.contains(WidgetState.focused)
+                                      ? tokens.textPrimary
+                                      : !followsSystem && accent == current
+                                      ? scheme.primary
+                                      : tokens.borderHairline,
+                                  width:
+                                      states.contains(WidgetState.focused) ||
+                                          (!followsSystem && accent == current)
+                                      ? 2
+                                      : 1,
+                                ),
+                              ),
+                              overlayColor: WidgetStateProperty.resolveWith((
+                                states,
+                              ) {
+                                final alpha =
+                                    states.contains(WidgetState.pressed)
+                                    ? 0.16
+                                    : states.contains(WidgetState.focused)
+                                    ? 0.14
+                                    : states.contains(WidgetState.hovered)
+                                    ? 0.08
+                                    : 0.0;
+                                return scheme.primary.withValues(alpha: alpha);
+                              }),
+                            ),
+                            onPressed: () {
+                              ref
+                                  .read(appAccentProvider.notifier)
+                                  .setAccent(accent);
+                              Navigator.of(context).pop();
+                            },
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ExcludeSemantics(
+                                  child: Container(
+                                    width: AppSpacing.xxxl,
+                                    height: AppSpacing.xxxl,
+                                    decoration: BoxDecoration(
+                                      color: accent.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: !followsSystem && accent == current
+                                        ? Icon(
+                                            Icons.check_rounded,
+                                            color: _accentCheckColor(
+                                              accent.color,
+                                              scheme,
+                                            ),
+                                            size: AppSpacing.xl,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.s),
+                                Text(
+                                  accent.label,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        );
+      },
     ),
+    scrollable: true,
   );
 }
 

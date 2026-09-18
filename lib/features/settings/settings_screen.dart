@@ -23,6 +23,7 @@ import '../../core/theme/accent.dart';
 import '../../core/theme/app_skin.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/background.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
@@ -210,11 +211,7 @@ class _GroupCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Text(
                 title!,
-                style: TextStyle(
-                  color: AppTheme.textFaintOf(context),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
           GlassCard(
@@ -249,14 +246,8 @@ class _SwitchTile extends ConsumerWidget {
       secondary: showIcons
           ? Icon(icon, color: AppTheme.textDimOf(context))
           : const SizedBox(width: 24),
-      title: Text(
-        title,
-        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
-      ),
+      title: Text(title, style: Theme.of(context).textTheme.titleSmall),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
       value: value,
       activeThumbColor: Theme.of(context).colorScheme.primary,
       onChanged: onChanged,
@@ -290,15 +281,10 @@ class _ActionTile extends ConsumerWidget {
           : const SizedBox(width: 24),
       title: Text(
         title,
-        style: TextStyle(
-          color: titleColor ?? AppTheme.textPrimaryOf(context),
-          fontSize: 16,
-        ),
+        style: Theme.of(context).textTheme.titleSmall
+            ?.copyWith(color: titleColor),
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
-      ),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
       trailing: Icon(
         Icons.chevron_right,
         color: AppTheme.textFaintOf(context),
@@ -324,15 +310,12 @@ class _InfoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: AppTheme.textDimOf(context)),
-      title: Text(
-        title,
-        style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 16),
-      ),
+      title: Text(title, style: Theme.of(context).textTheme.titleSmall),
       subtitle: Text(
         subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: AppTheme.textFaintOf(context), fontSize: 12),
+        style: Theme.of(context).textTheme.bodySmall,
       ),
     );
   }

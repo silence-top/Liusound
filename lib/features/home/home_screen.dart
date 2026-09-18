@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/settings_prefs.dart';
+import '../../core/theme/motion_tokens.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
-import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
-import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
 import '../fm/fm_screen.dart';
@@ -19,17 +18,9 @@ import '../search/search_screen.dart';
 import 'detail_screen.dart';
 import 'home_providers.dart';
 
-/// 首页（对标 1.x HomeScreen）：
-/// 装饰搜索栏 + 分区顺序：最新专辑 / 每日推荐 / 最近播放 / 最常播放 / 随机专辑。
-/// 歌曲分区（每日推荐 / 最近播放 / 最常播放）展示 3 行歌曲，
-/// 点「查看更多」进入全屏列表（SongListScreen）。
-///
-/// 性能设计：本页不订阅任何播放进度 provider → 播放期间零重建；
-/// 横向分区使用 ListView.builder 惰性构建 + 固定 itemExtent。
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  /// 下拉刷新：更换随机 seed 并重取全部分区
   Future<void> _refresh(WidgetRef ref) async {
     ref.read(randomSeedProvider.notifier).state = makeSeed();
     ref.invalidate(latestAlbumsProvider);
@@ -42,11 +33,11 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
       backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: CustomScrollView(
+          key: const PageStorageKey('home-discovery'),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
@@ -56,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
                         .push(fadeRoute<void>(const SearchScreen())),
               ),
             ),
-            const SliverToBoxAdapter(child: _FmBanner()),
+            const SliverToBoxAdapter(child: _FmEntry()),
             SliverToBoxAdapter(
               child: _Section(
                 title: '最新专辑',
@@ -70,28 +61,16 @@ class HomeScreen extends ConsumerWidget {
                 withDate: true,
               ),
             ),
-            SliverToBoxAdapter(
-              child: _SongListSection(
-                title: '最近播放',
-                provider: recentlyPlayedSongsProvider,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: _SongListSection(
-                title: '最常播放',
-                provider: mostPlayedSongsProvider,
-              ),
-            ),
+            const SliverToBoxAdapter(child: _ListeningHistory()),
             SliverToBoxAdapter(
               child: _Section(
                 title: '随机专辑',
                 child: _AlbumRow(randomAlbumsProvider),
               ),
             ),
-            // 收尾留白：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 96 + MediaQuery.paddingOf(context).bottom,
+                height: AppSpacing.huge + MediaQuery.paddingOf(context).bottom,
               ),
             ),
           ],
@@ -101,100 +80,90 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// 私人 FM 横幅（裸排）：主色圆底收音机图标 + 标题副行 + 播放角标，
-/// 整行点击进入 FM 页
-class _FmBanner extends StatelessWidget {
-  const _FmBanner();
+class _FmEntry extends StatelessWidget {
+  const _FmEntry();
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () =>
-            Navigator.of(context).push(fadeRoute<void>(const FmScreen())),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.18),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.radio, color: primary, size: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      child: FadeSlideIn(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.s),
+          onTap: () =>
+              Navigator.of(context).push(fadeRoute<void>(const FmScreen())),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
+            child: Row(
+              children: [
+                Icon(Icons.radio_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: AppSpacing.m),
+                Expanded(
+                  child: Text('私人 FM', style: theme.textTheme.titleSmall),
+                ),
+                Icon(Icons.chevron_right, color: AppTheme.textDimOf(context)),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '私人 FM',
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryOf(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '从你的曲库随机漫游',
-                    style: TextStyle(
-                      color: AppTheme.textDimOf(context),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.play_circle_outline,
-              size: 30,
-              color: AppTheme.textFaintOf(context),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 分区容器：标题（20 加粗）+ 可选尾部动作 + 内容
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child, this.trailing});
+  const _Section({
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.trailing,
+    this.heading,
+  });
 
   final String title;
+  final String? subtitle;
   final Widget child;
   final Widget? trailing;
+  final Widget? heading;
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryOf(context),
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
+              child: Row(
+                children: [
+                  Expanded(
+                    child:
+                        heading ??
+                        Wrap(
+                          spacing: AppSpacing.m,
+                          runSpacing: AppSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Semantics(
+                              header: true,
+                              child: Text(title, style: text.titleMedium),
+                            ),
+                            if (subtitle != null)
+                              Text(subtitle!, style: text.bodySmall),
+                          ],
+                        ),
                   ),
-                ),
-                const Spacer(),
-                ?trailing,
-              ],
+                  ?trailing,
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.s),
           child,
         ],
       ),
@@ -202,142 +171,213 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// 横向专辑行（最新专辑 / 随机专辑分区共用），点击进入专辑详情页
 class _AlbumRow extends ConsumerWidget {
   const _AlbumRow(this.provider);
 
   final HomeSectionProvider<Album> provider;
 
-  static const _cardWidth = 140.0;
-
-  /// 封面 140 + 间距 8 + 双行标题 ~34 + 间距 4 + 歌手 ~17
-  static const _rowHeight = 208.0;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final albums = ref.watch(provider);
-    return albums.when(
-      loading: () => const SizedBox(
-        height: _rowHeight,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => errorRetryBox(onRetry: () => ref.invalidate(provider)),
-      data: (list) {
-        if (list.isEmpty) {
-          return glassEmptyState(
-            text: '暂无专辑',
-            icon: Icons.album_outlined,
-            padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.xl,
-              horizontal: AppSpacing.l,
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () => ref.invalidate(provider),
-                icon: const Icon(Icons.sync, size: 18),
-                label: const Text('重新同步'),
-              ),
-            ],
-          );
-        }
-        return SizedBox(
-          height: _rowHeight,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: list.length,
-            itemExtent: _cardWidth + 8, // 卡片宽 + 左右 margin 4
-            itemBuilder: (context, index) => _AlbumCard(album: list[index]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = (constraints.maxWidth * 0.32).clamp(104.0, 148.0);
+        final scaler = MediaQuery.textScalerOf(context);
+        final text = Theme.of(context).textTheme;
+        final height =
+            size +
+            (scaler.scale(text.labelLarge!.fontSize!) * 2.8).ceilToDouble() +
+            (scaler.scale(text.bodySmall!.fontSize!) * 1.4).ceilToDouble() +
+            AppSpacing.m;
+        return albums.when(
+          loading: () => SizedBox(
+            height: height,
+            child: const Center(child: CircularProgressIndicator()),
           ),
+          error: (e, _) =>
+              errorRetryBox(onRetry: () => ref.invalidate(provider)),
+          data: (list) {
+            if (list.isEmpty) {
+              return glassEmptyState(
+                text: '暂无专辑',
+                icon: Icons.album_outlined,
+                actions: [
+                  TextButton.icon(
+                    onPressed: () => ref.invalidate(provider),
+                    icon: const Icon(Icons.sync),
+                    label: const Text('重新同步'),
+                  ),
+                ],
+              );
+            }
+            return SizedBox(
+              height: height,
+              child: ListView.builder(
+                key: PageStorageKey(provider),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                itemCount: list.length,
+                itemExtent: size + AppSpacing.l,
+                itemBuilder: (context, index) => FadeSlideIn(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.l),
+                    child: _AlbumCard(album: list[index], size: size),
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 }
 
-/// 专辑卡（140 封面 + 名称 + 歌手，点击进入专辑详情页）
 class _AlbumCard extends StatelessWidget {
-  const _AlbumCard({required this.album});
+  const _AlbumCard({required this.album, required this.size});
 
   final Album album;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: PressableScale(
-        onTap: () => Navigator.of(context).push(
-          fadeRoute<void>(
-            SongListScreen(
-              rateTargetId: album.id,
-              songsProvider: albumSongsProvider(album.id),
-              title: album.name,
-              subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-              rating: album.rating,
+    final tokens = SkinTokens.of(context);
+    final text = Theme.of(context).textTheme;
+    return PressableScale(
+      onTap: () => Navigator.of(context).push(
+        fadeRoute<void>(
+          SongListScreen(
+            rateTargetId: album.id,
+            songsProvider: albumSongsProvider(album.id),
+            title: album.name,
+            subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
+            rating: album.rating,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                AppRadius.m * tokens.radiusScale,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: tokens.shadowColor,
+                  blurRadius: AppSpacing.l,
+                  offset: const Offset(0, AppSpacing.xs),
+                ),
+              ],
+            ),
+            child: CoverArt(
+              albumId: album.id,
+              size: size,
+              radius: AppRadius.m * tokens.radiusScale,
             ),
           ),
-        ),
-        child: SizedBox(
-          width: _AlbumRow._cardWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  CoverArt(
-                    albumId: album.id,
-                    size: _AlbumRow._cardWidth,
-                    radius: 8,
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: SongCountBadge(count: album.songCount),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.s),
-              // 双行 12sp：避免「我的楼兰（2026新…」这类粗暴截断；
-              // 两行仍放不下时长按可跑马灯读全名
-              MarqueeText(
-                album.name,
-                maxLines: 2,
-                style: TextStyle(
-                  color: AppTheme.textPrimaryOf(context),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              MarqueeText(
-                album.artist,
-                style: TextStyle(
-                  color: AppTheme.textFaintOf(context),
-                  fontSize: 12,
-                ),
-              ),
-            ],
+          const SizedBox(height: AppSpacing.s),
+          SizedBox(
+            height:
+                (MediaQuery.textScalerOf(context)
+                            .scale(text.labelLarge!.fontSize!) *
+                        2.8)
+                    .ceilToDouble(),
+            child: Text(
+              album.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: text.labelLarge?.copyWith(height: 1.4),
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            album.artist,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.bodySmall?.copyWith(height: 1.4),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// 歌曲列表分区（每日推荐 / 最近播放 / 最常播放共用）：
-/// 3 行歌曲裸排 + 「查看更多」进入全屏列表
+class _ListeningHistory extends StatefulWidget {
+  const _ListeningHistory();
+
+  @override
+  State<_ListeningHistory> createState() => _ListeningHistoryState();
+}
+
+class _ListeningHistoryState extends State<_ListeningHistory> {
+  bool _mostPlayed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final titles = ['最近播放', '最常播放'];
+    return _SongListSection(
+      title: titles[_mostPlayed ? 1 : 0],
+      provider: _mostPlayed
+          ? mostPlayedSongsProvider
+          : recentlyPlayedSongsProvider,
+      heading: Wrap(
+        spacing: AppSpacing.m,
+        children: [
+          for (var i = 0; i < titles.length; i++)
+            Semantics(
+              selected: _mostPlayed == (i == 1),
+              child: InkWell(
+                onTap: () => setState(() => _mostPlayed = i == 1),
+                borderRadius: BorderRadius.circular(AppRadius.s),
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(
+                    context,
+                    MotionTokens.durationSnappy,
+                  ),
+                  constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        width: 2,
+                        color: _mostPlayed == (i == 1)
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    titles[i],
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: _mostPlayed == (i == 1)
+                          ? AppTheme.textPrimaryOf(context)
+                          : AppTheme.textDimOf(context),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SongListSection extends ConsumerWidget {
   const _SongListSection({
     required this.title,
     required this.provider,
     this.withDate = false,
+    this.heading,
   });
 
   final String title;
   final HomeSectionProvider<Song> provider;
-
-  /// 「查看更多」页头是否展示今日日期（每日推荐）
   final bool withDate;
+  final Widget? heading;
 
   void _openDetail(BuildContext context, List<Song> songs) {
     Navigator.of(context).push(
@@ -357,72 +397,45 @@ class _SongListSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final songs = ref.watch(provider);
-    return songs.when(
-      loading: () => _Section(
-        title: title,
-        child: const SizedBox(
+    final list = songs.valueOrNull;
+    final today = DateTime.now();
+    return _Section(
+      title: title,
+      heading: heading,
+      subtitle: withDate ? '${today.month} 月 ${today.day} 日' : null,
+      trailing: IconButton(
+        tooltip: '查看全部$title',
+        onPressed: list == null || list.isEmpty
+            ? null
+            : () => _openDetail(context, list),
+        icon: const Icon(Icons.arrow_forward_rounded),
+      ),
+      child: songs.when(
+        loading: () => const SizedBox(
           height: 180,
           child: Center(child: CircularProgressIndicator()),
         ),
-      ),
-      error: (e, _) => _Section(
-        title: title,
-        child: errorRetryBox(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-          onRetry: () => ref.invalidate(provider),
-        ),
-      ),
-      data: (list) {
-        if (list.isEmpty) {
-          return _Section(
-            title: title,
-            child: glassEmptyState(
-              text: '$title暂无内容',
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.l,
-                horizontal: AppSpacing.l,
-              ),
+        error: (e, _) => errorRetryBox(onRetry: () => ref.invalidate(provider)),
+        data: (items) {
+          if (items.isEmpty) {
+            return glassEmptyState(text: '$title暂无内容');
+          }
+          return GlassCard(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Column(
+              children: [
+                for (var i = 0; i < items.length && i < 3; i++)
+                  _SongCardRow(song: items[i], queue: items),
+              ],
             ),
           );
-        }
-        return _Section(
-          title: title,
-          trailing: GestureDetector(
-            onTap: () => _openDetail(context, list),
-            child: Text(
-              '查看更多',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          child: ref.watch(cardDisplayProvider)
-              ? GlassContainer(
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: list
-                        .take(3)
-                        .map((song) => _SongCardRow(song: song, queue: list))
-                        .toList(),
-                  ),
-                )
-              : Column(
-                  children: list
-                      .take(3)
-                      .map((song) => _SongCardRow(song: song, queue: list))
-                      .toList(),
-                ),
-        );
-      },
+        },
+      ),
     );
   }
 }
 
-/// 歌曲列表分区行：56 封面 + 标题/副标题 + 播放按钮，
-/// 点击直接播放（整卡队列）并弹出全屏播放器
 class _SongCardRow extends ConsumerWidget {
   const _SongCardRow({required this.song, required this.queue});
 
@@ -438,16 +451,17 @@ class _SongCardRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
     return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.m),
       onTap: () => _play(context, ref),
-      // 长按唤出上下文菜单（与详情页 SongRow 行为一致）
       onLongPress: () => showSongActionSheet(context, song),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        padding: const EdgeInsets.all(AppSpacing.s),
         child: Row(
           children: [
-            CoverArt(albumId: song.albumId, size: 56, radius: 8),
-            const SizedBox(width: 14),
+            CoverArt(albumId: song.albumId, size: 52, radius: AppRadius.s),
+            const SizedBox(width: AppSpacing.m),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,35 +470,24 @@ class _SongCardRow extends ConsumerWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryOf(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: text.titleSmall,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '${song.artist} - ${song.album}',
+                    '${song.artist} · ${song.album}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppTheme.textDimOf(context),
-                      fontSize: 14,
-                    ),
+                    style: text.bodySmall,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            // 命中区 44×44dp：圆圈图标本身偏小，靠 constraints 兜住可点范围
             IconButton(
+              tooltip: '播放${song.title}',
               onPressed: () => _play(context, ref),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               icon: Icon(
-                Icons.play_circle_outline,
-                size: 34,
-                color: AppTheme.textPrimaryOf(context),
+                Icons.play_arrow_rounded,
+                color: AppTheme.textDimOf(context),
               ),
             ),
           ],

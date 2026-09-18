@@ -10,20 +10,19 @@ class _NowPlayingTab extends ConsumerStatefulWidget {
 }
 
 class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
-    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
-  // 唱片匀速旋转（18s/圈）；暂停时停在当前位置
+    with
+        AutomaticKeepAliveClientMixin,
+        TickerProviderStateMixin,
+        WidgetsBindingObserver {
+  // 控制器不随封面或形态重建，暂停后从原角度继续。
   late final AnimationController _spin = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 18),
   );
-
-  // 唱针升降（§4.2）：播放时平滑落下贴住唱片，暂停/切歌时抬起
   late final AnimationController _arm = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
   );
-
-  // 唱片背后主色呼吸光晕（4s 循环）：仅播放时呼吸，暂停冻结，省电不转
   late final AnimationController _glow = AnimationController(
     vsync: this,
     duration: MotionTokens.durationHalo,
@@ -33,13 +32,27 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
   bool get wantKeepAlive => true;
 
   StreamSubscription<bool>? _playingSub;
+  Animation<double>? _tabPosition;
+  int _tabIndex = 1;
   bool _playing = false;
+  bool _dependenciesReady = false;
+  bool _foreground = true;
+  bool _tickerEnabled = false;
+  bool _reduceMotion = false;
+  bool _routeVisible = true;
+  bool _tabVisible = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _playing = ref.read(audioPlayerProvider).playing;
-    _syncAnimations();
+    // initState 不读取 MediaQuery / TickerMode；依赖就绪后才启动动画。
+    ref.listenManual(coverStyleProvider, (_, _) => _syncAnimations());
+    ref.listenManual(powerSaveProvider, (_, _) => _syncAnimations());
+    ref.listenManual(currentSongProvider, (_, _) => _syncAnimations());
     _playingSub = ref
         .read(audioPlayerProvider)
         .playerStateStream
@@ -52,30 +65,77 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
         });
   }
 
-  /// 只有会旋转的形态（黑胶 / CD）才让 _spin 持续 tick：
-  /// 本 Tab 常驻存活，方形卡片与全屏大图没必要空转一个 18s 控制器；
-  /// 呼吸光晕同为唱片专属装饰，且省电模式（§8.5）下静止
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _routeVisible = ModalRoute.isCurrentOf(context) ?? true;
+    // TabBarView 会保活相邻页面；不能仅依赖路由或 TickerMode。
+    final tab = context.findAncestorWidgetOfExactType<_TabZoom>();
+    if (_tabPosition != tab?.position) {
+      _tabPosition?.removeListener(_onTabPositionChanged);
+      _tabPosition = tab?.position;
+      _tabPosition?.addListener(_onTabPositionChanged);
+    }
+    _tabIndex = tab?.index ?? 1;
+    _tabVisible = _isTabVisible;
+    _dependenciesReady = true;
+    _syncAnimations();
+  }
+
+  bool get _isTabVisible =>
+      _tabPosition == null || (_tabPosition!.value - _tabIndex).abs() < 1;
+
+  void _onTabPositionChanged() {
+    final visible = _isTabVisible;
+    if (_tabVisible == visible) return;
+    _tabVisible = visible;
+    _syncAnimations();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncAnimations();
+  }
+
   void _syncAnimations() {
+    if (!_dependenciesReady || !mounted) return;
     final style = ref.read(coverStyleProvider);
-    if (_playing && style.spins) {
+    final animate =
+        _foreground &&
+        _tickerEnabled &&
+        _routeVisible &&
+        _tabVisible &&
+        !_reduceMotion &&
+        !ref.read(powerSaveProvider) &&
+        ref.read(currentSongProvider) != null;
+    final run = animate && _playing && style.spins;
+    if (run) {
       if (!_spin.isAnimating) _spin.repeat();
+      if (!_glow.isAnimating) _glow.repeat();
     } else {
       _spin.stop();
-    }
-    if (_playing && style.spins && !ref.read(powerSaveProvider)) {
-      if (!_glow.isAnimating) _glow.repeat();
-    } else if (_glow.isAnimating) {
       _glow.stop();
     }
-    if (_playing) {
-      _arm.forward();
-    } else {
-      _arm.reverse();
+    final target = _playing ? 1.0 : 0.0;
+    if (!animate || style != CoverStyle.vinyl) {
+      _arm.stop();
+      if (_arm.value != target) _arm.value = target;
+    } else if (_playing) {
+      if (_arm.value != 1 && _arm.status != AnimationStatus.forward) {
+        _arm.animateTo(1, curve: Curves.easeInOutCubic);
+      }
+    } else if (_arm.value != 0 && _arm.status != AnimationStatus.reverse) {
+      _arm.animateBack(0, curve: Curves.easeInOutCubic);
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tabPosition?.removeListener(_onTabPositionChanged);
     _playingSub?.cancel();
     _spin.dispose();
     _arm.dispose();
@@ -90,13 +150,13 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     if (song == null) return const SizedBox.shrink();
     final style = ref.watch(coverStyleProvider);
     final quality = ref.watch(currentQualityProvider);
-    ref.listen(coverStyleProvider, (_, _) => _syncAnimations());
-    // 省电开关切换即时生效（光晕停转/恢复）
-    ref.listen(powerSaveProvider, (_, _) => _syncAnimations());
-    // 光晕颜色取封面主色（取色中沿用上一首；从未取到回退莫奈主色）
+    final still =
+        ref.watch(powerSaveProvider) ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled;
+    // 取色仅用于盘面细环和低亮光晕，文字与材质不绑定皮肤。
     final glowColor =
-        ref.watch(currentAlbumDominantProvider) ??
-        Theme.of(context).colorScheme.primary;
+        ref.watch(currentAlbumDominantProvider) ?? _RecordTokens.accent;
 
     return Stack(
       children: [
@@ -134,28 +194,39 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                   style,
                   song.localCoverPath,
                   glowColor,
+                  still,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.l),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                  ),
                   child: Text(
                     song.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                    style: AppText.h2.copyWith(
+                      color: _RecordTokens.textPrimary,
+                      height: 1.3,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  song.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16, color: Colors.white38),
+                const SizedBox(height: AppSpacing.s),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                  ),
+                  child: Text(
+                    song.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: AppText.aux.copyWith(
+                      color: _RecordTokens.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
                 // 当前实际播放音质（含转码回退后的真实档；本地/离线不显示）
                 if (quality != null) ...[
@@ -166,19 +237,14 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary
-                            .withValues(alpha: 0.5),
-                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      border: Border.all(color: _RecordTokens.qualityBorder),
                     ),
                     child: Text(
                       quality.label,
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: AppText.caption.copyWith(
                         letterSpacing: 0.5,
-                        color: Theme.of(context).colorScheme.primary
-                            .withValues(alpha: 0.9),
+                        color: _RecordTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -199,31 +265,85 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
     CoverStyle style,
     String? localCover,
     Color glowColor,
-  ) => GestureDetector(
-    onDoubleTap: () {
-      final song = ref.read(currentSongProvider);
-      if (song != null) _toggleStar(song);
-    },
-    child: switch (style) {
-      CoverStyle.vinyl => _GlowWrap(
-        glow: _glow,
-        color: glowColor,
-        child: _VinylDisc(
+    bool still,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      final extent = math.min(
+        _RecordTokens.stageSize,
+        math.max(0.0, constraints.maxWidth - AppSpacing.xl),
+      );
+      final cover = switch (style) {
+        CoverStyle.vinyl => _GlowWrap(
+          glow: _glow,
+          color: glowColor,
+          child: _VinylDisc(
+            albumId: albumId,
+            spin: _spin,
+            arm: _arm,
+            accent: glowColor,
+            localCover: localCover,
+          ),
+        ),
+        CoverStyle.cd => _GlowWrap(
+          glow: _glow,
+          color: glowColor,
+          child: _CdDisc(
+            albumId: albumId,
+            spin: _spin,
+            accent: glowColor,
+            localCover: localCover,
+          ),
+        ),
+        CoverStyle.square || CoverStyle.fullBlur => _SquareCover(
           albumId: albumId,
-          spin: _spin,
-          arm: _arm,
           localCover: localCover,
         ),
-      ),
-      CoverStyle.cd => _GlowWrap(
-        glow: _glow,
-        color: glowColor,
-        child: _CdDisc(albumId: albumId, spin: _spin, localCover: localCover),
-      ),
-      CoverStyle.square || CoverStyle.fullBlur => _SquareCover(
-        albumId: albumId,
-        localCover: localCover,
-      ),
+      };
+      final child = KeyedSubtree(
+        // 仅形态参与 key；切专辑不重置盘体与旋转相位。
+        key: ValueKey(style),
+        child: Center(child: cover),
+      );
+      return Center(
+        child: SizedBox.square(
+          dimension: extent,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox.square(
+              dimension: _RecordTokens.stageSize,
+              child: GestureDetector(
+                onDoubleTap: () {
+                  final song = ref.read(currentSongProvider);
+                  if (song != null) _toggleStar(song);
+                },
+                child: still
+                    ? child
+                    : AnimatedSwitcher(
+                        duration: MotionTokens.durationCoverFade,
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        layoutBuilder: (current, previous) => Stack(
+                          fit: StackFit.expand,
+                          alignment: Alignment.center,
+                          children: [...previous, ?current],
+                        ),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(
+                              begin: 0.97,
+                              end: 1,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: child,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      );
     },
   );
 
@@ -244,160 +364,393 @@ class _NowPlayingTabState extends ConsumerState<_NowPlayingTab>
   }
 }
 
-const double _discSize = 280;
+/// 播放器专用材质，不读取 AppSkin / SkinTokens；封面主色仅作点缀。
+abstract final class _RecordTokens {
+  static const double discSize = 280;
+  static const double stageSize = 328;
+  static const double vinylLabel = 110;
+  static const double cdLabel = 124;
+  static const double cdHubRadius = 28;
+  static const double cdHoleRadius = 10;
+  static const double grooveStep = 1.15;
+  static const double rimWidth = 0.8;
+  static const double spindleSize = 9;
+  static const Size armSize = Size(112, 126);
 
-/// 经典黑胶：外圈纹理 + 中央方形封面旋转，唱针挂在右上角不随盘转。
+  static const ink = Color(0xFF090B0D);
+  static const vinyl = Color(0xFF1C2024);
+  static const groove = Color(0xFF707B85);
+  static const silver = Color(0xFFCBD3D9);
+  static const steel = Color(0xFF8997A6);
+  static const light = Color(0xFFF4F7FA);
+  static const prismBlue = Color(0xFFA9C9D0);
+  static const prismViolet = Color(0xFFC7BFD2);
+  static const prismGold = Color(0xFFD8D0B7);
+  static const accent = Color(0xFFA7C5D8);
+  static const textPrimary = Color(0xFFF7F8FA);
+  static const textSecondary = Color(0xFFD1D7DF);
+  static const qualityBorder = Color(0x4DF4F7FA);
+  static const shadow = Color(0x66000000);
+  static const transparent = Color(0x00F4F7FA);
+
+  static const vinylSurface = RadialGradient(
+    colors: [vinyl, ink, vinyl, ink],
+    stops: [0, 0.44, 0.82, 1],
+  );
+  static const cdSurface = SweepGradient(
+    transform: GradientRotation(-math.pi / 4),
+    colors: [
+      steel,
+      silver,
+      light,
+      prismBlue,
+      steel,
+      silver,
+      light,
+      prismViolet,
+      prismGold,
+      steel,
+    ],
+    stops: [0, 0.12, 0.20, 0.25, 0.43, 0.55, 0.69, 0.75, 0.82, 1],
+  );
+  static const metal = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [steel, light, silver, steel],
+    stops: [0, 0.28, 0.48, 1],
+  );
+}
+
+const double _discSize = _RecordTokens.discSize;
+
+/// 黑胶的盘纹与圆形标签转动，斜向光源、轴心与唱针固定在舞台上。
 class _VinylDisc extends StatelessWidget {
   const _VinylDisc({
     required this.albumId,
     required this.spin,
     required this.arm,
+    required this.accent,
     this.localCover,
   });
 
   final String albumId;
   final Animation<double> spin;
   final Animation<double> arm;
+  final Color accent;
   final String? localCover;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: _discSize,
-      height: _discSize,
+    return SizedBox.square(
+      dimension: _discSize,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AnimatedBuilder(
-            animation: spin,
-            builder: (_, child) =>
-                Transform.rotate(angle: spin.value * math.pi * 2, child: child),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color(0xFF2A2A2A),
-                        Color(0xFF161616),
-                        Color(0xFF060606),
-                      ],
-                      stops: [0.0, 0.72, 1.0],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black45,
-                        blurRadius: 24,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                // 唱片纹路（两圈高光环）
-                Container(
-                  width: 224,
-                  height: 224,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 196,
-                  height: 196,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.04),
-                    ),
-                  ),
-                ),
-                // 中央封面（黑胶圆孔位；切歌淡入过渡）
-                _fadeCover(albumId, 120, 8, localCover),
-              ],
+          const Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _RecordSurfacePainter()),
             ),
           ),
-          Positioned(right: 0, top: 2, child: _Tonearm(arm: arm)),
+          RotationTransition(
+            turns: spin,
+            child: RepaintBoundary(
+              child: SizedBox.square(
+                dimension: _discSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Positioned.fill(
+                      child: RepaintBoundary(
+                        child: CustomPaint(painter: _RecordGroovesPainter()),
+                      ),
+                    ),
+                    _RecordLabel(
+                      albumId: albumId,
+                      localCover: localCover,
+                      size: _RecordTokens.vinylLabel,
+                      accent: accent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: CustomPaint(painter: _RecordLightPainter()),
+              ),
+            ),
+          ),
+          Container(
+            width: _RecordTokens.spindleSize,
+            height: _RecordTokens.spindleSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: _RecordTokens.metal,
+              border: Border.all(color: _RecordTokens.ink, width: 1.5),
+            ),
+          ),
+          Positioned(right: 0, top: 0, child: _Tonearm(arm: arm)),
         ],
       ),
     );
   }
 }
 
-/// CD 唱片：斜向彩虹镀层 + 浅色内圈 + 封面作标签区 + 中心孔，随播放旋转。
+/// CD 的金属镀层反射固定，只有刻纹与标签旋转；轴套真实透出背景。
 class _CdDisc extends StatelessWidget {
-  const _CdDisc({required this.albumId, required this.spin, this.localCover});
+  const _CdDisc({
+    required this.albumId,
+    required this.spin,
+    required this.accent,
+    this.localCover,
+  });
 
   final String albumId;
   final Animation<double> spin;
+  final Color accent;
   final String? localCover;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: _discSize,
-      height: _discSize,
-      child: AnimatedBuilder(
-        animation: spin,
-        builder: (_, child) =>
-            Transform.rotate(angle: spin.value * math.pi * 2, child: child),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  colors: [
-                    Color(0xFFDDE2E8),
-                    Color(0xFFB7C6DC),
-                    Color(0xFFEAEFF6),
-                    Color(0xFFD3C3E2),
-                    Color(0xFFBFDAD6),
-                    Color(0xFFDDE2E8),
+    return SizedBox.square(
+      dimension: _discSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Positioned.fill(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _RecordSurfacePainter(cd: true)),
+            ),
+          ),
+          RotationTransition(
+            turns: spin,
+            child: RepaintBoundary(
+              child: SizedBox.square(
+                dimension: _discSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Positioned.fill(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _RecordGroovesPainter(cd: true),
+                        ),
+                      ),
+                    ),
+                    ClipPath(
+                      clipper: const _RecordHoleClipper(
+                        _RecordTokens.cdHubRadius,
+                      ),
+                      child: _RecordLabel(
+                        albumId: albumId,
+                        localCover: localCover,
+                        size: _RecordTokens.cdLabel,
+                        accent: accent,
+                      ),
+                    ),
                   ],
-                  stops: [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 24,
-                    spreadRadius: 2,
-                  ),
-                ],
               ),
             ),
-            // 内圈镀层分隔
-            Container(
-              width: 188,
-              height: 188,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFEDEFF3),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+          ),
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: CustomPaint(painter: _RecordLightPainter(cd: true)),
               ),
             ),
-            // 标签区封面（radius 取半径裁成正圆）
-            _fadeCover(albumId, 150, 75, localCover),
-            // 中心孔
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF0C0E12),
-                border: Border.all(color: Colors.white24),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _RecordLabel extends StatelessWidget {
+  const _RecordLabel({
+    required this.albumId,
+    required this.size,
+    required this.accent,
+    this.localCover,
+  });
+
+  final String albumId;
+  final double size;
+  final Color accent;
+  final String? localCover;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size + 6,
+    height: size + 6,
+    padding: const EdgeInsets.all(2),
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: _RecordTokens.ink,
+      border: Border.all(color: accent.withValues(alpha: 0.8)),
+    ),
+    child: _fadeCover(albumId, size, size / 2, localCover),
+  );
+}
+
+Path _recordAnnulus(Offset center, double outer, double inner) => Path()
+  ..fillType = PathFillType.evenOdd
+  ..addOval(Rect.fromCircle(center: center, radius: outer))
+  ..addOval(Rect.fromCircle(center: center, radius: inner));
+
+class _RecordHoleClipper extends CustomClipper<Path> {
+  const _RecordHoleClipper(this.radius);
+  final double radius;
+
+  @override
+  Path getClip(Size size) =>
+      _recordAnnulus(size.center(Offset.zero), size.shortestSide / 2, radius);
+
+  @override
+  bool shouldReclip(_RecordHoleClipper oldClipper) =>
+      oldClipper.radius != radius;
+}
+
+class _RecordSurfacePainter extends CustomPainter {
+  const _RecordSurfacePainter({this.cd = false});
+  final bool cd;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final surface = _recordAnnulus(
+      center,
+      radius,
+      cd ? _RecordTokens.cdHubRadius : 0,
+    );
+    canvas.drawShadow(surface, _RecordTokens.shadow, 7, true);
+    canvas.drawPath(
+      surface,
+      Paint()
+        ..shader = (cd ? _RecordTokens.cdSurface : _RecordTokens.vinylSurface)
+            .createShader(bounds),
+    );
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _RecordTokens.rimWidth
+      ..color = _RecordTokens.light.withValues(alpha: cd ? 0.65 : 0.22);
+    canvas.drawCircle(center, radius - 0.8, rim);
+    canvas.drawCircle(
+      center,
+      radius - 3,
+      rim..color = _RecordTokens.ink.withValues(alpha: cd ? 0.24 : 0.8),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RecordSurfacePainter oldDelegate) => oldDelegate.cd != cd;
+}
+
+/// 一次绘制所有细密沟槽；缓存后只变换图层，不在每个 tick 重新画圆。
+class _RecordGroovesPainter extends CustomPainter {
+  const _RecordGroovesPainter({this.cd = false});
+  final bool cd;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final outer = size.shortestSide / 2 - 5;
+    final inner =
+        (cd ? _RecordTokens.cdLabel : _RecordTokens.vinylLabel) / 2 + 7;
+    final paint = Paint()..style = PaintingStyle.stroke;
+    var index = 0;
+    for (double r = outer; r > inner; r -= _RecordTokens.grooveStep) {
+      final band = index++ % 7 == 0;
+      paint
+        ..strokeWidth = band ? 0.65 : 0.35
+        ..color = (cd ? _RecordTokens.ink : _RecordTokens.groove).withValues(
+          alpha: cd ? (band ? 0.09 : 0.04) : (band ? 0.38 : 0.20),
+        );
+      canvas.drawCircle(center, r, paint);
+    }
+    canvas.drawCircle(
+      center,
+      inner - 2,
+      paint
+        ..strokeWidth = 0.7
+        ..color = _RecordTokens.light.withValues(alpha: cd ? 0.25 : 0.12),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RecordGroovesPainter oldDelegate) => oldDelegate.cd != cd;
+}
+
+/// 光源不随 RotationTransition 转动，避免把反射做成旋转的彩虹贴纸。
+class _RecordLightPainter extends CustomPainter {
+  const _RecordLightPainter({this.cd = false});
+  final bool cd;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2;
+    final bounds = Offset.zero & size;
+    final labelRadius =
+        (cd ? _RecordTokens.cdLabel : _RecordTokens.vinylLabel) / 2 + 3;
+    canvas.drawPath(
+      _recordAnnulus(center, radius - 2, labelRadius),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _RecordTokens.transparent,
+            _RecordTokens.light.withValues(alpha: cd ? 0.32 : 0.13),
+            _RecordTokens.transparent,
+            _RecordTokens.ink.withValues(alpha: cd ? 0.16 : 0.08),
+            _RecordTokens.light.withValues(alpha: cd ? 0.18 : 0.07),
+            _RecordTokens.transparent,
+          ],
+          stops: const [0.05, 0.27, 0.44, 0.57, 0.74, 0.95],
+        ).createShader(bounds),
+    );
+    if (!cd) return;
+    final hub = Rect.fromCircle(
+      center: center,
+      radius: _RecordTokens.cdHubRadius,
+    );
+    canvas.drawPath(
+      _recordAnnulus(
+        center,
+        _RecordTokens.cdHubRadius,
+        _RecordTokens.cdHoleRadius,
+      ),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _RecordTokens.light.withValues(alpha: 0.40),
+            _RecordTokens.light.withValues(alpha: 0.07),
+            _RecordTokens.light.withValues(alpha: 0.22),
+          ],
+        ).createShader(hub),
+    );
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _RecordTokens.rimWidth
+      ..color = _RecordTokens.light.withValues(alpha: 0.6);
+    canvas.drawCircle(center, _RecordTokens.cdHubRadius - 0.5, edge);
+    canvas.drawCircle(center, _RecordTokens.cdHoleRadius + 0.5, edge);
+    canvas.drawCircle(
+      center,
+      _RecordTokens.cdHoleRadius + 2,
+      edge..color = _RecordTokens.ink.withValues(alpha: 0.3),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RecordLightPainter oldDelegate) => oldDelegate.cd != cd;
 }
 
 /// 方形玻璃卡片：容器级模糊 + 受光描边，不旋转。
@@ -430,121 +783,47 @@ class _SquareCover extends StatelessWidget {
   }
 }
 
-/// 切歌过渡：淡入 + 0.92 punch-in 放大落位，三种形态共用；
-/// 新封面落位后一道斜向扫光掠过（见 _Sheen）
+/// 固定尺寸内只淡换图片，不重置盘体、不缩放标签，也不追加扫光。
 Widget _fadeCover(
   String albumId,
   double size,
   double radius, [
   String? localCover,
-]) => AnimatedSwitcher(
-  duration: MotionTokens.durationCoverFade,
-  switchInCurve: MotionTokens.curveStandard,
-  switchOutCurve: Curves.easeIn,
-  transitionBuilder: (child, animation) => FadeTransition(
-    opacity: animation,
-    child: ScaleTransition(
-      scale: Tween<double>(begin: 0.92, end: 1).animate(animation),
-      child: child,
-    ),
-  ),
-  child: KeyedSubtree(
-    key: ValueKey(albumId),
-    child: _SheenCover(
+]) => Consumer(
+  builder: (context, ref, _) {
+    final still =
+        ref.watch(powerSaveProvider) ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled;
+    final cover = CoverArt(
+      key: ValueKey((albumId, localCover)),
       albumId: albumId,
       size: size,
-      radius: radius,
+      radius: 0,
       localCover: localCover,
-    ),
-  ),
-);
-
-/// 封面 + 一次性斜向扫光：裁剪与封面圆角一致，扫光仅装饰不拦截手势。
-class _SheenCover extends StatelessWidget {
-  const _SheenCover({
-    required this.albumId,
-    required this.size,
-    required this.radius,
-    this.localCover,
-  });
-
-  final String albumId;
-  final double size;
-  final double radius;
-  final String? localCover;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: CoverArt(
-                albumId: albumId,
-                size: size,
-                radius: 0,
-                localCover: localCover,
+    );
+    return SizedBox.square(
+      dimension: size,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: still
+            ? cover
+            : AnimatedSwitcher(
+                duration: MotionTokens.durationCoverFade,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (current, previous) => Stack(
+                  fit: StackFit.expand,
+                  children: [...previous, ?current],
+                ),
+                child: cover,
               ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(child: _Sheen(size: size)),
-            ),
-          ],
-        ),
       ),
     );
-  }
-}
+  },
+);
 
-/// 斜向高光带：新 key 落位即自播放一次（TweenAnimationBuilder 自驱动），
-/// 从封面左侧扫到右侧，0.4s 后启动避免与 punch-in 抢戏。
-class _Sheen extends StatelessWidget {
-  const _Sheen({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 950),
-      curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
-      builder: (_, t, _) {
-        if (t == 0) return const SizedBox.shrink();
-        return Transform.translate(
-          // t ∈ 0..1 映射为「带中心」从封面左侧外扫到右侧外
-          offset: Offset((size + 140) * (t * 2 - 1), 0),
-          child: Transform.rotate(
-            angle: 0.5,
-            child: Container(
-              width: 90,
-              height: 600,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0),
-                    Colors.white.withValues(alpha: 0.16),
-                    Colors.white.withValues(alpha: 0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// 唱片背后主色呼吸光晕：布局占位仍是唱片框（OverflowBox 外溢绘制），
-/// 不挤动标题/控制区排版；光晕中心留在盘体后面，只露出外圈光环。
+/// 柔和的封面色反射限制在舞台边界内，不再向小屏边缘外溢。
 class _GlowWrap extends StatelessWidget {
   const _GlowWrap({
     required this.glow,
@@ -557,24 +836,18 @@ class _GlowWrap extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _discSize,
-      height: _discSize,
-      child: OverflowBox(
-        maxWidth: _discSize + 96,
-        maxHeight: _discSize + 96,
-        alignment: Alignment.center,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            _DiscGlow(glow: glow, color: color),
-            child,
-          ],
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: _RecordTokens.stageSize,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        RepaintBoundary(
+          child: _DiscGlow(glow: glow, color: color),
         ),
-      ),
-    );
-  }
+        child,
+      ],
+    ),
+  );
 }
 
 class _DiscGlow extends StatelessWidget {
@@ -584,28 +857,27 @@ class _DiscGlow extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: glow,
-      builder: (_, _) {
-        final t = 0.5 + 0.5 * math.sin(glow.value * math.pi * 2);
-        return Container(
-          width: _discSize + 88,
-          height: _discSize + 88,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                color.withValues(alpha: 0.28 * t),
-                color.withValues(alpha: 0),
-              ],
-              stops: const [0.55, 1.0],
-            ),
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: glow,
+    builder: (_, _) {
+      final t = 0.5 + 0.5 * math.sin(glow.value * math.pi * 2);
+      return Container(
+        width: _RecordTokens.stageSize,
+        height: _RecordTokens.stageSize,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withValues(alpha: 0),
+              color.withValues(alpha: 0.055 + 0.03 * t),
+              color.withValues(alpha: 0),
+            ],
+            stops: const [0.65, 0.84, 1],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
 }
 
 /// 唱针：支点固定在右上角，播放时平滑摆下贴住唱片，暂停时抬起。
@@ -615,78 +887,129 @@ class _Tonearm extends StatelessWidget {
   final Animation<double> arm;
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: arm,
-      builder: (_, _) => IgnorePointer(
-        child: CustomPaint(
-          size: const Size(112, 112),
-          painter: _TonearmPainter(arm.value),
-        ),
+  Widget build(BuildContext context) => IgnorePointer(
+    child: RepaintBoundary(
+      child: CustomPaint(
+        size: _RecordTokens.armSize,
+        painter: _TonearmPainter(arm),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _TonearmPainter extends CustomPainter {
-  const _TonearmPainter(this.progress);
+  _TonearmPainter(this.arm) : super(repaint: arm);
 
-  /// 0 抬起（暂停，甩到盘缘外）→ 1 落下（播放，落在唱片纹路上）
-  final double progress;
-
-  static const _raisedDeg = -10.0;
+  /// 0 抬起 → 1 落在沟槽上；动画仅使这个小图层重绘。
+  final Animation<double> arm;
+  static const _raisedDeg = -12.0;
   static const _loweredDeg = 26.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     final pivot = Offset(size.width - 18, 18);
     final angle =
-        (_raisedDeg + (_loweredDeg - _raisedDeg) * progress) * math.pi / 180;
-    // 负 x 分量：唱针从右上支点向左下摆入盘面（progress 越大越靠里）
-    final dir = Offset(-math.sin(angle), math.cos(angle));
-    final tip = pivot + dir * (size.height - 26);
+        (_raisedDeg + (_loweredDeg - _raisedDeg) * arm.value) * math.pi / 180;
+    canvas
+      ..save()
+      ..translate(pivot.dx, pivot.dy)
+      ..rotate(angle);
 
-    // 臂杆：银色渐变，从支点连到唱头
-    canvas.drawLine(
-      pivot,
-      tip,
+    final rod = Path()
+      ..moveTo(0, 0)
+      ..lineTo(0, 64)
+      ..quadraticBezierTo(0, 70, -2, 77);
+    canvas.drawPath(
+      rod.shift(const Offset(2, 3)),
       Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFFF1F2F4), Color(0xFF9BA2AB)],
-        ).createShader(Rect.fromPoints(pivot, tip))
+        ..color = _RecordTokens.shadow
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      rod,
+      Paint()
+        ..shader = _RecordTokens.metal.createShader(
+          const Rect.fromLTWH(-3, 0, 6, 80),
+        )
+        ..style = PaintingStyle.stroke
         ..strokeWidth = 5
         ..strokeCap = StrokeCap.round,
     );
-
-    // 唱头：跟着臂杆角度摆正，挂在针尖下方
-    canvas
-      ..save()
-      ..translate(tip.dx, tip.dy)
-      ..rotate(angle)
-      ..drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: const Offset(0, 8), width: 12, height: 22),
-          const Radius.circular(3),
+    canvas.drawPath(
+      rod.shift(const Offset(-1, 0)),
+      Paint()
+        ..color = _RecordTokens.light.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7,
+    );
+    // 配重、哑黑唱头与金属压片，不叠加发光效果。
+    final metal = Paint()
+      ..shader = _RecordTokens.metal.createShader(
+        const Rect.fromLTWH(-6, -15, 12, 12),
+      );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-6, -15, 12, 11),
+        const Radius.circular(2),
+      ),
+      metal,
+    );
+    final cartridge = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(-8, 76, 12, 22),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(cartridge, Paint()..color = _RecordTokens.ink);
+    canvas.drawRRect(
+      cartridge,
+      Paint()
+        ..color = _RecordTokens.steel
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+    canvas.drawRect(
+      const Rect.fromLTWH(-7, 77, 10, 5),
+      Paint()
+        ..shader = _RecordTokens.metal.createShader(
+          const Rect.fromLTWH(-7, 77, 10, 5),
         ),
-        Paint()..color = const Color(0xFF24272D),
-      )
-      ..restore();
+    );
+    final detail = Paint()
+      ..color = _RecordTokens.silver
+      ..strokeWidth = 0.7;
+    for (var y = 86.0; y <= 92; y += 3) {
+      canvas.drawLine(Offset(-5, y), Offset(1, y), detail);
+    }
+    canvas.drawLine(
+      const Offset(-2, 98),
+      const Offset(-2, 103),
+      detail..color = _RecordTokens.light,
+    );
+    canvas.restore();
 
-    // 支点底座 + 高光
-    canvas.drawCircle(pivot, 12, Paint()..color = const Color(0x66000000));
+    canvas.drawCircle(pivot, 12, Paint()..color = _RecordTokens.shadow);
     canvas.drawCircle(
       pivot,
-      8,
+      10,
       Paint()
-        ..shader = const RadialGradient(
-          colors: [Color(0xFFF6F7F9), Color(0xFF868D96)],
-        ).createShader(Rect.fromCircle(center: pivot, radius: 8)),
+        ..shader = _RecordTokens.metal.createShader(
+          Rect.fromCircle(center: pivot, radius: 10),
+        ),
+    );
+    canvas.drawCircle(pivot, 6, Paint()..color = _RecordTokens.vinyl);
+    canvas.drawCircle(pivot, 3.5, Paint()..color = _RecordTokens.silver);
+    canvas.drawLine(
+      pivot - const Offset(2, 0),
+      pivot + const Offset(2, 0),
+      Paint()
+        ..color = _RecordTokens.ink
+        ..strokeWidth = 1,
     );
   }
 
   @override
-  bool shouldRepaint(_TonearmPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(_TonearmPainter oldDelegate) => oldDelegate.arm != arm;
 }
 
 /// 全屏模糊大图形态的背景：封面放大铺满后高斯模糊。

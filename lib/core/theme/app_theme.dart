@@ -100,11 +100,6 @@ abstract final class AppTheme {
     double tintOpacity = 1.0,
   }) {
     var t = SkinTokens.forSkin(skin, albumDominant: albumDominant);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: accentColor,
-      brightness: Brightness.dark,
-      surface: t.surface,
-    ).copyWith(primary: accentColor);
     // Material You 必须由完整动态色板驱动，不能只替换 primary。
     if (skin == AppSkin.materialYou && materialSurface != null) {
       t = t.copyWith(
@@ -123,11 +118,24 @@ abstract final class AppTheme {
         shadowColor: Colors.transparent,
         textDim: materialOnSurfaceVariant ?? t.textDim,
         textFaint: materialOutline ?? t.textFaint,
+        textPrimary: materialOnSurface ?? t.textPrimary,
       );
     }
-    final textPrimary = skin == AppSkin.materialYou && materialOnSurface != null
-        ? materialOnSurface
-        : t.textPrimary;
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: accentColor,
+          brightness: Brightness.dark,
+          surface: t.surface,
+        ).copyWith(
+          primary: accentColor,
+          onPrimary: accentColor.computeLuminance() > 0.179
+              ? Colors.black
+              : Colors.white,
+          onSurface: t.textPrimary,
+          onSurfaceVariant: t.textDim,
+          outlineVariant: t.borderHairline,
+        );
+    final textPrimary = t.textPrimary;
     // Material 默认弹层（Tooltip/PopupMenu）的玻璃面底色：
     // 与 GlassSurface「档位关闭/纯 tint」路径同公式，保证全 app 弹层同一色系
     final popupSurface = Color.alphaBlend(
@@ -139,13 +147,13 @@ abstract final class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: t.background,
       extensions: [t],
-      // 统一文本基线（对齐 2.1 字阶：H1 28 / H2 22 / H3 19 / 正文 16 / 辅助 14 / 说明 12）：
-      // 未显式指定样式的 Text 自动获得深色背景下的可读样式
       textTheme: TextTheme(
         headlineLarge: TextStyle(
           color: textPrimary,
           fontSize: 28,
           fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
+          height: 1.3,
         ),
         headlineSmall: TextStyle(
           color: textPrimary,
@@ -154,13 +162,21 @@ abstract final class AppTheme {
         ),
         titleLarge: TextStyle(
           color: textPrimary,
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: FontWeight.w600,
+          height: 1.35,
         ),
         titleMedium: TextStyle(
           color: textPrimary,
-          fontSize: 19,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          height: 1.35,
+        ),
+        titleSmall: TextStyle(
+          color: textPrimary,
+          fontSize: 16,
           fontWeight: FontWeight.w500,
+          height: 1.4,
         ),
         bodyLarge: TextStyle(color: textPrimary, fontSize: 16),
         bodyMedium: TextStyle(color: textPrimary, fontSize: 14),

@@ -7,27 +7,19 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 
-/// 统一页面转场：不透明底色 + 内容淡入上移（300ms easeOutCubic）。
-/// 全应用二级页一律用 `Navigator.push(context, fadeRoute(Page()))`，
-/// 替代默认 MaterialPageRoute。
-/// 底色在前 30% 转场内快速到位：正转期间下层不再透出（修复弹出页
-/// 「透明的」观感），反向整页淡出露出下层，dismiss 手感自然。
 PageRoute<T> fadeRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     transitionDuration: MotionTokens.durationTransition,
     reverseTransitionDuration: MotionTokens.durationSnappy,
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: MotionTokens.curveStandard,
-        reverseCurve: Curves.easeInCubic,
+      final curved = animation.drive(
+        CurveTween(curve: MotionTokens.curveStandard),
       );
-      final bg = CurvedAnimation(
-        parent: animation,
-        curve: const Interval(0, 0.3, curve: Curves.easeOut),
-        reverseCurve: Curves.linear,
+      final bg = animation.drive(
+        CurveTween(curve: const Interval(0, 0.3, curve: Curves.easeOut)),
       );
+      final reduce = AppMotion.reduceMotion(context);
       return FadeTransition(
         opacity: bg,
         child: ColoredBox(
@@ -36,7 +28,7 @@ PageRoute<T> fadeRoute<T>(Widget page) {
             opacity: curved,
             child: SlideTransition(
               position: Tween(
-                begin: const Offset(0, 0.03),
+                begin: reduce ? Offset.zero : const Offset(0, 0.025),
                 end: Offset.zero,
               ).animate(curved),
               child: child,
@@ -48,35 +40,32 @@ PageRoute<T> fadeRoute<T>(Widget page) {
   );
 }
 
-/// 列表项入场动效：淡入 + 上移 14px（320ms easeOutCubic）。
-/// 传 index 时同批进入的相邻项按 35ms/项错峰（封顶 25% 延迟），
-/// 包在列表/网格 item 外层即可，滚动到可视区自动触发，无状态管理。
-class FadeSlideIn extends StatelessWidget {
+class FadeSlideIn extends ConsumerWidget {
   const FadeSlideIn({super.key, required this.child, this.index});
 
   final Widget child;
-
-  /// 同批入场的序号（可选）：用于错峰编排
   final int? index;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final powerSave = ref.watch(powerSaveProvider);
+    final reduce = AppMotion.reduceMotion(context) || powerSave;
     final i = index;
-    final curve = i == null
+    final curve = i == null || reduce
         ? MotionTokens.curveStandard
         : Interval(
-            math.min(i * 0.035, 0.25),
-            1.0,
-            curve: MotionTokens.curveStandard,
+            math.min(i * 0.06, 0.3),
+            1,
+            curve: MotionTokens.curveEmphasized,
           );
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: MotionTokens.durationEntrance,
+      duration: AppMotion.duration(context, MotionTokens.durationEntrance),
       curve: curve,
       builder: (_, t, child) => Opacity(
         opacity: t,
         child: Transform.translate(
-          offset: Offset(0, 14 * (1 - t)),
+          offset: Offset(0, reduce ? 0 : AppSpacing.l * (1 - t)),
           child: child,
         ),
       ),
@@ -85,8 +74,6 @@ class FadeSlideIn extends StatelessWidget {
   }
 }
 
-/// 按压缩放反馈（0.97，120ms），用于卡片类点击区域，
-/// 叠加在 InkWell 之上提供更明显的物理按压手感。
 class PressableScale extends StatefulWidget {
   const PressableScale({super.key, required this.child, this.onTap});
 
@@ -99,33 +86,41 @@ class PressableScale extends StatefulWidget {
 
 class _PressableScaleState extends State<PressableScale> {
   bool _down = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: widget.onTap == null
-          ? null
-          : (_) => setState(() => _down = true),
-      onTapUp: widget.onTap == null
-          ? null
-          : (_) => setState(() => _down = false),
-      onTapCancel: widget.onTap == null
-          ? null
-          : () => setState(() => _down = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: widget.child,
+    final primary = Theme.of(context).colorScheme.primary;
+    return AnimatedScale(
+      scale: _down && !AppMotion.reduceMotion(context) ? 0.98 : 1,
+      duration: AppMotion.duration(context, MotionTokens.durationFast),
+      curve: MotionTokens.curveStandard,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHighlightChanged: (value) => setState(() => _down = value),
+          onFocusChange: (value) => setState(() => _focused = value),
+          borderRadius: BorderRadius.circular(AppRadius.m),
+          hoverColor: primary.withValues(alpha: 0.08),
+          focusColor: primary.withValues(alpha: 0.12),
+          child: DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.m),
+              border: Border.all(
+                color: _focused ? primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: widget.child,
+          ),
+        ),
       ),
     );
   }
 }
 
-/// 值变更时弹跳反馈：缩放过冲回落（1 → 1.25 → 1），
-/// 用于收藏爱心等状态切换图标的确认动效。
 class PopOnChange extends StatefulWidget {
   const PopOnChange({super.key, required this.value, required this.child});
 
@@ -140,33 +135,15 @@ class _PopOnChangeState extends State<PopOnChange>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
-    duration: MotionTokens.durationPop,
+    duration: MotionTokens.durationSnappy,
+    value: 1,
   );
-
-  late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 1.0,
-        end: 1.25,
-      ).chain(CurveTween(curve: Curves.easeOut)),
-      weight: 45,
-    ),
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 1.25,
-        end: 1.0,
-      ).chain(CurveTween(curve: Curves.easeInOutCubic)),
-      weight: 55,
-    ),
-  ]).animate(_ctrl);
 
   @override
   void didUpdateWidget(PopOnChange oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
-      _ctrl
-        ..reset()
-        ..forward();
+      _ctrl.forward(from: 0);
     }
   }
 
@@ -178,21 +155,31 @@ class _PopOnChangeState extends State<PopOnChange>
 
   @override
   Widget build(BuildContext context) {
+    final reduce = AppMotion.reduceMotion(context);
     return AnimatedBuilder(
-      animation: _scale,
-      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
+      animation: _ctrl,
+      builder: (_, child) => Opacity(
+        opacity: 0.65 + 0.35 * _ctrl.value,
+        child: Transform.scale(
+          scale: reduce
+              ? 1
+              : 0.88 + 0.12 * MotionTokens.curveStandard.transform(_ctrl.value),
+          child: child,
+        ),
+      ),
       child: widget.child,
     );
   }
 }
 
-/// §8.5 省电模式动画工具：省电模式下将动画时长压缩为 40%，
-/// 减少 GPU 渲染压力同时保留基本过渡反馈
 abstract final class AppMotion {
+  static bool reduceMotion(BuildContext context) =>
+      MediaQuery.disableAnimationsOf(context);
+
   static Duration duration(BuildContext context, Duration base) {
     final powerSave = ProviderScope.containerOf(context)
         .read(powerSaveProvider);
-    return powerSave
+    return powerSave || reduceMotion(context)
         ? Duration(milliseconds: (base.inMilliseconds * 0.4).round())
         : base;
   }

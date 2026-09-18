@@ -10,6 +10,7 @@ import '../features/player/mini_player.dart';
 import '../features/player/player_controller.dart';
 import '../features/settings/settings_screen.dart';
 import '../shared/widgets/glass.dart';
+import '../shared/widgets/motion.dart';
 import '../shared/widgets/toast.dart';
 
 /// 主框架（对齐设计图首屏/负一屏）：
@@ -30,7 +31,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   final _pageController = PageController();
   DateTime? _lastBackAttempt;
 
-  static const _icons = [Icons.search, Icons.music_note, Icons.settings];
+  static const _labels = ['首页', '资料库', '设置'];
 
   @override
   void dispose() {
@@ -39,10 +40,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _goTo(int index) {
+    if (AppMotion.reduceMotion(context)) {
+      _pageController.jumpToPage(index);
+      return;
+    }
     _pageController.animateToPage(
       index,
-      duration: MotionTokens.durationTransition,
-      curve: MotionTokens.curveStandard,
+      duration: AppMotion.duration(context, MotionTokens.durationTransition),
+      curve: MotionTokens.curveEmphasized,
     );
   }
 
@@ -110,54 +115,86 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  /// 沉浸式顶部导航：透明无卡片，随 AmbientBackground 延伸进状态栏；
-  /// 纯图标 + 激活项下划线指示条（对齐设计图首屏）
   Widget _buildTopBar() {
-    final topPadding = MediaQuery.paddingOf(context).top;
-    return Container(
-      width: double.infinity,
-      color: Colors.transparent,
-      padding: EdgeInsets.only(top: topPadding),
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        MediaQuery.paddingOf(context).top,
+        AppSpacing.xl,
+        AppSpacing.xs,
+      ),
       child: SizedBox(
-        height: 52,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        height:
+            AppSpacing.xl +
+            MediaQuery.textScalerOf(context)
+                    .scale(text.titleMedium!.fontSize!) *
+                text.titleMedium!.height!,
+        child: Stack(
           children: [
-            for (var i = 0; i < _icons.length; i++)
-              InkWell(
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-                onTap: () => _goTo(i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _icons[i],
-                        size: 24,
-                        color: _index == i
-                            ? Theme.of(context).colorScheme.primary
-                            : AppTheme.textDimOf(context),
-                      ),
-                      const SizedBox(height: 4),
-                      // 下划线指示条：激活项展开，未激活收起
-                      AnimatedContainer(
-                        duration: MotionTokens.durationSnappy,
-                        curve: Curves.easeOut,
-                        width: _index == i ? 22 : 0,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(2),
+            Row(
+              children: [
+                for (var i = 0; i < _labels.length; i++)
+                  Expanded(
+                    child: Semantics(
+                      selected: _index == i,
+                      child: InkWell(
+                        onTap: () => _goTo(i),
+                        borderRadius: BorderRadius.circular(AppRadius.s),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: AppMotion.duration(
+                              context,
+                              MotionTokens.durationSnappy,
+                            ),
+                            style: text.titleMedium!.copyWith(
+                              color: _index == i
+                                  ? AppTheme.textPrimaryOf(context)
+                                  : AppTheme.textDimOf(context),
+                              fontWeight: _index == i
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                            child: Text(_labels[i]),
+                          ),
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+              ],
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _pageController,
+                  builder: (context, child) {
+                    final page = _pageController.hasClients
+                        ? (_pageController.page ?? _index.toDouble())
+                        : _index.toDouble();
+                    return Align(
+                      alignment: Alignment(page.clamp(0.0, 2.0) - 1, 0),
+                      child: FractionallySizedBox(
+                        widthFactor: 1 / 3,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Center(
+                    child: Container(
+                      width: AppSpacing.xl,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                      ),
+                    ),
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),

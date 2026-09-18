@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/models.dart';
 import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/settings_prefs.dart';
-import '../../core/theme/skin_tokens.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
@@ -23,9 +22,6 @@ import 'home_providers.dart';
 import 'library_entries_screen.dart';
 import 'server_detail_screen.dart';
 
-/// 负一屏音乐库（对齐设计图「资料库」）：
-/// 搜索栏 → 服务器大卡片（类型名 + 别名/歌曲数，内嵌八入口可折叠，点头像进服务器详情）
-/// → 歌单列表（我的/全部切换，点击进歌单详情，三点菜单支持播放/加入队列）。
 class MusicLibraryScreen extends ConsumerWidget {
   const MusicLibraryScreen({super.key});
 
@@ -33,13 +29,11 @@ class MusicLibraryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final total = ref.watch(songTotalProvider);
     return Scaffold(
-      // 嵌套在壳层 AmbientBackground 之内：透明底让自定义背景图/皮肤舞台透出
       backgroundColor: Colors.transparent,
       body: ListView(
-        // 底部：96 设计留白 + 悬浮迷你条占位（壳层经 MediaQuery 注入）
+        key: const PageStorageKey('music-library'),
         padding: EdgeInsets.only(
-          top: 4,
-          bottom: 96 + MediaQuery.paddingOf(context).bottom,
+          bottom: AppSpacing.huge + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           SearchEntryBar(
@@ -47,8 +41,8 @@ class MusicLibraryScreen extends ConsumerWidget {
                 Navigator.of(context)
                     .push(fadeRoute<void>(const SearchScreen())),
           ),
-          _ServerPanel(total: total.value ?? 0),
-          const SizedBox(height: 20),
+          _ServerPanel(total: total.valueOrNull),
+          const SizedBox(height: AppSpacing.xl),
           const _PlaylistSection(),
         ],
       ),
@@ -56,12 +50,10 @@ class MusicLibraryScreen extends ConsumerWidget {
   }
 }
 
-/// 服务器区（裸排）：头部（后端 Logo + 类型名 + 「别名 · 歌曲数」副行，
-/// 点击进服务器详情页）→ 分隔线 → 内嵌八入口网格（可折叠）→ 底部折叠箭头。
 class _ServerPanel extends ConsumerStatefulWidget {
   const _ServerPanel({required this.total});
 
-  final int total;
+  final int? total;
 
   @override
   ConsumerState<_ServerPanel> createState() => _ServerPanelState();
@@ -74,139 +66,83 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
   Widget build(BuildContext context) {
     final config = ref.watch(authControllerProvider).activeConfig;
     final type = config?.type;
-    final primary = Theme.of(context).colorScheme.primary;
-    final cardsOn = ref.watch(cardDisplayProvider);
-    final content = Column(
+    final text = Theme.of(context).textTheme;
+    return Column(
       children: [
-        InkWell(
-          onTap: config == null
-              ? null
-              : () =>
-                    Navigator.of(context)
-                        .push(fadeRoute<void>(ServerDetailScreen())),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Row(
-              children: [
-                if (type != null && type.hasLogoAsset)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.m),
-                    child: Image.asset(type.iconAsset, width: 44, height: 44),
-                  )
-                else
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(AppRadius.m),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.s),
+            onTap: config == null
+                ? null
+                : () =>
+                      Navigator.of(context)
+                          .push(fadeRoute<void>(ServerDetailScreen())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+              child: Row(
+                children: [
+                  if (type != null && type.hasLogoAsset)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.s),
+                      child: Image.asset(
+                        type.iconAsset,
+                        width: AppSpacing.xxl,
+                        height: AppSpacing.xxl,
+                      ),
+                    )
+                  else
+                    Icon(
+                      type?.fallbackIcon ?? Icons.dns_outlined,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    child: Icon(
-                      type?.fallbackIcon ?? Icons.album,
-                      color: primary,
-                      size: 26,
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        type?.displayName ?? '未连接服务器',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryOf(context),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: AppSpacing.m),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          config?.name ?? '未连接服务器',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.labelLarge,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.alt_route,
-                            size: 13,
-                            color: AppTheme.textFaintOf(context),
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              config?.name ?? '点击设置添加服务器',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppTheme.textFaintOf(context),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.music_note,
-                            size: 13,
-                            color: AppTheme.textFaintOf(context),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.total}',
-                            style: TextStyle(
-                              color: AppTheme.textFaintOf(context),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          [
+                            if (type != null) type.displayName,
+                            if (widget.total != null) '${widget.total} 首歌曲',
+                          ].join(' · '),
+                          style: text.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  if (config != null)
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.textDimOf(context),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-        Divider(height: 1, color: SkinTokens.of(context).divider),
-        // 入口网格可折叠：收起时高度压缩为 0，箭头随状态翻转
-        ClipRect(
-          child: AnimatedAlign(
-            alignment: Alignment.topCenter,
-            heightFactor: _expanded ? 1 : 0,
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            child: const _EntryGrid(),
-          ),
-        ),
-        InkWell(
-          onTap: () => setState(() => _expanded = !_expanded),
-          child: SizedBox(
-            height: 30,
-            width: double.infinity,
-            child: Icon(
-              _expanded
-                  ? Icons.keyboard_double_arrow_up
-                  : Icons.keyboard_double_arrow_down,
-              size: 20,
-              color: AppTheme.textFaintOf(context),
-            ),
-          ),
+        const SizedBox(height: AppSpacing.l),
+        _EntryGrid(
+          expanded: _expanded,
+          onToggle: () => setState(() => _expanded = !_expanded),
         ),
       ],
     );
-    return cardsOn
-        ? GlassContainer(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: EdgeInsets.zero,
-            child: content,
-          )
-        : content;
   }
 }
 
-/// 八入口：歌曲 / 我喜欢的 / 本地音乐 / 专辑 + 专辑艺术家 / 歌手 / 流派 / 电台。
-/// 后四项按后端能力显隐：provider 返回 null（不支持）时入口隐藏；
-/// 加载中先隐藏避免闪烁，加载完成支持则出现。
 class _EntryGrid extends ConsumerWidget {
-  const _EntryGrid();
+  const _EntryGrid({required this.expanded, required this.onToggle});
+
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -214,77 +150,83 @@ class _EntryGrid extends ConsumerWidget {
     final albumArtists = ref.watch(albumArtistsProvider);
     final genres = ref.watch(genresProvider);
     final radios = ref.watch(radioStationsProvider);
-    final extras = <Widget>[
-      _Entry(
-        Icons.insights,
-        '听歌统计',
-        () => Navigator.of(context).push(fadeRoute<void>(const StatsScreen())),
-      ),
-      if (albumArtists.valueOrNull != null)
-        _Entry(
-          Icons.theaters,
-          '专辑艺术家',
-          () => _openArtists(
-            context,
-            '专辑艺术家',
-            albumArtistsProvider,
-            openAlbums: true,
-          ),
-        ),
-      if (artists.valueOrNull != null)
-        _Entry(
-          Icons.person,
-          '歌手',
-          () => _openArtists(context, '歌手', artistsProvider),
-        ),
-      if (genres.valueOrNull != null)
-        _Entry(
-          Icons.piano,
-          '流派',
-          () => Navigator.of(context).push(fadeRoute<void>(const GenrePage())),
-        ),
-      if (radios.valueOrNull != null)
-        _Entry(
-          Icons.radio,
-          '电台',
-          () => Navigator.of(context).push(fadeRoute<void>(const RadioPage())),
-        ),
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _Entry(
-                Icons.music_note,
-                '歌曲',
-                () => _openSongs(context, '歌曲', librarySongsProvider),
-              ),
-              _Entry(
-                Icons.favorite,
-                '我喜欢的',
-                () => _openSongs(context, '我喜欢的', likedSongsProvider),
-              ),
-              _Entry(
-                Icons.smartphone,
+    return Column(
+      children: [
+        _EntryGroup(
+          title: '我的音乐',
+          entries: [
+            _Entry(
+              Icons.favorite_border,
+              '我喜欢的',
+              () => _openSongs(context, '我喜欢的', likedSongsProvider),
+            ),
+            _Entry(
+              Icons.smartphone_outlined,
+              '本地音乐',
+              () => _openSongs(
+                context,
                 '本地音乐',
-                () => _openSongs(
+                localSongsProvider,
+                onRefresh: forceLocalRescan,
+              ),
+            ),
+            _Entry(
+              Icons.insights_outlined,
+              '听歌统计',
+              () =>
+                  Navigator.of(context)
+                      .push(fadeRoute<void>(const StatsScreen())),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        _EntryGroup(
+          title: '曲库分类',
+          expanded: expanded,
+          onToggle: onToggle,
+          entries: [
+            _Entry(
+              Icons.music_note_outlined,
+              '歌曲',
+              () => _openSongs(context, '歌曲', librarySongsProvider),
+            ),
+            _Entry(Icons.album_outlined, '专辑', () => _openAlbums(context)),
+            if (artists.valueOrNull != null)
+              _Entry(
+                Icons.person_outline,
+                '歌手',
+                () => _openArtists(context, '歌手', artistsProvider),
+              ),
+            if (albumArtists.valueOrNull != null)
+              _Entry(
+                Icons.people_outline,
+                '专辑艺术家',
+                () => _openArtists(
                   context,
-                  '本地音乐',
-                  localSongsProvider,
-                  onRefresh: forceLocalRescan,
+                  '专辑艺术家',
+                  albumArtistsProvider,
+                  openAlbums: true,
                 ),
               ),
-              _Entry(Icons.album, '专辑', () => _openAlbums(context)),
-            ],
-          ),
-          if (extras.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Row(children: [for (final e in extras) Expanded(child: e)]),
+            if (genres.valueOrNull != null)
+              _Entry(
+                Icons.piano_outlined,
+                '流派',
+                () =>
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(const GenrePage())),
+              ),
+            if (radios.valueOrNull != null)
+              _Entry(
+                Icons.radio_outlined,
+                '电台',
+                () =>
+                    Navigator.of(context)
+                        .push(fadeRoute<void>(const RadioPage())),
+              ),
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -332,7 +274,112 @@ class _EntryGrid extends ConsumerWidget {
   }
 }
 
-class _Entry extends ConsumerWidget {
+class _EntryGroup extends StatelessWidget {
+  const _EntryGroup({
+    required this.title,
+    required this.entries,
+    this.expanded = true,
+    this.onToggle,
+  });
+
+  final String title;
+  final List<Widget> entries;
+  final bool expanded;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+                if (onToggle != null)
+                  TextButton.icon(
+                    onPressed: onToggle,
+                    iconAlignment: IconAlignment.end,
+                    icon: AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: AppMotion.reduceMotion(context)
+                          ? Duration.zero
+                          : AppMotion.duration(
+                              context,
+                              MotionTokens.durationSnappy,
+                            ),
+                      child: const Icon(Icons.expand_more),
+                    ),
+                    label: Text(expanded ? '收起' : '展开'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        ClipRect(
+          child: AnimatedAlign(
+            alignment: Alignment.topCenter,
+            heightFactor: expanded ? 1 : 0,
+            duration: AppMotion.reduceMotion(context)
+                ? Duration.zero
+                : AppMotion.duration(context, MotionTokens.durationTransition),
+            curve: MotionTokens.curveEmphasized,
+            child: ExcludeFocus(
+              excluding: !expanded,
+              child: ExcludeSemantics(
+                excluding: !expanded,
+                child: IgnorePointer(
+                  ignoring: !expanded,
+                  child: GlassCard(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.l,
+                    ),
+                    padding: const EdgeInsets.all(AppSpacing.s),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final scale =
+                            MediaQuery.textScalerOf(context).scale(14) / 14;
+                        final columns = constraints.maxWidth >= 600 * scale
+                            ? 4
+                            : constraints.maxWidth >= 260 * scale
+                            ? 2
+                            : 1;
+                        final width =
+                            (constraints.maxWidth -
+                                AppSpacing.m * (columns - 1)) /
+                            columns;
+                        return Wrap(
+                          spacing: AppSpacing.m,
+                          children: [
+                            for (final entry in entries)
+                              SizedBox(width: width, child: entry),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Entry extends StatelessWidget {
   const _Entry(this.icon, this.label, this.onTap);
 
   final IconData icon;
@@ -340,37 +387,27 @@ class _Entry extends ConsumerWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final content = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: AppTheme.textDimOf(context), fontSize: 12),
-        ),
-      ],
-    );
-    final inner = ref.watch(cardDisplayProvider)
-        ? GlassCard(
-            onTap: onTap,
-            radius: AppRadius.m,
-            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-            child: content,
-          )
-        : InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppRadius.m),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-              child: content,
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: AppSpacing.xl,
+              color: Theme.of(context).colorScheme.primary,
             ),
-          );
-    return Expanded(child: inner);
+            const SizedBox(width: AppSpacing.m),
+            Expanded(
+              child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -426,45 +463,65 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     final list = _all ? all : mine;
     final title = Text(
       _all ? '全部歌单' : '我的歌单',
-      style: TextStyle(
-        color: AppTheme.textPrimaryOf(context),
-        fontSize: 19,
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(context).textTheme.titleMedium,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            0,
+            AppSpacing.l,
+            AppSpacing.s,
+          ),
           child: Row(
             children: [
-              if (canToggle)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _all = !_all),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      title,
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
-                        child: Icon(
-                          _all ? Icons.arrow_right : Icons.arrow_left,
-                          size: 22,
-                          color: AppTheme.textFaintOf(context),
+              Expanded(
+                child: canToggle
+                    ? PopupMenuButton<bool>(
+                        tooltip: '选择歌单范围',
+                        initialValue: _all,
+                        onSelected: (value) => setState(() => _all = value),
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem(
+                            value: false,
+                            checked: !_all,
+                            child: const Text('我的歌单'),
+                          ),
+                          CheckedPopupMenuItem(
+                            value: true,
+                            checked: _all,
+                            child: const Text('全部歌单'),
+                          ),
+                        ],
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minHeight: AppSpacing.xxxl,
+                          ),
+                          child: Row(
+                            children: [
+                              Flexible(child: title),
+                              Icon(
+                                Icons.expand_more,
+                                color: AppTheme.textDimOf(context),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                title,
-              const Spacer(),
+                      )
+                    : title,
+              ),
+              if (asyncList != null)
+                Text(
+                  '${list.length}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               PopupMenuButton<String>(
+                tooltip: '歌单操作',
                 icon: Icon(
                   Icons.more_horiz,
-                  color: AppTheme.textFaintOf(context),
+                  color: AppTheme.textDimOf(context),
                 ),
                 onSelected: (action) {
                   if (action == 'create') {
@@ -552,13 +609,11 @@ class _PlaylistSectionState extends ConsumerState<_PlaylistSection> {
     final rows = Column(
       children: list.map((p) => _PlaylistRow(playlist: p, ref: ref)).toList(),
     );
-    return ref.watch(cardDisplayProvider)
-        ? GlassContainer(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: rows,
-          )
-        : rows;
+    return GlassCard(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: rows,
+    );
   }
 }
 
@@ -811,7 +866,7 @@ class _PlaylistRow extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(AppSpacing.s),
         child: Row(
           children: [
             _PlaylistCover(playlist: playlist),
@@ -833,10 +888,7 @@ class _PlaylistRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${playlist.songCount} 首歌曲',
-                    style: TextStyle(
-                      color: AppTheme.textFaintOf(context),
-                      fontSize: 12,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),

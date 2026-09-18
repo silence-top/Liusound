@@ -809,7 +809,7 @@ class _AmbientStage extends ConsumerStatefulWidget {
 }
 
 class _AmbientStageState extends ConsumerState<_AmbientStage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _drift = AnimationController(
     vsync: this,
     duration: MotionTokens.durationAmbientLoop,
@@ -818,26 +818,64 @@ class _AmbientStageState extends ConsumerState<_AmbientStage>
     vsync: this,
     duration: MotionTokens.durationTwinkle,
   );
+  bool _visible = false;
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible =
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        (ModalRoute.isCurrentOf(context) ?? true);
     _syncLoops();
   }
 
-  /// 省电开关切换即时生效：开 → 光斑漂移/星点闪烁停转
+  @override
+  void didUpdateWidget(_AmbientStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncLoops();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncLoops();
+  }
+
   void _syncLoops() {
-    final run = !ref.read(powerSaveProvider);
-    void toggle(AnimationController c) {
-      if (run && !c.isAnimating) {
-        c.repeat();
-      } else if (!run && c.isAnimating) {
-        c.stop();
+    final run = _visible && _foreground && !ref.read(powerSaveProvider);
+    void toggle(AnimationController controller, bool needed) {
+      if (run && needed) {
+        if (!controller.isAnimating) controller.repeat();
+      } else {
+        controller.stop();
       }
     }
 
-    toggle(_drift);
-    toggle(_twinkle);
+    final language = widget.tokens.language;
+    toggle(
+      _drift,
+      language == SurfaceLanguage.liquidGlass ||
+          language == SurfaceLanguage.materialYou,
+    );
+    toggle(_twinkle, language == SurfaceLanguage.deepSpace);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _drift.dispose();
+    _twinkle.dispose();
+    super.dispose();
   }
 
   @override
