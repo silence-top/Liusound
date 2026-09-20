@@ -237,9 +237,18 @@ final positionProvider = StreamProvider<Duration>(
   (ref) => ref.watch(audioPlayerProvider).positionStream,
 );
 
-final durationProvider = StreamProvider<Duration?>(
-  (ref) => ref.watch(audioPlayerProvider).durationStream,
-);
+/// 播放总时长。转码分块流首播时播放器解不出容器时长（进度条恒 0:00，
+/// 重放才有缓存文件可解），回退当前歌的服务端元数据时长兜底
+final durationProvider = StreamProvider<Duration?>((ref) {
+  final song = ref.watch(currentSongProvider);
+  final fallback = song == null || song.duration <= 0
+      ? null
+      : Duration(milliseconds: (song.duration * 1000).round());
+  return ref
+      .watch(audioPlayerProvider)
+      .durationStream
+      .map((d) => (d == null || d <= Duration.zero) ? (fallback ?? d) : d);
+});
 
 /// 缓冲位置（已缓冲到的进度；进度条缓冲条用，体现边放边加载）
 final bufferedPositionProvider = StreamProvider<Duration>(

@@ -21,14 +21,17 @@ abstract final class Subsonic {
   static String coverArtUrl(SubsonicAuth auth, String id, {int size = 300}) =>
       '${auth.serverUrl}/rest/getCoverArt?${_query(params(auth, {'id': id, 'size': '$size', 'square': 'true'}))}';
 
-  /// 歌曲流媒体直链；maxBitRate/format 非空时由服务端转码（附录·四 音质分档）
+  /// 歌曲流媒体直链；maxBitRate/format 非空时由服务端转码（附录·四 音质分档）。
+  /// 转码响应是分块流（无 Content-Length），播放器解不出总时长（进度条 0:00）；
+  /// estimateContentLength 让服务端按目标码率估算长度，Navidrome 等支持，
+  /// 不支持的服务端忽略该参数（行为退回原状，无害）
   static String streamUrl(
     SubsonicAuth auth,
     String songId, {
     int? maxBitRate,
     String? format,
   }) =>
-      '${auth.serverUrl}/rest/stream?${_query(params(auth, {'id': songId, 'maxBitRate': ?maxBitRate?.toString(), 'format': ?format}))}';
+      '${auth.serverUrl}/rest/stream?${_query(params(auth, {'id': songId, 'maxBitRate': ?maxBitRate?.toString(), 'format': ?format, if (maxBitRate != null) 'estimateContentLength': 'true'}))}';
 
   /// 歌曲原始文件下载直链（Subsonic download，返回无损原始音质）
   static String downloadUrl(SubsonicAuth auth, String songId) =>
