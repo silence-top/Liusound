@@ -8,6 +8,7 @@ import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/glass.dart';
+import '../../shared/widgets/marquee_text.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/search_entry.dart';
 import '../fm/fm_screen.dart';
@@ -203,7 +204,7 @@ class _AlbumRow extends ConsumerWidget {
         final text = Theme.of(context).textTheme;
         final height =
             size +
-            (scaler.scale(text.labelLarge!.fontSize!) * 2.8).ceilToDouble() +
+            (scaler.scale(text.labelLarge!.fontSize!) * 1.4).ceilToDouble() +
             (scaler.scale(text.bodySmall!.fontSize!) * 1.4).ceilToDouble() +
             AppSpacing.m;
         return albums.when(
@@ -321,17 +322,18 @@ class _HomeCoverCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.s),
+          // 标题固定单行：放不下走跑马灯（省电模式静止省略号）
           SizedBox(
             height:
                 (MediaQuery.textScalerOf(context)
                             .scale(text.labelLarge!.fontSize!) *
-                        2.8)
+                        1.4)
                     .ceilToDouble(),
-            child: Text(
+            child: MarqueeText(
               title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: text.labelLarge?.copyWith(height: 1.4),
+              style:
+                  text.labelLarge?.copyWith(height: 1.4) ?? const TextStyle(),
+              autoScroll: true,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -502,7 +504,7 @@ class _SongCoverRow extends ConsumerWidget {
         final text = Theme.of(context).textTheme;
         final height =
             size +
-            (scaler.scale(text.labelLarge!.fontSize!) * 2.8).ceilToDouble() +
+            (scaler.scale(text.labelLarge!.fontSize!) * 1.4).ceilToDouble() +
             (scaler.scale(text.bodySmall!.fontSize!) * 1.4).ceilToDouble() +
             AppSpacing.m;
         return SizedBox(
@@ -589,6 +591,14 @@ class _SongCardRow extends ConsumerWidget {
                     style: text.bodySmall,
                   ),
                 ],
+              ),
+            ),
+            IconButton(
+              tooltip: '播放${song.title}',
+              onPressed: () => _play(context, ref),
+              icon: Icon(
+                Icons.play_arrow_rounded,
+                color: AppTheme.textDimOf(context),
               ),
             ),
           ],
