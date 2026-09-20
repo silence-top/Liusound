@@ -66,24 +66,54 @@ class DescriptorPlugin implements MetadataPlugin {
     if (step == null) return const [];
     final first = await _prepare(step.url, artistName);
     if (first == null) return const [];
-    final idValue =
-        extractJsonPath(
-          await fetch(first.uri, first.headers),
-          step.idPath,
-        )?.toString() ??
-        '';
+    final searchRoot = await fetch(first.uri, first.headers);
+    final idValue = extractJsonPath(searchRoot, step.idPath)?.toString() ?? '';
     if (idValue.isEmpty) return const [];
-    final second = await _prepare(step.fetchUrl, artistName, idValue: idValue);
-    if (second == null) return const [];
-    final value = extractJsonPath(
-      await fetch(second.uri, second.headers),
-      step.path,
-    );
+    // 搜索首个候选常是重名占位条目（related 为空，如 Deezer），
+    // 把 idPath 数字下标换成 * 取全部候选 id，依次尝试直到出数
+    final candidates = <String>[
+      idValue,
+      ..._siblingIds(searchRoot, step.idPath).where((id) => id != idValue),
+    ];
+    var tries = 0;
+    for (final id in candidates) {
+      if (tries >= 3) break;
+      tries++;
+      final second = await _prepare(step.fetchUrl, artistName, idValue: id);
+      if (second == null) continue;
+      final value = extractJsonPath(
+        await fetch(second.uri, second.headers),
+        step.path,
+      );
+      if (value is! List) continue;
+      final names = [
+        for (final item in value)
+          if (item != null && item.toString().isNotEmpty) item.toString(),
+      ];
+      if (names.isNotEmpty) return names.take(step.limit).toList();
+    }
+    return const [];
+  }
+
+  /// 用 idPath 的通配形式（数字段 → *）提取搜索结果里的全部候选 id
+  List<String> _siblingIds(Object? searchRoot, String idPath) {
+    final wildcard = idPath
+        .split('|')
+        .map(
+          (alt) => alt
+              .trim()
+              .split('.')
+              .map((seg) => int.tryParse(seg) == null ? seg : '*')
+              .join('.'),
+        )
+        .join('|');
+    if (wildcard == idPath) return const [];
+    final value = extractJsonPath(searchRoot, wildcard);
     if (value is! List) return const [];
     return [
-      for (final item in value)
-        if (item != null && item.toString().isNotEmpty) item.toString(),
-    ].take(step.limit).toList();
+      for (final v in value)
+        if (v != null && v.toString().isNotEmpty) v.toString(),
+    ];
   }
 
   @override

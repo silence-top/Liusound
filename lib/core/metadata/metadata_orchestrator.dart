@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -214,11 +216,26 @@ Future<String?> _queryText(
   return null;
 }
 
-/// 相似歌手名（合并全部启用插件，去重保序；本地映射由调用方完成）
+/// 相似歌手名（合并全部启用插件，去重保序；本地映射由调用方完成）。
+/// 结果（含空负缓存）落盘 7 天：相似歌曲链路长（搜索+related+逐歌手取歌），
+/// 不缓存的话每次重进推荐页都全量重打外部源。
 final pluginSimilarNamesProvider = FutureProvider.autoDispose
     .family<List<String>, String>((ref, artistName) async {
       if (!ref.watch(metadataEnabledProvider)) return const [];
       final store = ref.watch(metadataStoreProvider);
+      final cached = await store.readCacheEntry('similar', artistName);
+      if (cached != null) {
+        if (cached.isEmpty) return const [];
+        try {
+          final decoded = jsonDecode(cached);
+          if (decoded is List) {
+            return [
+              for (final n in decoded)
+                if (n is String) n,
+            ];
+          }
+        } catch (_) {}
+      }
       final registry = await ref.watch(pluginRegistryProvider.future);
       final keys = await ref.watch(pluginKeysProvider.future);
       final fetcher = dioJsonFetcher(ref.watch(pluginDioProvider));
@@ -237,8 +254,10 @@ final pluginSimilarNamesProvider = FutureProvider.autoDispose
                 .buildPlugin(store, fetcher)
                 .fetchSimilarArtistNames(artistName)) {
           if (name != artistName && !names.contains(name)) names.add(name);
-          if (names.length >= 12) return names;
+          if (names.length >= 12) break;
         }
+        if (names.length >= 12) break;
       }
+      await store.writeCacheEntry('similar', artistName, jsonEncode(names));
       return names;
     });

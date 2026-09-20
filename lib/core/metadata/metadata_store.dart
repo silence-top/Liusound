@@ -97,6 +97,9 @@ class MetadataStore {
   static const _avatarPositiveTtl = Duration(days: 30);
   static const _bioPositiveTtl = Duration(days: 7);
 
+  /// 相似歌手名有效期（歌手间关联基本稳定，与简介同级）
+  static const _similarPositiveTtl = Duration(days: 7);
+
   /// 「确认无结果」负缓存有效期，避免对源反复打必败请求
   static const _negativeTtl = Duration(days: 7);
 
@@ -110,7 +113,11 @@ class MetadataStore {
     final negative = (entry['v'] as String? ?? '').isEmpty;
     final ttl = negative
         ? _negativeTtl
-        : (kind == 'avatar' ? _avatarPositiveTtl : _bioPositiveTtl);
+        : switch (kind) {
+            'avatar' => _avatarPositiveTtl,
+            'similar' => _similarPositiveTtl,
+            _ => _bioPositiveTtl,
+          };
     if (DateTime.now().millisecondsSinceEpoch - saved > ttl.inMilliseconds) {
       return null;
     }

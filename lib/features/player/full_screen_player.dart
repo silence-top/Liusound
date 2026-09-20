@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lpinyin/lpinyin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/download/auto_download.dart';
@@ -41,13 +42,32 @@ part 'full_screen_player_bottom.dart';
 /// 编排：服务端原生相似歌曲优先；为空或后端无能力时走元数据插件——
 /// 插件给相似歌手名列表，按名字映射回本地曲库歌手后取其热门曲，
 /// 结果全部是本地可播 Song（外部曲库引用不可直接播放）。
+///
+/// 会话内 memo（按歌曲 id 的插入序 LRU，上限 32）：切歌释放 provider 后
+/// 重进同曲可即时复用，不重打插件/服务器；只记非空结果，避免插件开关
+/// 刚切换时被空结果钉死。
+final _similarSongsMemo = <String, List<Song>>{};
+
 final similarSongsProvider = FutureProvider.autoDispose
     .family<List<Song>, String>((ref, songId) async {
+      final memo = _similarSongsMemo.remove(songId);
+      if (memo != null) {
+        _similarSongsMemo[songId] = memo;
+        return memo;
+      }
+      List<Song> done(List<Song> v) {
+        _similarSongsMemo[songId] = v;
+        while (_similarSongsMemo.length > 32) {
+          _similarSongsMemo.remove(_similarSongsMemo.keys.first);
+        }
+        return v;
+      }
+
       final adapter = ref.watch(serverAdapterProvider);
       final native = adapter == null
           ? const <Song>[]
           : await adapter.fetchSimilarSongs(songId).catchError((_) => <Song>[]);
-      if (native.isNotEmpty) return native;
+      if (native.isNotEmpty) return done(native);
 
       final song = ref.watch(currentSongProvider);
       if (song == null || song.id != songId || song.artist.isEmpty) {
@@ -62,28 +82,50 @@ final similarSongsProvider = FutureProvider.autoDispose
           await ref.watch(artistsProvider.future) ?? const <Artist>[];
       if (localArtists.isEmpty || adapter == null) return const <Song>[];
 
+      // 精确键 + 拼音键双层匹配：外部源常给繁体变体（林俊傑/薛之謙），
+      // 拼音归一后可与本地简体名对上
       final byKey = {
         for (final a in localArtists) _normalizeArtistName(a.name): a,
       };
+      final byPinyin = {for (final a in localArtists) _pinyinKey(a.name): a};
       final currentKey = _normalizeArtistName(song.artist);
-      final out = <Song>[];
+      final currentPinyin = _pinyinKey(song.artist);
+      final matched = <Artist>[];
       for (final name in names) {
         final key = _normalizeArtistName(name);
-        if (key == currentKey) continue;
-        final artist = byKey[key];
+        final pinyin = _pinyinKey(name);
+        if (key == currentKey ||
+            (pinyin.isNotEmpty && pinyin == currentPinyin)) {
+          continue;
+        }
+        final artist = byKey[key] ?? (pinyin.isEmpty ? null : byPinyin[pinyin]);
         if (artist == null) continue;
-        final songs = await adapter
-            .fetchArtistSongs(artist.id, limit: 3)
-            .catchError((_) => const <Song>[]);
-        out.addAll(songs.take(3));
-        if (out.length >= 12) break;
+        matched.add(artist);
+        if (matched.length >= 8) break;
       }
-      return out.take(12).toList();
+      // 并行取各歌手热门曲（此前串行 await，N 个歌手就串 N 趟自家服务器）
+      final batches = await Future.wait([
+        for (final a in matched)
+          adapter
+              .fetchArtistSongs(a.id, limit: 3)
+              .catchError((_) => const <Song>[]),
+      ]);
+      final out = [for (final batch in batches) ...batch.take(3)]
+          .take(12)
+          .toList();
+      return out.isEmpty ? out : done(out);
     });
 
 /// 歌手名归一化（本地匹配用）：去空白 + 小写
 String _normalizeArtistName(String name) =>
     name.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+/// 拼音键（繁简同形）：lpinyin 对繁体同样出拼（林俊傑→linjunjie），
+/// 纯西文原样透传（"Jay Chou"→"jaychou"），与中文名天然对不上
+String _pinyinKey(String name) => PinyinHelper.getPinyin(
+  _normalizeArtistName(name),
+  separator: '',
+).toLowerCase();
 
 /// 热门歌曲（同歌手按 rating 取前 30，对标 1.x 推荐 Tab 的热门分区）
 final hotSongsProvider = FutureProvider.autoDispose.family<List<Song>, String>((
@@ -340,86 +382,98 @@ class _FullScreenPlayerState extends ConsumerState<FullScreenPlayer>
                               listenable: _tab.animation!,
                               builder: (context, _) {
                                 final p = _tab.animation!.value;
-                                return Row(
-                                  children: [
-                                    for (var i = 0; i < tabs.length; i++)
-                                      Expanded(
-                                        child: Semantics(
-                                          selected: _tab.index == i,
-                                          child: Material(
-                                            type: MaterialType.transparency,
-                                            child: InkWell(
+                                // 选中态 = 文字强调 + 底部滑动短横线；
+                                // 白底胶囊大色块与封面取色渐变不协调，已弃用
+                                const barW = 20.0;
+                                const barH = 3.0;
+                                return LayoutBuilder(
+                                  builder: (context, box) {
+                                    final cellW = box.maxWidth / tabs.length;
+                                    return Stack(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            for (
+                                              var i = 0;
+                                              i < tabs.length;
+                                              i++
+                                            )
+                                              Expanded(
+                                                child: Semantics(
+                                                  selected: _tab.index == i,
+                                                  child: Material(
+                                                    type: MaterialType
+                                                        .transparency,
+                                                    child: InkWell(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            AppRadius.s,
+                                                          ),
+                                                      onTap: () => _tab.animateTo(
+                                                        i,
+                                                        duration:
+                                                            AppMotion.reduceMotion(
+                                                              context,
+                                                            )
+                                                            ? Duration.zero
+                                                            : AppMotion.duration(
+                                                                context,
+                                                                MotionTokens
+                                                                    .durationTransition,
+                                                              ),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          tabs[i],
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: AppText.body.copyWith(
+                                                            fontWeight:
+                                                                _tab.index == i
+                                                                ? FontWeight
+                                                                      .w600
+                                                                : FontWeight
+                                                                      .w400,
+                                                            color: Color.lerp(
+                                                              _RecordTokens
+                                                                  .textSecondary,
+                                                              _RecordTokens
+                                                                  .textPrimary,
+                                                              (1 -
+                                                                      (i - p)
+                                                                          .abs())
+                                                                  .clamp(
+                                                                    0.0,
+                                                                    1.0,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        Positioned(
+                                          left: p * cellW + (cellW - barW) / 2,
+                                          bottom: AppSpacing.xs + 2,
+                                          child: Container(
+                                            width: barW,
+                                            height: barH,
+                                            decoration: BoxDecoration(
+                                              color: _RecordTokens.textPrimary,
                                               borderRadius:
                                                   BorderRadius.circular(
-                                                    AppRadius.pill,
+                                                    barH / 2,
                                                   ),
-                                              onTap: () => _tab.animateTo(
-                                                i,
-                                                duration:
-                                                    AppMotion.reduceMotion(
-                                                      context,
-                                                    )
-                                                    ? Duration.zero
-                                                    : AppMotion.duration(
-                                                        context,
-                                                        MotionTokens
-                                                            .durationTransition,
-                                                      ),
-                                              ),
-                                              child: Container(
-                                                constraints:
-                                                    const BoxConstraints(
-                                                      minHeight:
-                                                          AppSpacing.xxxl,
-                                                    ),
-                                                alignment: Alignment.center,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: AppSpacing.xs,
-                                                    ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: AppSpacing.s,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withValues(
-                                                        alpha:
-                                                            0.12 *
-                                                            (1 - (i - p).abs())
-                                                                .clamp(
-                                                                  0.0,
-                                                                  1.0,
-                                                                ),
-                                                      ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        AppRadius.pill,
-                                                      ),
-                                                ),
-                                                child: Text(
-                                                  tabs[i],
-                                                  style: AppText.body.copyWith(
-                                                    fontWeight: _tab.index == i
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                    color: Color.lerp(
-                                                      _RecordTokens
-                                                          .textSecondary,
-                                                      _RecordTokens.textPrimary,
-                                                      (1 - (i - p).abs()).clamp(
-                                                        0.0,
-                                                        1.0,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                      ],
+                                    );
+                                  },
                                 );
                               },
                             ),
