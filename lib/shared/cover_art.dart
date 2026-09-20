@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api/adapter_provider.dart';
 import '../core/api/server_adapter.dart';
+import '../core/metadata/metadata_orchestrator.dart';
 import '../core/platform/local_image.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/motion_tokens.dart';
@@ -124,17 +125,25 @@ final entityFallbackCoverProvider = FutureProvider.family<ImageSource?, String>(
 
 /// 实体封面组件（歌手/专辑艺术家等）：优先展示实体自身图片，
 /// 加载失败（服务端没配图返回 404）时回退第一首歌的专辑封面。
+/// [hasCover] 为 false 表示服务端已声明无图（Navidrome getCoverArt 会返回
+/// 200 生成的占位头像而非 404），跳过直连请求直接走兜底。
+/// [artistName] 提供时，兜底层先尝试元数据插件的外部歌手头像
+/// （真实歌手照优先于专辑封面冒充），再落专辑封面。
 class EntityCover extends ConsumerWidget {
   const EntityCover({
     super.key,
     required this.entityId,
     this.size = 120,
     this.radius = AppRadius.m,
+    this.hasCover,
+    this.artistName,
   });
 
   final String entityId;
   final double size;
   final double radius;
+  final bool? hasCover;
+  final String? artistName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -150,6 +159,15 @@ class EntityCover extends ConsumerWidget {
     );
 
     if (entityId.isEmpty || adapter == null) return placeholder;
+
+    if (hasCover == false) {
+      return _EntityFallbackCover(
+        entityId: entityId,
+        size: size,
+        radius: radius,
+        artistName: artistName,
+      );
+    }
 
     final ImageSource? coverSrc = adapter.coverImage(
       entityId,
@@ -172,6 +190,7 @@ class EntityCover extends ConsumerWidget {
           entityId: entityId,
           size: size,
           radius: radius,
+          artistName: artistName,
         ),
       ),
     );
@@ -183,11 +202,13 @@ class _EntityFallbackCover extends ConsumerWidget {
     required this.entityId,
     required this.size,
     required this.radius,
+    this.artistName,
   });
 
   final String entityId;
   final double size;
   final double radius;
+  final String? artistName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -200,6 +221,22 @@ class _EntityFallbackCover extends ConsumerWidget {
         fit: BoxFit.cover,
       ),
     );
+    // 插件外部头像（URL 已按歌手名缓存，命中时零网络请求）
+    final pluginAvatar = artistName == null
+        ? null
+        : ref.watch(pluginArtistAvatarProvider(artistName!)).valueOrNull;
+    if (pluginAvatar != null) {
+      return CachedNetworkImage(
+        imageUrl: pluginAvatar,
+        cacheManager: CoverCacheManager(),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+        placeholder: (_, _) => placeholder,
+        errorWidget: (_, _, _) => placeholder,
+      );
+    }
     final src = ref.watch(entityFallbackCoverProvider(entityId)).valueOrNull;
     if (src == null) return placeholder;
     return CachedNetworkImage(

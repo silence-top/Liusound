@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/models.dart';
 import '../../settings/streaming_prefs.dart';
 import '../../subsonic/subsonic.dart';
 import '../adapter_log.dart';
 import '../server_adapter.dart';
+import '../server_type.dart';
 
 /// Subsonic 协议共享层：SubsonicAdapter（纯 Subsonic）与 NavidromeAdapter
 /// （全兼容 Subsonic API）共用的资料库扩展 / 媒体直链 / 转码探测实现。
@@ -151,7 +152,7 @@ abstract class SubsonicProtocolAdapter implements ServerAdapter {
   List<Artist> _artistsOfIndex(dynamic index) {
     if (index is! Map<String, dynamic>) return const [];
     final artists = index['artist'] as List<dynamic>? ?? const [];
-    return [
+    final list = [
       for (final a in artists)
         if (a is Map<String, dynamic>)
           Artist(
@@ -159,8 +160,25 @@ abstract class SubsonicProtocolAdapter implements ServerAdapter {
             name: _str(a, 'name', '未知歌手'),
             albumCount: _int(a, 'albumCount'),
             songCount: _int(a, 'songCount'),
+            hasCover: artistHasCover(a),
           ),
     ];
+    return list;
+  }
+
+  /// 歌手是否真有图（无图时 Navidrome 的 getCoverArt 返回 200 生成的占位
+  /// 头像而非 404，不能靠加载失败触发兜底，须跳过直连）：
+  /// - artistImageUrl 仅在真有图时非空（新版 Navidrome 按 ImageAbsent 填，
+  ///   旧版恒缺）→ 可信的正向信号；
+  /// - coverArt 在旧版 Navidrome 对无图歌手也恒非空（无 ImageAbsent 概念），
+  ///   不可信，仅用于纯 Subsonic 正向判断；
+  /// - Navidrome 且无 artistImageUrl → 无图；纯 Subsonic 无字段约定 → null
+  ///   （未知，保持原 404 兜底行为）。
+  bool? artistHasCover(Map<String, dynamic> a) {
+    if (_str(a, 'artistImageUrl').isNotEmpty) return true;
+    if (type == ServerType.navidrome) return false;
+    if (_str(a, 'coverArt').isNotEmpty) return true;
+    return null;
   }
 
   @override

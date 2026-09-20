@@ -1,0 +1,16 @@
+{
+  "id": "deezer",
+  "name": "Deezer",
+  "version": 1,
+  "avatar": {
+    "url": "https://api.deezer.com/search/artist?q={artist}&limit=1",
+    "path": "data.0.picture_xl"
+  },
+  "similar": {
+    "url": "https://api.deezer.com/search/artist?q={artist}&limit=1",
+    "idPath": "data.0.id",
+    "fetchUrl": "https://api.deezer.com/artist/{id}/related",
+    "path": "data.*.name",
+    "limit": 8
+  }
+}

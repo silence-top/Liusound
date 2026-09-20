@@ -45,6 +45,7 @@ lib/
 │   ├── library/               # 曲库版本快照同步 + 歌曲列表排序偏好（song_sorting）
 │   ├── local/                 # 本地音乐扫描（Isolate + SQLite）+ 各平台扫描目录
 │   ├── lyrics/                # LRC 歌词解析（Navidrome JSON + 经典 LRC + 双语对齐）
+│   ├── metadata/              # 元数据插件（§十六）：声明式 JSON 描述 + 执行器 + 编排器
 │   ├── models/                # 数据模型 + 公共 Json 工具（P1-D）
 │   ├── network/               # Dio 工厂 + 网络设置（代理/证书/hosts）
 │   ├── platform/              # 平台能力门面：app_platform / display_mode / isolate_runner /
@@ -72,9 +73,9 @@ lib/
 │   │   └── player_source_resolver / player_crossfade / player_breakpoint /
 │   │       player_persistence / player_restore / player_error_handler   # 均为 `part of player_actions.dart`
 │   ├── search/                # 搜索页（含搜索历史）
-│   ├── settings/              # 设置主页（part 拆分）+ 7 个二级页
+│   ├── settings/              # 设置主页（part 拆分）+ 8 个二级页
 │   │   ├── settings_screen.dart + settings_sheets_{storage,appearance,audio,player}.dart
-│   │   └── settings_sub_{appearance,effects,network,playback,player_style,storage,system}.dart
+│   │   └── settings_sub_{appearance,effects,network,playback,player_style,storage,system,plugins}.dart
 │   └── stats/                 # 听歌统计（summary / topSongs / topArtists）
 ├── shared/                    # 共享 UI 组件（不反向依赖 features 的具体页面）
 │   ├── widgets/               # glass / glass_quality / motion / toast / async_states /
@@ -3290,3 +3291,54 @@ ColoredBox(SkinTokens.shell)          ← 先垫皮肤底色，避免首帧闪�
 **文档版本**: v2.4.0
 **生成日期**: 2026-09-07
 **最后校对**: 2026-09-17 —— 对齐 CHANGELOG 2026-09-08→09-17 全部批次与 lib/ 当前源码逐条重核（第六~九、十一~十二、十五章）。已修正的文档漂移：依赖表按真实 import 重写、§4.10 版本快照回退链、§12 全章边界回退、§15.4 动效 token 全集、§15.7 平台矩阵；`UI/` 素材与其中不存在的符号（`showEmpty` / `RetryConsumer` / `UnsupportedDialog` / `resizeableActivity` 等）已从依据中移除。
+
+## 十六、元数据插件系统（外部头像 / 相似歌曲 / 歌手简介）
+
+### 16.1 动机与形态
+
+相似歌曲与歌手简介此前完全依赖音乐服务器自身元数据（仅 Navidrome/Subsonic 原生支持，且 Navidrome 需服务端配置 Last.fm 凭据），其余后端分区直接隐藏。元数据插件把这三类取数外置为可独立开发、可导入的声明式插件：**插件 = JSON 描述（HTTP 端点 + 提取路径 + 可选 key 注入），不含可执行代码**；官方模板与用户导入的第三方描述走同一条执行管道（受 DeepSeek Cordis「声明式组件加载」思路启发）。
+
+### 16.2 组成（lib/core/metadata/）
+
+| 文件 | 符号 | 职责 |
+|------|------|------|
+| metadata_plugin.dart | `MetadataPlugin` | 契约：`fetchArtistAvatar` / `fetchSimilarArtistNames` / `fetchArtistBio`；失败一律返回 null/空列表 |
+| plugin_descriptor.dart | `PluginDescriptor.parse` / `AuthSpec` / `FetchStep` / `SimilarStep` / `BioStep` / `extractJsonPath` | 描述 v1 schema 解析校验 + 点分提取路径（数字段=下标、`*`=数组通配、`\|` 分隔备选取首个非 null；bio 支持两步流 `idPath`+`fetchUrl`） |
+| plugin_executor.dart | `DescriptorPlugin` / `JsonFetcher` / `dioJsonFetcher` | 描述执行：占位符 `{artist}`（URL 编码）/`{id}`（两步流）、auth query/header 注入、required 无 key 短路、bio HTML 清洗与 maxLength 截断 |
+| metadata_store.dart | `MetadataStore` / `PluginState` | prefs：全局开关、官方停用项、导入描述、结果缓存；secure storage：插件 key（`metadata_plugin_key_<id>`） |
+| metadata_orchestrator.dart | `officialPluginAssets` / `metadataEnabledProvider` / `pluginDioProvider` / `pluginRegistryProvider` / `pluginKeysProvider` / `pluginCapsProvider` / `pluginArtistAvatarProvider` / `pluginArtistBioProvider` / `pluginSimilarNamesProvider` / `InstalledPlugin` | 编排与 Riverpod 装配 |
+
+schema 硬约束：所有端点强制 https；`id` 限 `[a-z0-9_-]{1,64}`；描述至少含 avatar/similar/bio 一节。
+
+### 16.3 编排规则
+
+- **注册表顺序**：官方（assets/plugins/deezer.json → theaudiodb.json → baike.json）→ 用户导入；取数按序取第一个有结果者
+- **必败短路**：`auth.required` 且 key 未填的插件跳过，不打请求
+- **能力派生**：`pluginCapsProvider`（avatar/similar/bio 三位）= 全局开 && 任一启用插件具备该节且非「required 无 key」；UI 据此解锁播放页分区（Jellyfin/Emby/Plex/Audio Station/fnos 原生缺失后端同样受益）
+- **结果缓存**（prefs `metadata_cache_v1`，按歌手名）：头像 URL 30 天 / 简介 7 天 / 「确认无结果」负缓存 7 天；写队列串行防覆盖。头像图片本体复用 CoverCacheManager
+- **网络**：插件请求走 `pluginDioProvider`（复用 NetworkRuntime 的用户代理/超时/证书配置）；全局开关关闭时不发起任何外部请求
+
+### 16.4 相似歌曲的本地映射（播放约束）
+
+外部相似结果不可直接播放（外部曲库引用 ≠ 本地 Song），故编排为：插件取**相似歌手名列表** → `_normalizeArtistName`（去空白+小写）映射回 `artistsProvider` 本地曲库 → 对每个命中歌手 `fetchArtistSongs(limit: 3)`、总量 12 上限。名字脚本不一致（如本地中文标签 vs Deezer 英文名）的歌手映射不上，自然降级不出现在结果中。
+
+### 16.5 接线点
+
+| 面 | 位置 |
+|----|------|
+| 头像 | `EntityCover(artistName:)` → `_EntityFallbackCover` 插件头像优先、专辑封面次之（歌手列表/搜索行/SongListScreen 头部） |
+| 相似歌曲 | `similarSongsProvider`：原生非空直用；空/无能力走插件映射 |
+| 简介 | `artistBioProvider`：原生 `fetchArtistBio` 非空直用；空/无能力走 `pluginArtistBioProvider`（按当前歌歌手名） |
+| 设置 | settings_sub_plugins.dart（`_PluginsSettingsPage`）：官方启停 / key 编辑（glassDialog）/ 导入 / 删除；主页入口副标题展示生效能力 |
+
+### 16.6 官方插件
+
+| id | 提供 | key | 实测（2026-09-20，国内直连） |
+|----|------|-----|------|
+| deezer | 头像（`data.0.picture_xl`）+ 相似歌手（`/artist/{id}/related` → `data.*.name`） | 免 key | 华语覆盖良好（周杰伦/陈粒/告五人均命中），相似歌手含陈奕迅/JJ Lin/王力宏等 |
+| theaudiodb | 头像（`artists.0.strArtistThumb`）+ 简介（`search.php` 取 id → `artist.php`，`strBiographyCN\|strBiographyEN` 中文优先） | 免 key（公共测试 key 2 内置在 URL） | 国际歌手中文简介覆盖良好（Coldplay/Adele/Taylor Swift 实测均有 CN 简介），无华语歌手条目 |
+| baike | 简介（`abstract\|desc`，一步流） | 免 key（开放接口公共 appid 内置在 URL） | 华语歌手中文简介稳定（周杰伦/林俊杰/陈奕迅/邓紫棋 4/4 命中，abstract 400 字级）；必须带 UA+Referer（headers 声明），否则返回空 |
+
+> Last.fm 描述原为官方预设，实测 `ws.audioscrobbler.com` 国内直连 403（2026-09-20）而移出；需自备代理+key 的用户可按 §16.2 schema 自行导入。
+> 国内源盘点（2026-09-20 实测）：网易云头像可用但与 Deezer 重叠且有灰占位图风险、简介接口已迁加密 weapi，QQ 音乐 smartbox 返回空/v8 详情 404/相似接口需 POST，酷狗 info 可用但搜索需签名无法声明式取 id——均不入选。
+

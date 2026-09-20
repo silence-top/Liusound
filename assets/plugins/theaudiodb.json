@@ -1,0 +1,16 @@
+{
+  "id": "theaudiodb",
+  "name": "TheAudioDB",
+  "version": 1,
+  "avatar": {
+    "url": "https://www.theaudiodb.com/api/v1/json/2/search.php?s={artist}",
+    "path": "artists.0.strArtistThumb"
+  },
+  "bio": {
+    "url": "https://www.theaudiodb.com/api/v1/json/2/search.php?s={artist}",
+    "idPath": "artists.0.idArtist",
+    "fetchUrl": "https://www.theaudiodb.com/api/v1/json/2/artist.php?i={id}",
+    "path": "artists.0.strBiographyCN|artists.0.strBiographyEN",
+    "maxLength": 2000
+  }
+}

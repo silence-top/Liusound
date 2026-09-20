@@ -229,7 +229,14 @@ class _GroupedArtistListState extends ConsumerState<_GroupedArtistList> {
                                             title: artist.name,
                                             pagedSongsProvider:
                                                 artistSongsProvider(artist.id),
-                                            coverAlbumId: artist.id,
+                                            // 无图歌手直连 getCoverArt 会拿到
+                                            // Navidrome 200 占位头像，传 null
+                                            // 让详情页回退插件头像/专辑封面。
+                                            coverAlbumId:
+                                                artist.hasCover == false
+                                                ? null
+                                                : artist.id,
+                                            artistName: artist.name,
                                           ),
                                   ),
                                 ),
@@ -286,7 +293,13 @@ class _ArtistRow extends StatelessWidget {
               child: SizedBox(
                 width: 44,
                 height: 44,
-                child: EntityCover(entityId: artist.id, size: 44, radius: 22),
+                child: EntityCover(
+                  entityId: artist.id,
+                  size: 44,
+                  radius: 22,
+                  hasCover: artist.hasCover,
+                  artistName: artist.name,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.m),

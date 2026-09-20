@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/library/song_sorting.dart';
+import '../../core/metadata/metadata_orchestrator.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
@@ -170,6 +171,7 @@ class SongListScreen extends ConsumerStatefulWidget {
     this.songsProvider,
     this.playlistId,
     this.coverAlbumId,
+    this.artistName,
     this.date,
     this.subtitle,
     this.rating = 0,
@@ -195,6 +197,10 @@ class SongListScreen extends ConsumerStatefulWidget {
   final ProviderBase<AsyncValue<List<Song>>>? songsProvider;
   final String? playlistId;
   final String? coverAlbumId;
+
+  /// 歌手名：提供且头部无专辑封面（无图歌手）时，优先展示
+  /// 元数据插件取回的外部歌手头像
+  final String? artistName;
   final String? date;
   final String? subtitle;
   final int rating;
@@ -347,6 +353,9 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
                 title: widget.title,
                 subtitle: widget.date ?? subtitle,
                 coverAlbumId: coverAlbumId,
+                artistName: widget.coverAlbumId == null
+                    ? widget.artistName
+                    : null,
                 rating: canRate ? _rating : null,
                 onRating: canRate ? _rate : null,
               ),
@@ -487,11 +496,12 @@ class _SongListScreenState extends ConsumerState<SongListScreen>
 // ---------- 共享组件 ----------
 
 /// 静态头部：封面 90 + 标题/副标题 + 可选评分行（rating == null 隐藏）
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({
     required this.title,
     required this.subtitle,
     required this.coverAlbumId,
+    this.artistName,
     required this.rating,
     required this.onRating,
   });
@@ -499,41 +509,64 @@ class _Header extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? coverAlbumId;
+  final String? artistName;
   final int? rating;
   final ValueChanged<int>? onRating;
 
   @override
-  Widget build(BuildContext context) {
-    final adapter = ProviderScope.containerOf(context)
-        .read(serverAdapterProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final adapter = ref.watch(serverAdapterProvider);
     final hasCover =
         coverAlbumId != null && coverAlbumId!.isNotEmpty && adapter != null;
     // 300 档与列表页同 URL 共享磁盘缓存；180 自定义档会强制重新下载。
     final imageSource = hasCover
         ? adapter.coverImage(coverAlbumId!, size: 300)
         : null;
+    final Widget headerImage;
+    if (hasCover && imageSource != null) {
+      headerImage = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: imageSource.url,
+          httpHeaders: imageSource.headers.isNotEmpty
+              ? imageSource.headers
+              : null,
+          cacheManager: CoverCacheManager(),
+          width: 90,
+          height: 90,
+          fit: BoxFit.cover,
+          memCacheWidth: 180,
+          errorWidget: (_, _, _) => const _CoverPlaceholder(),
+        ),
+      );
+    } else if (artistName != null && artistName!.isNotEmpty) {
+      // 无图歌手：插件外部头像（URL 已按歌手名缓存），取不到落占位图
+      final pluginAvatar = ref
+          .watch(pluginArtistAvatarProvider(artistName!))
+          .valueOrNull;
+      headerImage = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: pluginAvatar != null
+            ? CachedNetworkImage(
+                imageUrl: pluginAvatar,
+                cacheManager: CoverCacheManager(),
+                width: 90,
+                height: 90,
+                fit: BoxFit.cover,
+                memCacheWidth: 180,
+                errorWidget: (_, _, _) => const _CoverPlaceholder(),
+              )
+            : const _CoverPlaceholder(),
+      );
+    } else {
+      headerImage = const _CoverPlaceholder();
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          (hasCover && imageSource != null)
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: imageSource.url,
-                    httpHeaders: imageSource.headers.isNotEmpty
-                        ? imageSource.headers
-                        : null,
-                    cacheManager: CoverCacheManager(),
-                    width: 90,
-                    height: 90,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 180,
-                    errorWidget: (_, _, _) => const _CoverPlaceholder(),
-                  ),
-                )
-              : const _CoverPlaceholder(),
+          headerImage,
           const SizedBox(width: 14),
           Expanded(
             child: Column(

@@ -328,6 +328,7 @@ class SubsonicAdapter extends SubsonicProtocolAdapter {
               name: _str(e, 'name', '未知歌手'),
               albumCount: _int(e, 'albumCount'),
               songCount: _int(e, 'songCount'),
+              hasCover: artistHasCover(e),
             ),
           )
           .toList(),

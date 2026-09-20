@@ -526,7 +526,10 @@ class _ArtistRow extends StatelessWidget {
             SongListScreen(
               title: artist.name,
               pagedSongsProvider: artistSongsProvider(artist.id),
-              coverAlbumId: artist.id,
+              // 无图歌手传 null 让详情页回退插件头像/第一首歌的专辑封面
+              //（Navidrome 对无图歌手的 getCoverArt 返回 200 占位头像）。
+              coverAlbumId: artist.hasCover == false ? null : artist.id,
+              artistName: artist.name,
             ),
           ),
         );
@@ -535,7 +538,13 @@ class _ArtistRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            EntityCover(entityId: artist.id, size: 48, radius: 24),
+            EntityCover(
+              entityId: artist.id,
+              size: 48,
+              radius: 24,
+              hasCover: artist.hasCover,
+              artistName: artist.name,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

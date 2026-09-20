@@ -8,6 +8,7 @@ import '../../core/platform/app_platform.dart';
 import '../../core/platform/local_image.dart';
 
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +20,10 @@ import '../../core/audio/audio_effects.dart';
 import '../../core/download/auto_download.dart';
 import '../../core/download/download_queue.dart';
 import '../../core/floating/floating_lyrics.dart';
+import '../../core/metadata/metadata_orchestrator.dart';
+import '../../core/metadata/metadata_store.dart';
+import '../../core/metadata/plugin_descriptor.dart';
+import '../../core/platform/local_fs.dart';
 import '../../core/theme/accent.dart';
 import '../../core/theme/app_skin.dart';
 import '../../core/theme/app_theme.dart';
@@ -52,6 +57,7 @@ part 'settings_sub_storage.dart';
 part 'settings_sub_appearance.dart';
 part 'settings_sub_player_style.dart';
 part 'settings_sub_system.dart';
+part 'settings_sub_plugins.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>(
   (_) => PackageInfo.fromPlatform(),
@@ -120,6 +126,12 @@ class SettingsScreen extends ConsumerWidget {
             title: '播放器样式',
             subtitle: coverStyle.label,
             onTap: () => _push(context, const _PlayerStyleSettingsPage()),
+          ),
+          _EntryCard(
+            icon: Icons.extension_outlined,
+            title: '元数据插件',
+            subtitle: _pluginEntrySubtitle(ref),
+            onTap: () => _push(context, const _PluginsSettingsPage()),
           ),
           _EntryCard(
             icon: Icons.settings_outlined,
@@ -238,7 +250,7 @@ class _SwitchTile extends ConsumerWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

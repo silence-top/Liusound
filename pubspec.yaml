@@ -97,6 +97,7 @@ flutter:
   # 业务静态资源（logo、默认封面、Navidrome 标识等）
   assets:
     - assets/app/
+    - assets/plugins/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

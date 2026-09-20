@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/download/auto_download.dart';
 import '../../core/lyrics/lyrics.dart';
+import '../../core/metadata/metadata_orchestrator.dart';
 import '../../core/models/models.dart';
 import '../../core/local/local_library.dart' show localSongFingerprint;
 import '../../core/platform/local_fs.dart';
@@ -23,6 +24,7 @@ import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/toast.dart';
 import '../auth/auth_controller.dart';
+import '../home/home_providers.dart' show artistsProvider;
 import 'action_sheets.dart';
 import 'album_tint.dart';
 import 'cover_style.dart';
@@ -36,12 +38,52 @@ part 'full_screen_player_bottom.dart';
 
 /// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
 /// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
+/// 编排：服务端原生相似歌曲优先；为空或后端无能力时走元数据插件——
+/// 插件给相似歌手名列表，按名字映射回本地曲库歌手后取其热门曲，
+/// 结果全部是本地可播 Song（外部曲库引用不可直接播放）。
 final similarSongsProvider = FutureProvider.autoDispose
-    .family<List<Song>, String>((ref, songId) {
+    .family<List<Song>, String>((ref, songId) async {
       final adapter = ref.watch(serverAdapterProvider);
-      if (adapter == null) return <Song>[];
-      return adapter.fetchSimilarSongs(songId);
+      final native = adapter == null
+          ? const <Song>[]
+          : await adapter.fetchSimilarSongs(songId).catchError((_) => <Song>[]);
+      if (native.isNotEmpty) return native;
+
+      final song = ref.watch(currentSongProvider);
+      if (song == null || song.id != songId || song.artist.isEmpty) {
+        return const <Song>[];
+      }
+      if (!ref.watch(pluginCapsProvider).similar) return const <Song>[];
+      final names = await ref.watch(
+        pluginSimilarNamesProvider(song.artist).future,
+      );
+      if (names.isEmpty) return const <Song>[];
+      final localArtists =
+          await ref.watch(artistsProvider.future) ?? const <Artist>[];
+      if (localArtists.isEmpty || adapter == null) return const <Song>[];
+
+      final byKey = {
+        for (final a in localArtists) _normalizeArtistName(a.name): a,
+      };
+      final currentKey = _normalizeArtistName(song.artist);
+      final out = <Song>[];
+      for (final name in names) {
+        final key = _normalizeArtistName(name);
+        if (key == currentKey) continue;
+        final artist = byKey[key];
+        if (artist == null) continue;
+        final songs = await adapter
+            .fetchArtistSongs(artist.id, limit: 3)
+            .catchError((_) => const <Song>[]);
+        out.addAll(songs.take(3));
+        if (out.length >= 12) break;
+      }
+      return out.take(12).toList();
     });
+
+/// 歌手名归一化（本地匹配用）：去空白 + 小写
+String _normalizeArtistName(String name) =>
+    name.replaceAll(RegExp(r'\s+'), '').toLowerCase();
 
 /// 热门歌曲（同歌手按 rating 取前 30，对标 1.x 推荐 Tab 的热门分区）
 final hotSongsProvider = FutureProvider.autoDispose.family<List<Song>, String>((
@@ -55,13 +97,24 @@ final hotSongsProvider = FutureProvider.autoDispose.family<List<Song>, String>((
 
 /// 歌手简介（§4.1 能力降级：Jellyfin/Emby/Plex 没有相似歌曲，用简介补位）。
 /// autoDispose：切歌手后旧简介缓存自动释放。
+/// 编排：服务端原生简介优先；为空或后端无能力时走元数据插件
+/// （按当前歌的歌手名取数）。
 final artistBioProvider = FutureProvider.autoDispose.family<String?, String>((
   ref,
   artistId,
-) {
+) async {
   final adapter = ref.watch(serverAdapterProvider);
-  if (adapter == null || !adapter.capabilities.artistBio) return null;
-  return adapter.fetchArtistBio(artistId).catchError((_) => null);
+  final native = adapter != null && adapter.capabilities.artistBio
+      ? await adapter.fetchArtistBio(artistId).catchError((_) => null)
+      : null;
+  if (native != null && native.trim().isNotEmpty) return native;
+
+  final song = ref.watch(currentSongProvider);
+  if (song == null || song.artistId != artistId || song.artist.isEmpty) {
+    return null;
+  }
+  if (!ref.watch(pluginCapsProvider).bio) return null;
+  return ref.watch(pluginArtistBioProvider(song.artist).future);
 });
 
 /// 进度条拖动中的临时值（非 null 表示拖动中；歌词高亮跟随拖动位置，

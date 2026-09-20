@@ -344,6 +344,7 @@ class Artist {
     required this.name,
     required this.albumCount,
     required this.songCount,
+    this.hasCover,
   });
 
   final String id;
@@ -351,11 +352,22 @@ class Artist {
   final int albumCount;
   final int songCount;
 
+  /// 服务端是否真有歌手图（null = 后端未声明，无法预知）。
+  /// Navidrome 在 getArtists/getIndexes/search3 按 ImageAbsent 填
+  /// coverArt/artistImageUrl：无图时 getCoverArt 会返回 200 生成的
+  /// 占位头像而非 404，必须据此跳过直连请求、直接走专辑封面兜底。
+  final bool? hasCover;
+
   factory Artist.fromJson(Map<String, dynamic> j) => Artist(
     id: Json.str(j, 'id'),
     name: Json.str(j, 'name', '未知歌手'),
     albumCount: Json.intOf(j, 'albumCount'),
     songCount: Json.intOf(j, 'songCount'),
+    // search3 等响应按有无图决定是否携带 coverArt/artistImageUrl
+    hasCover: j.containsKey('coverArt') || j.containsKey('artistImageUrl')
+        ? Json.str(j, 'coverArt').isNotEmpty ||
+              Json.str(j, 'artistImageUrl').isNotEmpty
+        : null,
   );
 
   static List<Artist> listFromJson(dynamic json) => (json as List<dynamic>)

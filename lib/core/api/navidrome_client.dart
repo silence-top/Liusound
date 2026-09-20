@@ -334,7 +334,19 @@ class NavidromeClient {
     return SearchResult(
       songs: Song.listFromJson(s3['song'] ?? const []),
       albums: Album.listFromJson(s3['album'] ?? const []),
-      artists: Artist.listFromJson(s3['artist'] ?? const []),
+      // Navidrome search3 走 toArtistID3：coverArt/artistImageUrl 缺席即无图
+      //（getCoverArt 会返回 200 占位头像），未知一律按无图走专辑封面兜底。
+      artists: Artist.listFromJson(s3['artist'] ?? const [])
+          .map(
+            (a) => Artist(
+              id: a.id,
+              name: a.name,
+              albumCount: a.albumCount,
+              songCount: a.songCount,
+              hasCover: a.hasCover ?? false,
+            ),
+          )
+          .toList(),
     );
   }
 }

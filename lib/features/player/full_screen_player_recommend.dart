@@ -21,8 +21,11 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
     if (song == null) return const SizedBox.shrink();
 
     final caps = ref.watch(serverAdapterProvider)?.capabilities;
-    final canSimilar = caps?.similarSongs ?? false;
-    final canBio = (caps?.artistBio ?? false) && song.artistId.isNotEmpty;
+    final pluginCaps = ref.watch(pluginCapsProvider);
+    final canSimilar = (caps?.similarSongs ?? false) || pluginCaps.similar;
+    final canBio =
+        ((caps?.artistBio ?? false) || pluginCaps.bio) &&
+        song.artistId.isNotEmpty;
     final similar = canSimilar
         ? ref.watch(similarSongsProvider(song.id))
         : null;
