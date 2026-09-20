@@ -278,19 +278,35 @@ class PlayerActions extends PlayerActionsBase
   /// 队列变化时增量维护遍历序：剔除已删歌曲、新歌随机插入当前位之后，
   /// 保证本轮遍历仍完整覆盖队列且不重复
   void _syncShuffleOrder(List<Song> queue) {
-    final ids = <String>{for (final s in queue) s.id};
+    final remaining = <String>{for (final s in queue) s.id};
     final prev = _ref.read(shuffleOrderProvider);
-    final order = prev.order.where(ids.contains).toList();
+    // Set.remove 同时过滤删除项、去重并求出新 ID，避免逐项扫描 order。
+    final retained = [
+      for (final id in prev.order)
+        if (remaining.remove(id)) id,
+    ];
     final currentId = _ref.read(currentSongProvider)?.id;
-    final pos = currentId == null ? -1 : order.indexOf(currentId);
-    final fresh = ids.where((id) => !order.contains(id)).toList()
-      ..shuffle(_random);
-    for (final id in fresh) {
-      final insertAt = pos < 0
-          ? _random.nextInt(order.length + 1)
-          : pos + 1 + _random.nextInt(order.length - pos);
-      order.insert(insertAt, id);
+    final pos = currentId == null ? -1 : retained.indexOf(currentId);
+    final fresh = remaining.toList()..shuffle(_random);
+    if (fresh.isEmpty && pos == prev.pos && listEquals(retained, prev.order)) {
+      return; // 收藏/元数据更新或队列重排不改变遍历序，不通知 shuffle 消费者。
     }
+
+    // 加权合并保持旧歌曲相对顺序，新歌曲仅插入当前位之后，全程 O(N)。
+    final order = retained.take(pos + 1).toList();
+    var oldIndex = pos + 1;
+    var freshIndex = 0;
+    while (oldIndex < retained.length && freshIndex < fresh.length) {
+      final oldLeft = retained.length - oldIndex;
+      final freshLeft = fresh.length - freshIndex;
+      if (_random.nextInt(oldLeft + freshLeft) < freshLeft) {
+        order.add(fresh[freshIndex++]);
+      } else {
+        order.add(retained[oldIndex++]);
+      }
+    }
+    order.addAll(retained.skip(oldIndex));
+    order.addAll(fresh.skip(freshIndex));
     _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
       order: order,
       pos: pos,
@@ -310,13 +326,10 @@ class PlayerActions extends PlayerActionsBase
       }
       return;
     }
-    final ids =
-        _ref
-            .read(queueProvider)
-            .map((s) => s.id)
-            .where((id) => id != songId)
-            .toList()
-          ..shuffle(_random);
+    final ids = {
+      for (final song in _ref.read(queueProvider))
+        if (song.id != songId) song.id,
+    }.toList()..shuffle(_random);
     _ref.read(shuffleOrderProvider.notifier).state = ShuffleOrderState(
       order: [songId, ...ids],
       pos: 0,

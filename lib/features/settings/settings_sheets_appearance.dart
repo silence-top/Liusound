@@ -275,33 +275,36 @@ Future<void> _toggleFloatingLyrics(
   await FloatingLyrics.requestPermission();
 }
 
-/// 主题图库直接展开；只有缩略图描绘面板，不嵌套真实卡片。
-class _SkinPickerTile extends ConsumerWidget {
+/// 主题选择入口：设置行点击展开双列预览卡。
+class _SkinPickerTile extends ConsumerStatefulWidget {
   const _SkinPickerTile();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SkinPickerTile> createState() => _SkinPickerTileState();
+}
+
+class _SkinPickerTileState extends ConsumerState<_SkinPickerTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
     final skin = ref.watch(appSkinProvider);
-    final textTheme = Theme.of(context).textTheme;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(
-          header: true,
-          child: Text('主题', style: textTheme.titleMedium),
+        _ActionTile(
+          icon: Icons.style_outlined,
+          title: '主题',
+          subtitle: _open ? '点击收起预览' : skin.label,
+          onTap: () => setState(() => _open = !_open),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '决定页面底色与面板材质，自定义背景优先。',
-          style: textTheme.bodySmall?.copyWith(
-            color: AppTheme.textDimOf(context),
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: _SkinPreviewGrid(
+              current: skin,
+              onSelect: (s) => ref.read(appSkinProvider.notifier).set(s),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.l),
-        _SkinPreviewGrid(
-          current: skin,
-          onSelect: (s) => ref.read(appSkinProvider.notifier).set(s),
-        ),
       ],
     );
   }
@@ -315,25 +318,23 @@ class _SkinPreviewGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = AppSpacing.m;
-        // 手机默认双列；宽屏增列，极窄窗口保留可读的单列回退。
-        final columns = constraints.maxWidth < 280
-            ? 1
-            : (constraints.maxWidth / 220).floor().clamp(2, 4);
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        const gap = 10.0;
+        final width = (constraints.maxWidth - gap) / 2;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: [
-            for (final skin in AppSkin.values)
+            for (final s in AppSkin.values)
               SizedBox(
                 width: width,
                 child: _SkinPreviewCard(
-                  skin: skin,
-                  selected: skin == current,
-                  onTap: () => onSelect(skin),
+                  skin: s,
+                  selected: s == current,
+                  accent: accent,
+                  onTap: () => onSelect(s),
                 ),
               ),
           ],
@@ -343,251 +344,97 @@ class _SkinPreviewGrid extends StatelessWidget {
   }
 }
 
-class _SkinPreviewCard extends StatefulWidget {
+/// 每主题一张迷你预览卡：底色 / 面板色 / 描边 / 发光 / 主题色点，用各主题
+/// 自己的 token 绘制，切换后卡片内容即时反映新主题的实际观感。
+class _SkinPreviewCard extends StatelessWidget {
   const _SkinPreviewCard({
     required this.skin,
     required this.selected,
+    required this.accent,
     required this.onTap,
   });
 
   final AppSkin skin;
   final bool selected;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
-  State<_SkinPreviewCard> createState() => _SkinPreviewCardState();
-}
-
-class _SkinPreviewCardState extends State<_SkinPreviewCard> {
-  bool _focused = false;
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // 当前主题必须读取动态 token：系统莫奈、封面取色都不能用静态色板代替。
-    final tokens = widget.selected
-        ? SkinTokens.of(context)
-        : SkinTokens.forSkin(widget.skin);
-    final accent = theme.colorScheme.primary;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final radius = BorderRadius.circular(AppRadius.l);
-    final description = switch (widget.skin) {
-      AppSkin.liquidGlass => '镜面高光 · 通透材质',
-      AppSkin.deepSpace => '深蓝夜色 · 霓虹微光',
-      AppSkin.minimal => '暖炭纸纹 · 简洁实色',
-      AppSkin.materialYou => widget.selected ? '系统色板 · 当前效果' : '系统取色 · 色板示意',
-      AppSkin.sunset => '暖橙玫瑰 · 落日柔光',
-      AppSkin.forest => '暖绿纸质 · 林间微光',
-      AppSkin.terminal => '磷光绿字 · 直角线条',
-      AppSkin.albumTint => widget.selected ? '封面色板 · 当前效果' : '随封面取色 · 色板示意',
-    };
+    final t = SkinTokens.forSkin(skin);
     return Semantics(
       button: true,
-      selected: widget.selected,
+      selected: selected,
       inMutuallyExclusiveGroup: true,
-      label: '${widget.skin.label}，$description',
-      onTap: widget.onTap,
-      child: Material(
-        color: tokens.background,
-        animationDuration: reduceMotion
-            ? Duration.zero
-            : MotionTokens.durationFast,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(
-            color: _focused
-                ? tokens.textPrimary
-                : widget.selected
-                ? accent
-                : tokens.borderHairline,
-            width: _focused || widget.selected ? 2 : 1,
+      label: '${skin.label}，${skin.desc}',
+      onTap: onTap,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        hoverColor: accent.withValues(alpha: 0.08),
+        highlightColor: accent.withValues(alpha: 0.12),
+        splashColor: accent.withValues(alpha: 0.12),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: t.background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? accent : t.borderHairline,
+              width: selected ? 2 : 1,
+            ),
+            boxShadow: t.glow.a == 0
+                ? null
+                : [BoxShadow(color: t.glow, blurRadius: 12, spreadRadius: -4)],
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            ExcludeSemantics(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 5 / 3,
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _SkinThumbnailPainter(tokens, accent),
-                        ),
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: t.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: t.borderHairline),
                     ),
-                    const SizedBox(height: AppSpacing.m),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.skin.label,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: tokens.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (widget.selected) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          Icon(
-                            Icons.check_circle,
-                            color: accent,
-                            size: AppSpacing.xl,
-                          ),
-                        ],
-                      ],
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: tokens.textDim,
-                      ),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                skin.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? t.textPrimary : t.textDim,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
-            ),
-            // 墨水位于 CustomPaint 上方，hover / focus / press 不会被缩略图遮住。
-            Positioned.fill(
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  borderRadius: radius,
-                  excludeFromSemantics: true,
-                  onTap: widget.onTap,
-                  onFocusChange: (value) => setState(() => _focused = value),
-                  hoverColor: accent.withValues(alpha: 0.08),
-                  focusColor: accent.withValues(alpha: 0.14),
-                  highlightColor: accent.withValues(alpha: 0.16),
-                  splashColor: accent.withValues(alpha: 0.12),
-                  splashFactory: reduceMotion ? NoSplash.splashFactory : null,
-                ),
+              Text(
+                skin.desc,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: t.textFaint, fontSize: 11),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-/// 统一页面骨架：标题笔画、专辑封面、歌曲行与底部播放条。没有真实嵌套卡片。
-class _SkinThumbnailPainter extends CustomPainter {
-  const _SkinThumbnailPainter(this.tokens, this.accent);
-
-  final SkinTokens tokens;
-  final Color accent;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.scale(size.width / 240, size.height / 144);
-    const bounds = Rect.fromLTWH(0, 0, 240, 144);
-    final radius = Radius.circular(AppRadius.s * tokens.radiusScale);
-    canvas.clipRRect(RRect.fromRectAndRadius(bounds, radius));
-    canvas.drawRect(bounds, Paint()..color = tokens.shell);
-    canvas.drawRect(
-      bounds,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [tokens.tintLight, tokens.glow, tokens.background],
-        ).createShader(bounds),
-    );
-
-    void block(Rect rect, Color color, {double? corner}) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          rect,
-          corner == null ? radius : Radius.circular(corner),
-        ),
-        Paint()..color = color,
-      );
-    }
-
-    void stroke(
-      double x,
-      double y,
-      double width,
-      Color color, {
-      double height = 3,
-    }) {
-      block(Rect.fromLTWH(x, y, width, height), color, corner: height / 2);
-    }
-
-    stroke(14, 12, 76, tokens.textPrimary, height: 5);
-    stroke(14, 22, 46, tokens.textDim);
-    canvas.drawCircle(const Offset(218, 18), 7, Paint()..color = accent);
-
-    for (var index = 0; index < 3; index++) {
-      final x = 14.0 + index * 73;
-      final cover = Rect.fromLTWH(x, 36, 66, 44);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(cover, radius),
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.lerp(accent, tokens.textDim, index / 3)!,
-              tokens.surface,
-            ],
-          ).createShader(cover),
-      );
-      canvas.drawCircle(
-        cover.center,
-        15,
-        Paint()
-          ..color = tokens.textPrimary.withValues(alpha: 0.22)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-      canvas.drawCircle(cover.center, 3, Paint()..color = tokens.tintLight);
-      stroke(x, 86, 41, tokens.textDim);
-    }
-
-    block(const Rect.fromLTWH(14, 98, 12, 12), tokens.surface);
-    stroke(33, 99, 87, tokens.textPrimary);
-    stroke(33, 106, 53, tokens.textDim, height: 2);
-    stroke(197, 103, 23, tokens.textDim, height: 2);
-
-    final bar = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(8, 118, 224, 22),
-      radius,
-    );
-    canvas.drawRRect(bar, Paint()..color = tokens.surface);
-    canvas.drawRRect(
-      bar,
-      Paint()
-        ..color = tokens.borderHairline
-        ..style = PaintingStyle.stroke,
-    );
-    block(const Rect.fromLTWH(15, 123, 12, 12), accent);
-    stroke(33, 124, 58, tokens.textPrimary);
-    stroke(33, 131, 35, tokens.textDim, height: 2);
-    canvas.drawCircle(const Offset(216, 129), 7, Paint()..color = accent);
-    canvas.drawPath(
-      Path()
-        ..moveTo(214, 125)
-        ..lineTo(220, 129)
-        ..lineTo(214, 133)
-        ..close(),
-      Paint()..color = tokens.background,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_SkinThumbnailPainter oldDelegate) =>
-      oldDelegate.tokens != tokens || oldDelegate.accent != accent;
 }
 
 /// 从语义色中挑选对比度更高的前景，不随当前主题文本色盲目使用浅色勾选。

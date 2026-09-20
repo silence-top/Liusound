@@ -23,11 +23,13 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _refresh(WidgetRef ref) async {
     ref.read(randomSeedProvider.notifier).state = makeSeed();
-    ref.invalidate(latestAlbumsProvider);
-    ref.invalidate(recentlyPlayedSongsProvider);
-    ref.invalidate(mostPlayedSongsProvider);
-    ref.invalidate(randomAlbumsProvider);
-    ref.invalidate(dailySongsProvider);
+    await Future.wait([
+      ref.read(latestAlbumsProvider.notifier).refresh(),
+      ref.read(recentlyPlayedSongsProvider.notifier).refresh(),
+      ref.read(mostPlayedSongsProvider.notifier).refresh(),
+      ref.read(randomAlbumsProvider.notifier).refresh(),
+      ref.read(dailySongsProvider.notifier).refresh(),
+    ]);
   }
 
   @override
@@ -86,6 +88,7 @@ class _FmEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = SkinTokens.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       child: FadeSlideIn(
@@ -97,7 +100,21 @@ class _FmEntry extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
             child: Row(
               children: [
-                Icon(Icons.radio_outlined, color: theme.colorScheme.primary),
+                Container(
+                  width: AppSpacing.xxl,
+                  height: AppSpacing.xxl,
+                  decoration: BoxDecoration(
+                    color: tokens.surface,
+                    borderRadius: BorderRadius.circular(
+                      AppRadius.s * tokens.radiusScale,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.radio_outlined,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.m),
                 Expanded(
                   child: Text('私人 FM', style: theme.textTheme.titleSmall),
@@ -222,7 +239,27 @@ class _AlbumRow extends ConsumerWidget {
                   index: index,
                   child: Padding(
                     padding: const EdgeInsets.only(right: AppSpacing.l),
-                    child: _AlbumCard(album: list[index], size: size),
+                    child: _HomeCoverCard(
+                      albumId: list[index].id,
+                      title: list[index].name,
+                      subtitle: list[index].artist,
+                      size: size,
+                      onTap: () {
+                        final album = list[index];
+                        Navigator.of(context).push(
+                          fadeRoute<void>(
+                            SongListScreen(
+                              rateTargetId: album.id,
+                              songsProvider: albumSongsProvider(album.id),
+                              title: album.name,
+                              subtitle: '${album.year ?? ''} ${album.artist}'
+                                  .trim(),
+                              rating: album.rating,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -234,28 +271,32 @@ class _AlbumRow extends ConsumerWidget {
   }
 }
 
-class _AlbumCard extends StatelessWidget {
-  const _AlbumCard({required this.album, required this.size});
+class _HomeCoverCard extends StatelessWidget {
+  const _HomeCoverCard({
+    required this.albumId,
+    required this.title,
+    required this.subtitle,
+    required this.size,
+    required this.onTap,
+    this.onLongPress,
+    this.localCover,
+  });
 
-  final Album album;
+  final String albumId;
+  final String title;
+  final String subtitle;
   final double size;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final String? localCover;
 
   @override
   Widget build(BuildContext context) {
     final tokens = SkinTokens.of(context);
     final text = Theme.of(context).textTheme;
     return PressableScale(
-      onTap: () => Navigator.of(context).push(
-        fadeRoute<void>(
-          SongListScreen(
-            rateTargetId: album.id,
-            songsProvider: albumSongsProvider(album.id),
-            title: album.name,
-            subtitle: '${album.year ?? ''} ${album.artist}'.trim(),
-            rating: album.rating,
-          ),
-        ),
-      ),
+      onTap: onTap,
+      onLongPress: onLongPress,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -273,7 +314,8 @@ class _AlbumCard extends StatelessWidget {
               ],
             ),
             child: CoverArt(
-              albumId: album.id,
+              albumId: albumId,
+              localCover: localCover,
               size: size,
               radius: AppRadius.m * tokens.radiusScale,
             ),
@@ -286,7 +328,7 @@ class _AlbumCard extends StatelessWidget {
                         2.8)
                     .ceilToDouble(),
             child: Text(
-              album.name,
+              title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: text.labelLarge?.copyWith(height: 1.4),
@@ -294,7 +336,7 @@ class _AlbumCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            album.artist,
+            subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: text.bodySmall?.copyWith(height: 1.4),
@@ -320,6 +362,7 @@ class _ListeningHistoryState extends State<_ListeningHistory> {
     final titles = ['最近播放', '最常播放'];
     return _SongListSection(
       title: titles[_mostPlayed ? 1 : 0],
+      horizontalCovers: true,
       provider: _mostPlayed
           ? mostPlayedSongsProvider
           : recentlyPlayedSongsProvider,
@@ -371,12 +414,14 @@ class _SongListSection extends ConsumerWidget {
     required this.title,
     required this.provider,
     this.withDate = false,
+    this.horizontalCovers = false,
     this.heading,
   });
 
   final String title;
   final HomeSectionProvider<Song> provider;
   final bool withDate;
+  final bool horizontalCovers;
   final Widget? heading;
 
   void _openDetail(BuildContext context, List<Song> songs) {
@@ -408,7 +453,10 @@ class _SongListSection extends ConsumerWidget {
         onPressed: list == null || list.isEmpty
             ? null
             : () => _openDetail(context, list),
-        icon: const Icon(Icons.arrow_forward_rounded),
+        icon: Icon(
+          Icons.arrow_forward_rounded,
+          color: AppTheme.textDimOf(context),
+        ),
       ),
       child: songs.when(
         loading: () => const SizedBox(
@@ -419,6 +467,9 @@ class _SongListSection extends ConsumerWidget {
         data: (items) {
           if (items.isEmpty) {
             return glassEmptyState(text: '$title暂无内容');
+          }
+          if (horizontalCovers) {
+            return _SongCoverRow(provider: provider, songs: items);
           }
           return GlassCard(
             margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
@@ -432,6 +483,64 @@ class _SongListSection extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _SongCoverRow extends ConsumerWidget {
+  const _SongCoverRow({required this.provider, required this.songs});
+
+  final HomeSectionProvider<Song> provider;
+  final List<Song> songs;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = (constraints.maxWidth * 0.32).clamp(104.0, 148.0);
+        final scaler = MediaQuery.textScalerOf(context);
+        final text = Theme.of(context).textTheme;
+        final height =
+            size +
+            (scaler.scale(text.labelLarge!.fontSize!) * 2.8).ceilToDouble() +
+            (scaler.scale(text.bodySmall!.fontSize!) * 1.4).ceilToDouble() +
+            AppSpacing.m;
+        return SizedBox(
+          height: height,
+          child: ListView.builder(
+            key: PageStorageKey(provider),
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            itemCount: songs.length,
+            itemExtent: size + AppSpacing.l,
+            itemBuilder: (context, index) {
+              final song = songs[index];
+              return FadeSlideIn(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.l),
+                  child: _HomeCoverCard(
+                    albumId: song.albumId,
+                    localCover: song.localCoverPath,
+                    title: song.title,
+                    subtitle: song.artist,
+                    size: size,
+                    onTap: () {
+                      final actions = ref.read(playerActionsProvider);
+                      actions.replaceQueue(songs);
+                      actions.play(song);
+                      if (ref.read(autoOpenPlayerProvider)) {
+                        openFullScreenPlayer(context);
+                      }
+                    },
+                    onLongPress: () => showSongActionSheet(context, song),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -480,14 +589,6 @@ class _SongCardRow extends ConsumerWidget {
                     style: text.bodySmall,
                   ),
                 ],
-              ),
-            ),
-            IconButton(
-              tooltip: '播放${song.title}',
-              onPressed: () => _play(context, ref),
-              icon: Icon(
-                Icons.play_arrow_rounded,
-                color: AppTheme.textDimOf(context),
               ),
             ),
           ],

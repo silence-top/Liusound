@@ -6,6 +6,7 @@ import '../../core/library/song_sorting.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/skin_tokens.dart';
+import '../../shared/cover_cache.dart';
 import '../../shared/widgets/list_end_mark.dart';
 import '../../shared/widgets/async_states.dart';
 import '../../shared/widgets/motion.dart';
@@ -507,8 +508,9 @@ class _Header extends StatelessWidget {
         .read(serverAdapterProvider);
     final hasCover =
         coverAlbumId != null && coverAlbumId!.isNotEmpty && adapter != null;
+    // 300 档与列表页同 URL 共享磁盘缓存；180 自定义档会强制重新下载。
     final imageSource = hasCover
-        ? adapter.coverImage(coverAlbumId!, size: 180)
+        ? adapter.coverImage(coverAlbumId!, size: 300)
         : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -523,6 +525,7 @@ class _Header extends StatelessWidget {
                     httpHeaders: imageSource.headers.isNotEmpty
                         ? imageSource.headers
                         : null,
+                    cacheManager: CoverCacheManager(),
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,

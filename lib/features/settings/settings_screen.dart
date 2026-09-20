@@ -27,6 +27,7 @@ import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/skin_tokens.dart';
 import '../../core/theme/settings_prefs.dart';
 import '../../core/settings/streaming_prefs.dart';
+import '../../shared/cover_cache.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/toast.dart';
@@ -413,6 +414,7 @@ Future<void> _clearLyricOffsets(BuildContext context) async {
 Future<void> _clearImageCache(BuildContext context) async {
   try {
     await DefaultCacheManager().emptyCache();
+    await CoverCacheManager().emptyCache();
     showToast('图片缓存已清理');
   } catch (_) {
     showToast('清理失败', error: true);

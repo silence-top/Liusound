@@ -32,6 +32,16 @@ class _AppShellState extends ConsumerState<AppShell> {
   DateTime? _lastBackAttempt;
 
   static const _labels = ['首页', '资料库', '设置'];
+  static const _idleIcons = [
+    Icons.home_outlined,
+    Icons.library_music_outlined,
+    Icons.settings_outlined,
+  ];
+  static const _activeIcons = [
+    Icons.home_rounded,
+    Icons.library_music_rounded,
+    Icons.settings_rounded,
+  ];
 
   @override
   void dispose() {
@@ -137,25 +147,33 @@ class _AppShellState extends ConsumerState<AppShell> {
                 for (var i = 0; i < _labels.length; i++)
                   Expanded(
                     child: Semantics(
+                      label: _labels[i],
                       selected: _index == i,
                       child: InkWell(
                         onTap: () => _goTo(i),
                         borderRadius: BorderRadius.circular(AppRadius.s),
                         child: Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: AppMotion.duration(
-                              context,
-                              MotionTokens.durationSnappy,
+                          child: SizedBox(
+                            width: AppSpacing.xxxl,
+                            height: AppSpacing.xxxl,
+                            child: Center(
+                              child: AnimatedSwitcher(
+                                duration: AppMotion.reduceMotion(context)
+                                    ? Duration.zero
+                                    : AppMotion.duration(
+                                        context,
+                                        MotionTokens.durationSnappy,
+                                      ),
+                                child: Icon(
+                                  _index == i ? _activeIcons[i] : _idleIcons[i],
+                                  key: ValueKey(_index == i),
+                                  size: AppSpacing.xl,
+                                  color: _index == i
+                                      ? Theme.of(context).colorScheme.primary
+                                      : AppTheme.textDimOf(context),
+                                ),
+                              ),
                             ),
-                            style: text.titleMedium!.copyWith(
-                              color: _index == i
-                                  ? AppTheme.textPrimaryOf(context)
-                                  : AppTheme.textDimOf(context),
-                              fontWeight: _index == i
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
-                            child: Text(_labels[i]),
                           ),
                         ),
                       ),

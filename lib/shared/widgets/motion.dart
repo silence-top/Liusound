@@ -75,10 +75,16 @@ class FadeSlideIn extends ConsumerWidget {
 }
 
 class PressableScale extends StatefulWidget {
-  const PressableScale({super.key, required this.child, this.onTap});
+  const PressableScale({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+  });
 
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   State<PressableScale> createState() => _PressableScaleState();
@@ -99,6 +105,7 @@ class _PressableScaleState extends State<PressableScale> {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
           onHighlightChanged: (value) => setState(() => _down = value),
           onFocusChange: (value) => setState(() => _focused = value),
           borderRadius: BorderRadius.circular(AppRadius.m),

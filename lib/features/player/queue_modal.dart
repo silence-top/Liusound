@@ -52,29 +52,19 @@ class _QueueSheet extends ConsumerWidget {
           : DynamicSchemeVariant.tonalSpot,
       contrastLevel: 0.5,
     );
-    final disabledBackground = Color.alphaBlend(
-      colors.onSurface.withValues(alpha: 0.12),
-      panelBase,
-    );
-    // 按钮使用不透明的配对色，避免面板透明度影响文字对比。
+    // 按钮走播放页弹层同款白色半透明胶囊，与专辑取色面板同一语言。
     final buttonStyle =
         FilledButton.styleFrom(
-          backgroundColor: colors.primary,
-          foregroundColor: colors.onPrimary,
-          disabledBackgroundColor: disabledBackground,
-          disabledForegroundColor: Color.alphaBlend(
-            colors.onSurface.withValues(alpha: 0.38),
-            disabledBackground,
-          ),
-          overlayColor: colors.onPrimary,
-          textStyle: textTheme.labelLarge,
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.m,
-            vertical: AppSpacing.s,
-          ),
-          visualDensity: VisualDensity.standard,
-          tapTargetSize: MaterialTapTargetSize.padded,
+          backgroundColor: Colors.white.withValues(alpha: 0.08),
+          foregroundColor: colors.onSurface,
+          disabledBackgroundColor: Colors.white.withValues(alpha: 0.04),
+          disabledForegroundColor: colors.onSurface.withValues(alpha: 0.38),
+          overlayColor: Colors.white.withValues(alpha: 0.16),
+          textStyle: textTheme.labelMedium,
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.s),
           ),
@@ -82,7 +72,7 @@ class _QueueSheet extends ConsumerWidget {
           side: WidgetStateProperty.resolveWith(
             (states) => BorderSide(
               color: states.contains(WidgetState.focused)
-                  ? colors.onPrimary
+                  ? colors.onSurface
                   : Colors.transparent,
               width: 2,
             ),
@@ -135,7 +125,7 @@ class _QueueSheet extends ConsumerWidget {
               Flexible(
                 child: ReorderableListView.builder(
                   shrinkWrap: true,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
                   buildDefaultDragHandles: false,
                   // 标题和按钮随列表滚动，极窄屏/大字时也不挤占列表视口。
                   header: Padding(
@@ -145,48 +135,43 @@ class _QueueSheet extends ConsumerWidget {
                       AppSpacing.l,
                       AppSpacing.s,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Semantics(
-                          header: true,
-                          child: Text(
-                            '播放列表 (${queue.length})',
-                            style: textTheme.titleMedium?.copyWith(
-                              color: colors.onSurface,
-                              fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Semantics(
+                            header: true,
+                            child: Text(
+                              '播放列表 (${queue.length})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.titleMedium?.copyWith(
+                                color: colors.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.s),
-                        Wrap(
-                          spacing: AppSpacing.s,
-                          runSpacing: AppSpacing.xs,
-                          children: [
-                            FilledButton(
-                              style: buttonStyle,
-                              onPressed: queue.isEmpty
-                                  ? null
-                                  : () {
-                                      ref
-                                          .read(playerActionsProvider)
-                                          .clearQueue();
-                                      showToast(
-                                        '已清空播放队列',
-                                        duration: const Duration(seconds: 1),
-                                      );
-                                    },
-                              child: const Text('清空'),
-                            ),
-                            FilledButton.icon(
-                              style: buttonStyle,
-                              onPressed: () => ref
-                                  .read(playerActionsProvider)
-                                  .cyclePlayMode(),
-                              icon: Icon(modeIcon, size: 20),
-                              label: Text(_modeText[mode] ?? ''),
-                            ),
-                          ],
+                        const SizedBox(width: AppSpacing.s),
+                        FilledButton(
+                          style: buttonStyle,
+                          onPressed: queue.isEmpty
+                              ? null
+                              : () {
+                                  ref.read(playerActionsProvider).clearQueue();
+                                  showToast(
+                                    '已清空播放队列',
+                                    duration: const Duration(seconds: 1),
+                                  );
+                                },
+                          child: const Text('清空'),
+                        ),
+                        const SizedBox(width: AppSpacing.s),
+                        FilledButton.icon(
+                          style: buttonStyle,
+                          onPressed: () =>
+                              ref.read(playerActionsProvider).cyclePlayMode(),
+                          icon: Icon(modeIcon, size: 18),
+                          label: Text(_modeText[mode] ?? ''),
                         ),
                       ],
                     ),
@@ -252,7 +237,7 @@ class _QueueSheet extends ConsumerWidget {
                                 vertical: AppSpacing.xs,
                               ),
                               decoration: BoxDecoration(
-                                color: colors.primaryContainer,
+                                color: Colors.white.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(
                                   AppRadius.m,
                                 ),
@@ -290,108 +275,105 @@ class _QueueSheet extends ConsumerWidget {
     ColorScheme colors,
   ) {
     final textTheme = Theme.of(context).textTheme;
-    final foreground = isCurrent ? colors.onPrimaryContainer : colors.onSurface;
-    final secondary = isCurrent
-        ? colors.onPrimaryContainer
-        : colors.onSurfaceVariant;
+    final foreground = colors.onSurface;
+    final secondary = colors.onSurfaceVariant;
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).pop();
-          ref.read(playerActionsProvider).play(song);
-        },
-        hoverColor: foreground.withValues(alpha: 0.08),
-        focusColor: foreground.withValues(alpha: 0.12),
-        highlightColor: foreground.withValues(alpha: 0.12),
-        splashColor: foreground.withValues(alpha: 0.16),
-        // 只设最小行高，文字按系统 TextScaler 自然撑高。
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.s),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: ReorderableDragStartListener(
-                    index: index,
-                    child: Icon(
-                      Icons.drag_indicator,
-                      size: 20,
-                      color: secondary,
+      child: ReorderableDelayedDragStartListener(
+        index: index,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).pop();
+            ref.read(playerActionsProvider).play(song);
+          },
+          hoverColor: foreground.withValues(alpha: 0.08),
+          focusColor: foreground.withValues(alpha: 0.12),
+          highlightColor: foreground.withValues(alpha: 0.12),
+          splashColor: foreground.withValues(alpha: 0.16),
+          // 只设最小行高，文字按系统 TextScaler 自然撑高。
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.s),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: ReorderableDragStartListener(
+                      index: index,
+                      child: isCurrent
+                          ? Align(
+                              alignment: Alignment.centerRight,
+                              child: _CurrentEqualizer(color: foreground),
+                            )
+                          : Text(
+                              '${index + 1}',
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodySmall?.copyWith(
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                                color: secondary,
+                              ),
+                            ),
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: 28,
-                  child: isCurrent
-                      ? Align(
-                          alignment: Alignment.centerRight,
-                          child: _CurrentEqualizer(color: foreground),
-                        )
-                      : Text(
-                          '${index + 1}',
-                          textAlign: TextAlign.right,
+                  const SizedBox(width: AppSpacing.s),
+                  CoverArt(
+                    albumId: song.albumId,
+                    size: 40,
+                    radius: AppRadius.s,
+                    localCover: song.localCoverPath,
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: foreground,
+                            fontWeight: isCurrent
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          song.artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.bodySmall?.copyWith(
-                            fontFeatures: const [FontFeature.tabularFigures()],
                             color: secondary,
                           ),
                         ),
-                ),
-                const SizedBox(width: AppSpacing.s),
-                CoverArt(
-                  albumId: song.albumId,
-                  size: 40,
-                  radius: AppRadius.s,
-                  localCover: song.localCoverPath,
-                ),
-                const SizedBox(width: AppSpacing.s),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: foreground,
-                          fontWeight: isCurrent
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        song.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodySmall?.copyWith(color: secondary),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: '从播放列表移除',
-                  style: IconButton.styleFrom(
-                    foregroundColor: secondary,
-                    hoverColor: foreground.withValues(alpha: 0.08),
-                    focusColor: foreground.withValues(alpha: 0.12),
-                    highlightColor: foreground.withValues(alpha: 0.12),
-                    minimumSize: const Size(48, 48),
-                    visualDensity: VisualDensity.standard,
-                    tapTargetSize: MaterialTapTargetSize.padded,
+                  IconButton(
+                    tooltip: '从播放列表移除',
+                    style: IconButton.styleFrom(
+                      foregroundColor: secondary,
+                      hoverColor: foreground.withValues(alpha: 0.08),
+                      focusColor: foreground.withValues(alpha: 0.12),
+                      highlightColor: foreground.withValues(alpha: 0.12),
+                      minimumSize: const Size(48, 48),
+                      visualDensity: VisualDensity.standard,
+                      tapTargetSize: MaterialTapTargetSize.padded,
+                    ),
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => ref
+                        .read(playerActionsProvider)
+                        .removeFromQueue(song.id),
                   ),
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () =>
-                      ref.read(playerActionsProvider).removeFromQueue(song.id),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

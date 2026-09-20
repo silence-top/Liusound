@@ -42,60 +42,138 @@ class SectionSpec<T> {
 abstract class HomeSectionController<T> extends Notifier<AsyncValue<List<T>>> {
   SectionSpec<T> get spec;
 
+  int _generation = 0;
+  String? _serverId;
+  SharedPreferences? _prefs;
+  AsyncValue<List<T>>? _snapshot;
+  String? _contentJson;
+  final _persistedJsonByKey = <String, String?>{};
+  Future<void>? _inFlight;
+  Future<void> Function()? _refresh;
+
   @override
   AsyncValue<List<T>> build() {
+    final generation = ++_generation;
+    _inFlight = null;
+    _refresh = null;
+    ref.onDispose(() {
+      if (generation != _generation) return;
+      ++_generation;
+      _inFlight = null;
+      _refresh = null;
+    });
     final serverId = ref.watch(activeServerIdProvider);
-    // watch 适配器：网络设置变更重建 adapter 时照旧整体重取（对齐旧 FutureProvider）
-    ref.watch(serverAdapterProvider);
-    List<T>? cached;
-    try {
-      final raw = ref
-          .watch(sharedPrefsProvider)
-          .getString('${spec.cacheKey}.$serverId');
-      if (raw != null) {
-        final list = (jsonDecode(raw) as List)
-            .whereType<Map<String, dynamic>>()
-            .map(spec.decode)
-            .toList(growable: false);
-        if (list.isNotEmpty) cached = list;
-      }
-    } catch (_) {
-      // 快照损坏视为无缓存：走正常 loading → 拉取
+    final adapter = ref.watch(serverAdapterProvider);
+    final prefs = ref.watch(sharedPrefsProvider);
+    final section = spec;
+    final key = '${section.cacheKey}.$serverId';
+    final keepMemory = _serverId == serverId && _snapshot != null;
+    final samePrefs = identical(_prefs, prefs);
+    final sameStore = keepMemory && samePrefs;
+    if (!samePrefs) _persistedJsonByKey.clear();
+    _serverId = serverId;
+    _prefs = prefs;
+    if (!keepMemory) {
+      _snapshot = AsyncValue<List<T>>.loading();
+      _contentJson = null;
     }
-    // 首取推迟到 build 完成后（build 期同步改 state 会被 Riverpod 拒绝）
-    Future.microtask(_fetch);
-    final snapshot = cached;
-    if (snapshot == null) return AsyncValue<List<T>>.loading();
-    return AsyncValue.data(snapshot);
+    if (!sameStore) {
+      try {
+        final raw = prefs.getString(key);
+        if (raw != null) {
+          final cached = (jsonDecode(raw) as List)
+              .cast<Map<String, dynamic>>()
+              .map(section.decode)
+              .toList(growable: false);
+          final encoded = jsonEncode(cached.map(section.encode).toList());
+          // 切回旧服时也不能把失败写入留下的 prefs 内存缓存当成已落盘。
+          _persistedJsonByKey.putIfAbsent(key, () => encoded);
+          if (!keepMemory) {
+            // 空数组同样是有效快照；同服重建优先保留内存，而非回放旧磁盘。
+            _snapshot = AsyncValue.data(cached);
+            _contentJson = encoded;
+          }
+        }
+      } catch (_) {
+        // 损坏的快照视为无缓存，不影响已有内存态。
+      }
+      _persistedJsonByKey.putIfAbsent(key, () => null);
+    }
+
+    R read<R>(ProviderListenable<R> provider) {
+      if (generation != _generation) {
+        throw StateError('Home section request is no longer active');
+      }
+      return ref.read(provider);
+    }
+
+    _refresh = () {
+      if (generation != _generation) return Future<void>.value();
+      return _inFlight ??=
+          _fetch(generation, section, adapter, prefs, key, read).whenComplete(
+            () {
+              // 旧请求收尾不能清除新一代正在进行的请求。
+              if (generation == _generation) _inFlight = null;
+            },
+          );
+    };
+    // build 完成前不拉取；失效/销毁的 build 连网络请求也不应发出。
+    Future.microtask(() {
+      if (generation == _generation) return refresh();
+    });
+    return _snapshot!;
   }
 
-  Future<void> _fetch() async {
-    final serverId = ref.read(activeServerIdProvider);
-    final adapter = ref.read(serverAdapterProvider);
+  /// 后台刷新保留当前内容，同一代并行调用共享网络及写盘 Future。
+  Future<void> refresh() => _refresh?.call() ?? Future<void>.value();
+
+  Future<void> _fetch(
+    int generation,
+    SectionSpec<T> section,
+    ServerAdapter? adapter,
+    SharedPreferences prefs,
+    String key,
+    RefReader read,
+  ) async {
     final List<T> fresh;
     try {
-      fresh = adapter == null ? const [] : await spec.fetch(ref.read, adapter);
+      fresh = adapter == null ? <T>[] : await section.fetch(read, adapter);
     } catch (e, st) {
-      // 拉取失败：有缓存则静默保留旧数据，完全无缓存才进错误态
-      if (state.isLoading) state = AsyncValue<List<T>>.error(e, st);
+      if (generation != _generation) return;
+      // 没有数据才报错；空快照及普通刷新失败均保留原态。
+      if (!_snapshot!.hasValue) {
+        _snapshot = AsyncValue<List<T>>.error(e, st);
+        state = _snapshot!;
+      }
       return;
     }
-    // 等待网络期间切服：丢弃旧服数据，避免覆盖新服快照回放
-    if (serverId != ref.read(activeServerIdProvider)) return;
-    state = AsyncValue<List<T>>.data(fresh);
-    _persist(fresh, serverId);
-  }
-
-  Future<void> _persist(List<T> list, String serverId) async {
+    if (generation != _generation) return;
+    String? encoded;
     try {
-      await ref
-          .read(sharedPrefsProvider)
-          .setString(
-            '${spec.cacheKey}.$serverId',
-            jsonEncode(list.map(spec.encode).toList(growable: false)),
-          );
+      // 首页分区最多 50 项；同一份序列化结果用于内容比较和持久化。
+      encoded = jsonEncode(fresh.map(section.encode).toList(growable: false));
     } catch (_) {
-      // 快照写盘失败静默：内存数据已生效，下次成功拉取再补
+      // 序列化失败也不能丢掉已经成功拉取的网络数据。
+    }
+    if (generation != _generation) return;
+    if (!_snapshot!.hasValue || encoded == null || encoded != _contentJson) {
+      _snapshot = AsyncValue<List<T>>.data(fresh);
+      _contentJson = encoded;
+      state = _snapshot!;
+    }
+    // 通知监听者可能同步导致切服或销毁，因此写盘前再次检查。
+    if (generation != _generation ||
+        encoded == null ||
+        encoded == _persistedJsonByKey[key]) {
+      return;
+    }
+    try {
+      final saved = await prefs.setString(key, encoded);
+      if (generation == _generation && saved) {
+        _persistedJsonByKey[key] = encoded;
+      }
+    } catch (_) {
+      // 仅成功落盘才更新标记：即使 prefs 的内存缓存已更新，下次仍可补写。
     }
   }
 }

@@ -80,7 +80,8 @@ lib/
 │   ├── widgets/               # glass / glass_quality / motion / toast / async_states /
 │   │                          #   album_card / cover 派生组件 / marquee_text / list_end_mark /
 │   │                          #   quality_badge / search_entry
-│   └── cover_art.dart         # CoverArt（网络封面 + 本地封面回退 + 淡入）
+│   ├── cover_art.dart         # CoverArt（网络封面 + 本地封面回退 + 淡入）
+│   └── cover_cache.dart       # CoverCacheManager（封面专用磁盘缓存：4000 项/365 天 + 并发限 8）
 └── shell/                     # 主框架
     └── app_shell.dart         # AppShell：顶部图标导航 + PageView 保活三页 + MiniPlayer 悬浮叠加
                                #   （壳层 Stack 叠加，不用 bottomNavigationBar——推入的详情页才走该槽位；
@@ -628,14 +629,15 @@ Future<void> seek(Duration position)  // 跳转进度
 
 | Provider | 形态 | 职责 |
 |----------|------|------|
-| `albumDominantColorProvider` | `FutureProvider.autoDispose.family<Color?, String>`（key=albumId） | 取 `adapter.coverImage(albumId, size: 64)`，`PaletteGenerator.fromImageProvider` 缩样到 64×64、`maximumColorCount: 16`，按 vibrant → muted → dominant 优先返回；任何异常返回 null（回退皮肤主色），绝不阻塞播放器打开 |
+| `albumDominantColorProvider` | `FutureProvider.autoDispose.family<Color?, String>`（key=albumId） | 原生端 `CachedNetworkImageProvider` 共用 `CoverCacheManager` 的 300 档缓存与在途下载，Web 用 `NetworkImage`；`ResizeImage` 将实际解码限制在 64×64 内，`PaletteGenerator` 最多 16 色，按 vibrant → muted → dominant 返回；成功结果 `keepAlive` 3 分钟，切服随 adapter 失效；异常返回 null，不阻塞播放器 |
 | `lastAlbumDominantProvider` | `StateProvider<Color?>` | 进程级记忆「最近一次成功取到的主色」 |
 | `currentAlbumDominantProvider` | `Provider.autoDispose<Color?>` | 生效主色 = 本次取色结果 ?? 上一首成功取色 |
 
 三条硬性约束：
 
-1. **鉴权 header 必须透传**：`NetworkImage(cover.url, headers: cover.headers)`。带 header
-   鉴权的后端（fnOS / MediaBrowser 系）不透传就恒 401、取色恒回退。
+1. **鉴权 header 必须透传**：原生 `CachedNetworkImageProvider` 与 Web `NetworkImage` 均传
+   `headers: cover.headers`。带 header 鉴权的后端（fnOS / MediaBrowser 系）不透传会 401；
+   原生有效磁盘缓存命中时直接读取本地文件。
 2. **不在 build 期写 state**（Riverpod 红线）：`currentAlbumDominantProvider` 用
    `currentSongProvider.select((s) => s?.albumId)` 只在专辑变化时重建，取色结果到达后经
    `ref.listen` 写入 `lastAlbumDominantProvider`——同步写 state 会让取色永远停在 loading。
@@ -1478,7 +1480,7 @@ lyricsFallbackKey(title, artist)  = '${title.trim().toLowerCase()}|${artist...}'
 | `glassQualityProvider` | `NotifierProvider<GlassLevel>` | standard | `glass_quality` | shared/widgets/glass_quality.dart |
 | `glassTintOpacityProvider` | `NotifierProvider<double>` | 1.0（min 0.2） | `glass_tint_opacity` | shared/widgets/glass_quality.dart |
 | `coverStyleProvider` | `NotifierProvider<CoverStyle>` | — | 见文件 | features/player/cover_style.dart |
-| `miniBarStyleProvider` | `NotifierProvider<MiniBarStyle>` | — | 见文件 | features/player/mini_bar_style.dart |
+| `miniBarStyleProvider` | `NotifierProvider<MiniBarStyle>` | gradient（渐变） | 见文件 | features/player/mini_bar_style.dart |
 | `miniBarOffsetProvider` | `NotifierProvider<double>` | 0 | 见文件 | features/player/mini_bar_style.dart |
 | `bilingualLyricsProvider` | `NotifierProvider<bool>` | true | `lyrics_bilingual_enabled` | features/player/player_controller.dart |
 | `audioEffectsProvider` | `NotifierProvider<AudioEffectsState>` | — | 见文件 | core/audio/audio_effects.dart |
@@ -1514,11 +1516,11 @@ typedef HomeSectionProvider<T> =
 
 1. `watch(activeServerIdProvider)` + `watch(serverAdapterProvider)` —— 切服或网络设置变更
    整体重建（对齐旧 FutureProvider 行为）
-2. 同步读 `sharedPrefsProvider.getString('$cacheKey.$serverId')`，有快照直接
-   `AsyncValue.data`（**无加载圈**）；损坏/为空视为无缓存才进 loading
-3. 首取推迟到 `Future.microtask(_fetch)` —— build 期同步改 state 会被 Riverpod 拒绝
-4. `_fetch` 内：失败且有旧数据 → 静默保留旧数据不闪错误态（仅完全无缓存才进 error）；
-   等待网络期间切服 → 直接丢弃旧服结果，不覆盖新服快照；写盘失败静默
+2. 同服重建优先保留内存；首次同步读 `sharedPrefsProvider.getString('$cacheKey.$serverId')`，
+   有效快照（包括空数组）直接 `AsyncValue.data`，缺失／损坏才进 loading
+3. 首取推迟到 microtask 调用 `refresh()`，并检查代际有效性，避免 build 期改 state
+4. `_fetch` 失败且有旧数据时保留原态，仅无缓存才进 error；重建／切服／销毁后的旧请求
+   成功和失败均丢弃；同内容不重复通知，写盘失败留待下次刷新补写
 
 五个分区（均 `home.` 前缀）：`home.latestAlbums` / `home.recentlyPlayed` /
 `home.mostPlayed` / `home.randomAlbums` / `home.dailySongs`。
@@ -1756,13 +1758,12 @@ final songSortPrefProvider = NotifierProvider<SongSortController, SongSortPref?>
 | 顺序 | 内容 | 实现 |
 |------|------|------|
 | 1 | 搜索入口条 | `SearchEntryBar(onTap: → fadeRoute(SearchScreen()))`（`shared/widgets/search_entry.dart`） |
-| 2 | 私人 FM 横幅 | `_FmBanner`：主色 18% 圆底 + `Icons.radio` + 标题/副行 + 播放角标，整行点击进 `FmScreen` |
+| 2 | 私人 FM 入口 | `_FmEntry`：紧凑图标与标题，整行点击进 `FmScreen` |
 | 3 | 最新专辑 | `_Section('最新专辑', _AlbumRow(latestAlbumsProvider))` |
 | 4 | 每日推荐 | `_SongListSection(withDate: true)` |
-| 5 | 最近播放 | `_SongListSection` |
-| 6 | 最常播放 | `_SongListSection` |
-| 7 | 随机专辑 | `_Section('随机专辑', _AlbumRow(randomAlbumsProvider))` |
-| 8 | 收尾留白 | `SizedBox(height: 96 + MediaQuery.paddingOf(context).bottom)`（含悬浮迷你条占位） |
+| 5 | 最近／最常播放 | `_ListeningHistory` 标签切换，`_SongListSection(horizontalCovers: true)` 横向封面 |
+| 6 | 随机专辑 | `_Section('随机专辑', _AlbumRow(randomAlbumsProvider))` |
+| 7 | 收尾留白 | `SizedBox(height: AppSpacing.huge + MediaQuery.paddingOf(context).bottom)` |
 
 - **无欢迎词**：1.x 的 `_Greeting` 已删除，搜索入口条与资料库页顶部平齐。
 - `SearchEntryBar` 是装饰性入口（不承载输入），填充色经 `withGlassTintOpacity` +
@@ -1771,13 +1772,14 @@ final songSortPrefProvider = NotifierProvider<SongSortController, SongSortPref?>
 #### 5.2.2 分区壳与卡片
 
 - `_Section(title, child, trailing?)`：分区标题 + 可选右侧动作位（「查看更多」）。
-- `_AlbumRow(provider)`：横向滚动 `_AlbumCard`（封面 + 名称 + 歌手），点击进专辑详情
-  （`SongListScreen(rateTargetId: album.id, rating: album.rating)`）。
+- `_AlbumRow(provider)` 与 `_SongCoverRow` 共用 `_HomeCoverCard`（封面 + 双行名称 + 歌手）；
+  专辑点击进 `SongListScreen(rateTargetId: album.id, rating: album.rating)`，歌曲点击播放、长按操作。
+  最近／最常各自用 `PageStorageKey(provider)` 保存横向滚动位置，列表按需构建。
 - `_SongListSection(title, provider, withDate)`：`HomeSectionProvider<Song>` 三态
   （loading 180px 转圈 / error `errorRetryBox` + `ref.invalidate` / empty `glassEmptyState`），
-  有数据时最多展示 3 行 `_SongCardRow`，trailing「查看更多」→
+  每日推荐有数据时最多展示 3 行 `_SongCardRow`，最近／最常展示 `_SongCoverRow`；trailing「查看更多」→
   `SongListScreen(songs: list, coverAlbumId: list.first.albumId, date: 每日推荐传今日)`。
-- `_SongCardRow`：56 封面 + 标题/副标题 + 右侧播放按钮；点击 `replaceQueue(queue)` +
+- `_SongCardRow`：52 封面 + 标题/副标题；点击 `replaceQueue(queue)` +
   `play(song)`，`autoOpenPlayerProvider` 为真时 `openFullScreenPlayer`；长按
   `showSongActionSheet`（与详情页 `SongRow` 行为一致）。
 - **去卡片化双形态**：卡片模式下 3 行包进 `GlassContainer`，默认裸排（`cardDisplayProvider`
@@ -1787,8 +1789,9 @@ final songSortPrefProvider = NotifierProvider<SongSortController, SongSortPref?>
 
 分区数据源是 `SectionSpec` + `HomeSectionController` 的 SWR 快照（见 §4.19：进入即同步读盘
 回放、不转圈，后台重取）。`_refresh(ref)` 先 `randomSeedProvider = makeSeed()`，再
-`invalidate` 五个 provider：`latestAlbumsProvider` / `recentlyPlayedSongsProvider` /
-`mostPlayedSongsProvider` / `randomAlbumsProvider` / `dailySongsProvider`。
+并行等待五个分区 notifier 的 `refresh()`：`latestAlbumsProvider` / `recentlyPlayedSongsProvider` /
+`mostPlayedSongsProvider` / `randomAlbumsProvider` / `dailySongsProvider`。同代在途请求复用，刷新保留
+当前数据（含空快照），代际守卫丢弃旧请求成功／失败；内容未变时不通知、不重复写盘。
 
 ### 5.3 资料库（features/home/music_library_screen.dart）
 
@@ -1961,8 +1964,9 @@ final coverAlbumId = widget.coverAlbumId ?? (all.isEmpty ? null : all.first.albu
 #### 5.4.3 _Header 静态头部
 
 - `Padding(16, 16, 16, 24)` + Row；封面 **90×90、圆角 12**（`ClipRRect`），
-  取图走 `adapter.coverImage(coverAlbumId, size: 180)` +
-  `CachedNetworkImage(memCacheWidth: 180, httpHeaders: 透传)`
+  取图走 `adapter.coverImage(coverAlbumId, size: 300)`（300 档与列表同 URL
+  共享磁盘缓存）+ `CachedNetworkImage(cacheManager: CoverCacheManager(),
+  memCacheWidth: 180, httpHeaders: 透传)`
 - 加载失败 → `_CoverPlaceholder`：90×90 `SkinTokens.surface` 圆角 12 +
   `Icons.album` 36，不裂图不留白
 - 标题 19 bold（maxLines 2）+ 副标题 14 dim；`StarRating` 仅在
@@ -2429,30 +2433,34 @@ barrierColor: Colors.black38, isScrollControlled: true, shape:` 顶部
 毛玻璃但近实色不透明，§4.2.6 / §13 播放页材质定稿），`padding: top 8 /
 bottom 安全区+8`。
 
-- **拖动条** 40×4（`tokens.textFaint`，r2，注释记录该圆角为拖动条豁免）
-- **头部**：`播放列表({n})` 19 w600 + 「清空」胶囊（`tokens.tintLight` r8、14 号，
-  `GestureDetector(behavior: opaque)` 扩热区）→ `clearQueue()` + toast
-  「已清空播放队列」1 秒；播放模式胶囊（`InkWell` → `cyclePlayMode()`，
-  icon 22 + 文案 14）：`repeat` 顺序播放 / `shuffle` 随机播放 / `repeat_one` 单曲循环
-- **空态**：`glassEmptyState('队列为空\n去首页挑几首歌开始播放',
-  queue_music_outlined, padding: 16)`
-- **列表**：`ReorderableListView.builder`
-  - `buildDefaultDragHandles: false`，只有行首把手能拖，避免与点击/删除热区打架
-  - **`itemExtent: 64`** 固定行高：换来惰性构建 + 滚动位置确定性
+- **拖动条** 40×4（`colors.outline`，r2，注释记录该圆角为拖动条豁免）
+- **头部**：`Row` 两端对齐——左 `Expanded` 的 `播放列表({n})`
+  （titleMedium 16 w600，超长省略），右两枚紧凑 `FilledButton`
+  （labelMedium、高 36、shrinkWrap、`AppRadius.s`；**播放页弹层同款白色半透明
+  胶囊**：白 0.08 底 / onSurface 前景 / 白 0.16 按压 / focus 描 onSurface 边，
+  不随封面取色）：「清空」→ `clearQueue()` +
+  toast「已清空播放队列」1 秒（空队列禁用）；播放模式 → `cyclePlayMode()`
+  （icon 18 + 文案）：`repeat` 顺序播放 / `shuffle` 随机播放 / `repeat_one` 单曲循环
+- **空态**：footer `Padding` + `queue_music_outlined` 32 +
+  「队列为空\n去首页挑几首歌开始播放」（onSurfaceVariant）
+- **列表**：`ReorderableListView.builder`（padding 横向 8，与头部对齐）
+  - `buildDefaultDragHandles: false`；行高只设 `minHeight: 64` 下限，
+    文字随系统 TextScaler 自然撑高
   - `onReorderItem` 的 `newIndex` 已完成「移除位」修正，直接透传
     `reorderQueue(old, new)`，不回到旧版 `--newIndex` 补偿
   - `proxyDecorator` 用 `AnimatedBuilder` 让拖动副本随进度浮起：`Material`
-    primary .18 底 + `AppRadius.s` + `elevation = t × 6`
+    panelBase 底 + `AppRadius.s` + `elevation = t × 6`
 - **行**：外层 `Dismissible(key: ValueKey(song.id), endToStart)`，底衬
-  `heartRed .20` + `delete_outline`，与当前行同一套
-  `margin: 8/3/8/3` + `AppRadius.m`，只在滑开时露出 → `removeFromQueue`
-  - 40×48 `ReorderableDragStartListener` 把手（`drag_indicator` 22，热区 ≥36dp）
-  - 28 宽序号列：**当前行放电平条**，其余 14 号 +
-    `FontFeature.tabularFigures()` 右对齐（等宽数字，位数变化不抖动）
-  - `CoverArt(48, localCover: song.localCoverPath)`——离线/本地歌走磁盘封面（§5.9.6）
-  - 标题 16（当前行 primary + bold）/ 歌手 12 textDim + `close` 22 删除
-  - 当前行包 `Container(clipBehavior: antiAlias, primary .18, AppRadius.m)`，
-    普通行只加 0.5 `tokens.divider` 底边
+  `errorContainer` + `delete_outline`，`margin 8/4/8/4` + `AppRadius.m`，
+  只在滑开时露出 → `removeFromQueue`
+  - 32 宽序号把手列：`ReorderableDragStartListener`（序号即把手），
+    整行再包 `ReorderableDelayedDragStartListener` 长按可拖；
+    **当前行放电平条**，其余 tabular 等宽数字右对齐（位数变化不抖动）
+  - `CoverArt(40, localCover: song.localCoverPath)`——离线/本地歌走磁盘封面（§5.9.6）
+  - 标题 bodyLarge（当前行 w600，前景统一 onSurface）/ 歌手 bodySmall
+    onSurfaceVariant + `close` 20 删除（48 热区）
+  - 当前行包 `Container(clipBehavior: antiAlias, 白 0.1, AppRadius.m)`，
+    普通行只加 0.5 `outlineVariant` 底边
   - 点击行：先 `pop()` 再 `play(song)`，不留在弹层上
 - **电平条单点订阅**：`_CurrentEqualizer` 只 `watch(isPlayingProvider)`，
   播放/暂停切换不再触发整表重建；流未吐首值时按「播放中」处理（`.value ?? true`），
@@ -2920,7 +2928,8 @@ ColoredBox(SkinTokens.shell)          ← 先垫皮肤底色，避免首帧闪�
 | dio | HTTP 客户端（API 调用 + 媒体流 / 下载原子写入）；适配器与下载队列共用 | core/api/*、core/network/http_factory*、download_service_io/web.dart |
 | web | 浏览器互操作（下载走 Blob / a[download]，无文件系统） | core/download/download_service_web.dart |
 | cached_network_image | 封面图缓存与占位 | shared/cover_art.dart、action_sheets.dart、detail_screen.dart |
-| flutter_cache_manager | 缓存句柄，供「清理图片缓存」一键清空 | features/settings/settings_screen.dart（`DefaultCacheManager().emptyCache()`） |
+| flutter_cache_manager | 缓存句柄，供「清理图片缓存」一键清空 | features/settings/settings_screen.dart（`DefaultCacheManager().emptyCache()` + `CoverCacheManager().emptyCache()`） |
+| http | 封面专用缓存管理器的 HTTP 服务（IOClient 包 HttpClient，连接池限 8） | shared/cover_cache.dart |
 | crypto | SHA-256（下载指纹、Jellyfin/Emby/fnOS 鉴权）/ MD5（本地歌曲指纹） | download_service_io.dart、subsonic/fnos/mediabrowser adapters、local_library_io.dart、streaming_prefs.dart |
 | connectivity_plus | 网络状态监听（Stream<ConnectivityResult>），驱动自动重连与 scrobble 补传 | main.dart、scrobble_service.dart、streaming_prefs.dart |
 | path | 路径拼接与扩展名判断 | download_service_io.dart、app_db.dart、local_library.dart、platform/media_store_*.dart |

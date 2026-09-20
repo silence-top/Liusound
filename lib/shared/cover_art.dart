@@ -7,6 +7,7 @@ import '../core/api/server_adapter.dart';
 import '../core/platform/local_image.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/motion_tokens.dart';
+import 'cover_cache.dart';
 
 /// 统一封面组件：
 /// - localCover 非空时优先展示本地内嵌封面文件（本地扫描歌曲）
@@ -94,6 +95,7 @@ class CoverArt extends ConsumerWidget {
       child: CachedNetworkImage(
         imageUrl: coverSrc?.url ?? '',
         httpHeaders: coverSrc?.headers,
+        cacheManager: CoverCacheManager(),
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -159,6 +161,7 @@ class EntityCover extends ConsumerWidget {
       child: CachedNetworkImage(
         imageUrl: coverSrc?.url ?? '',
         httpHeaders: coverSrc?.headers,
+        cacheManager: CoverCacheManager(),
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -202,6 +205,7 @@ class _EntityFallbackCover extends ConsumerWidget {
     return CachedNetworkImage(
       imageUrl: src.url,
       httpHeaders: src.headers.isNotEmpty ? src.headers : null,
+      cacheManager: CoverCacheManager(),
       width: size,
       height: size,
       fit: BoxFit.cover,

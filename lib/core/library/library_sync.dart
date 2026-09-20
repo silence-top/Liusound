@@ -21,12 +21,15 @@ typedef RefReader = T Function<T>(ProviderListenable<T> provider);
 /// 这是版本快照（Versioned Snapshot），不是 delta 增量同步；
 /// 后端不提供标记（versionedSnapshot=false，如 Audio Station）→ 每次全量，如实降级。
 abstract final class LibrarySync {
+  static final _inFlight = <_LibraryLoadKey, Future<List<Object?>>>{};
+
   /// 曲库歌曲列表（资料库「歌曲」入口；全量快照，展示顺序由 UI 侧决定）
   static Future<List<Song>> songs(RefReader read) async {
     final adapter = read(serverAdapterProvider);
-    if (adapter == null) return const [];
+    if (adapter == null) return <Song>[];
     return _load<Song>(
-      read,
+      adapter: adapter,
+      serverId: read(activeServerIdProvider),
       // v2：旧快照可能是 getRandomSongs 随机子集（全库枚举上线前所存），
       // 而 libraryVersion 未变时永远命中旧数据，需换 kind 作废重拉
       kind: 'songs_all_v2',
@@ -45,9 +48,10 @@ abstract final class LibrarySync {
   /// 大曲库分页待专辑列表页支持加载更多后再拆）
   static Future<List<Album>> albums(RefReader read) async {
     final adapter = read(serverAdapterProvider);
-    if (adapter == null) return const [];
+    if (adapter == null) return <Album>[];
     return _load<Album>(
-      read,
+      adapter: adapter,
+      serverId: read(activeServerIdProvider),
       kind: 'albums_name_v2', // v2：上限 100→10000，旧快照只有 100 条需作废
       fetch: () => adapter.fetchAlbums(
         const AlbumQuery(sort: AlbumSort.name, limit: 10000),
@@ -60,19 +64,46 @@ abstract final class LibrarySync {
     );
   }
 
-  static Future<List<T>> _load<T>(
-    RefReader read, {
+  static Future<List<T>> _load<T>({
+    required ServerAdapter adapter,
+    required String serverId,
     required String kind,
     required Future<List<T>> Function() fetch,
     required String Function(List<T>) encode,
     required List<T> Function(String) decode,
   }) async {
-    final adapter = read(serverAdapterProvider)!;
+    // 捕获会话并合并整个任务，失效后不再读取旧 Ref。
+    final key = _LibraryLoadKey(adapter, serverId, kind);
+    final pending = _inFlight.putIfAbsent(
+      key,
+      () =>
+          _loadSnapshot<T>(
+            adapter: adapter,
+            serverId: serverId,
+            kind: kind,
+            fetch: fetch,
+            encode: encode,
+            decode: decode,
+          ).whenComplete(() {
+            _inFlight.remove(key);
+          }),
+    );
+    // 调用者会原地排序：只共享在途工作，不共享返回的可变集合。
+    return List<T>.of(await (pending as Future<List<T>>));
+  }
+
+  static Future<List<T>> _loadSnapshot<T>({
+    required ServerAdapter adapter,
+    required String serverId,
+    required String kind,
+    required Future<List<T>> Function() fetch,
+    required String Function(List<T>) encode,
+    required List<T> Function(String) decode,
+  }) async {
     if (!adapter.capabilities.versionedSnapshot) return fetch();
     String? cachedPayload;
     var fetched = false;
     try {
-      final serverId = read(activeServerIdProvider);
       final db = await AppDb.instance();
       final rows = await db.query(
         'library_snapshot',
@@ -123,6 +154,24 @@ abstract final class LibrarySync {
       return fetch();
     }
   }
+}
+
+class _LibraryLoadKey {
+  const _LibraryLoadKey(this.adapter, this.serverId, this.kind);
+
+  final ServerAdapter adapter;
+  final String serverId;
+  final String kind;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _LibraryLoadKey &&
+      identical(adapter, other.adapter) &&
+      serverId == other.serverId &&
+      kind == other.kind;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(adapter), serverId, kind);
 }
 
 /// 大 JSON 快照编解码必须在后台 isolate 完成（P0-LIB-01），

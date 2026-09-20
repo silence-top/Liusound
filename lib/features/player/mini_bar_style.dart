@@ -20,10 +20,10 @@ class MiniBarStyleController extends Notifier<MiniBarStyle> {
   MiniBarStyle build() {
     final prefs = ref.watch(sharedPrefsProvider);
     final saved = prefs.getString(_key);
-    if (saved == null) return MiniBarStyle.glass;
+    if (saved == null) return MiniBarStyle.gradient;
     return MiniBarStyle.values.firstWhere(
       (e) => e.name == saved,
-      orElse: () => MiniBarStyle.glass,
+      orElse: () => MiniBarStyle.gradient,
     );
   }
 

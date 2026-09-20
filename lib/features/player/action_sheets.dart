@@ -10,6 +10,7 @@ import '../../core/download/download_queue.dart';
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/cover_cache.dart';
 import '../../shared/widgets/glass.dart';
 import '../../shared/widgets/motion.dart';
 import '../../shared/widgets/toast.dart';
@@ -417,7 +418,8 @@ class _Cover extends StatelessWidget {
         child: const Icon(Icons.music_note, color: Colors.white24, size: 26),
       );
     }
-    final imageSource = adapter.coverImage(song.albumId, size: 104);
+    // 300 档与列表页同 URL 共享磁盘缓存；104 自定义档会强制重新下载。
+    final imageSource = adapter.coverImage(song.albumId, size: 300);
     if (imageSource == null) {
       return Container(
         width: 52,
@@ -436,6 +438,7 @@ class _Cover extends StatelessWidget {
         httpHeaders: imageSource.headers.isNotEmpty
             ? imageSource.headers
             : null,
+        cacheManager: CoverCacheManager(),
         width: 52,
         height: 52,
         fit: BoxFit.cover,

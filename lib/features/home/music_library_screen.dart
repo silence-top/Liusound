@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/local/local_library.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion_tokens.dart';
+import '../../core/theme/skin_tokens.dart';
 import '../../shared/cover_art.dart';
 import '../../shared/widgets/album_card.dart';
 import '../../shared/widgets/async_states.dart';
@@ -67,6 +68,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
     final config = ref.watch(authControllerProvider).activeConfig;
     final type = config?.type;
     final text = Theme.of(context).textTheme;
+    final tokens = SkinTokens.of(context);
     return Column(
       children: [
         Padding(
@@ -92,9 +94,20 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                       ),
                     )
                   else
-                    Icon(
-                      type?.fallbackIcon ?? Icons.dns_outlined,
-                      color: Theme.of(context).colorScheme.primary,
+                    Container(
+                      width: AppSpacing.xxl,
+                      height: AppSpacing.xxl,
+                      decoration: BoxDecoration(
+                        color: tokens.surface,
+                        borderRadius: BorderRadius.circular(
+                          AppRadius.s * tokens.radiusScale,
+                        ),
+                      ),
+                      child: Icon(
+                        type?.fallbackIcon ?? Icons.dns_outlined,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   const SizedBox(width: AppSpacing.m),
                   Expanded(
@@ -105,7 +118,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
                           config?.name ?? '未连接服务器',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: text.labelLarge,
+                          style: text.titleSmall,
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
@@ -128,7 +141,7 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
             ),
           ),
         ),
-        const SizedBox(height: AppSpacing.l),
+        const SizedBox(height: AppSpacing.s),
         _EntryGrid(
           expanded: _expanded,
           onToggle: () => setState(() => _expanded = !_expanded),
@@ -310,6 +323,14 @@ class _EntryGroup extends StatelessWidget {
                 if (onToggle != null)
                   TextButton.icon(
                     onPressed: onToggle,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.textDimOf(context),
+                      backgroundColor: Colors.transparent,
+                      textStyle: Theme.of(context).textTheme.labelLarge,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.m,
+                      ),
+                    ),
                     iconAlignment: IconAlignment.end,
                     icon: AnimatedRotation(
                       turns: expanded ? 0.5 : 0,
@@ -319,7 +340,7 @@ class _EntryGroup extends StatelessWidget {
                               context,
                               MotionTokens.durationSnappy,
                             ),
-                      child: const Icon(Icons.expand_more),
+                      child: const Icon(Icons.expand_more, size: 20),
                     ),
                     label: Text(expanded ? '收起' : '展开'),
                   ),
@@ -341,20 +362,19 @@ class _EntryGroup extends StatelessWidget {
                 excluding: !expanded,
                 child: IgnorePointer(
                   ignoring: !expanded,
-                  child: GlassCard(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.l,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
                     ),
-                    padding: const EdgeInsets.all(AppSpacing.s),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final scale =
                             MediaQuery.textScalerOf(context).scale(14) / 14;
                         final columns = constraints.maxWidth >= 600 * scale
-                            ? 4
-                            : constraints.maxWidth >= 260 * scale
-                            ? 2
-                            : 1;
+                            ? 6
+                            : constraints.maxWidth >= 270 * scale
+                            ? 3
+                            : 2;
                         final width =
                             (constraints.maxWidth -
                                 AppSpacing.m * (columns - 1)) /
@@ -362,8 +382,11 @@ class _EntryGroup extends StatelessWidget {
                         return Wrap(
                           spacing: AppSpacing.m,
                           children: [
-                            for (final entry in entries)
-                              SizedBox(width: width, child: entry),
+                            for (var i = 0; i < entries.length; i++)
+                              SizedBox(
+                                width: width,
+                                child: FadeSlideIn(index: i, child: entries[i]),
+                              ),
                           ],
                         );
                       },
@@ -388,21 +411,36 @@ class _Entry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = SkinTokens.of(context);
+    final radius = BorderRadius.circular(AppRadius.m * tokens.radiusScale);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.s),
+      borderRadius: radius,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
-        child: Row(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
+        child: Column(
           children: [
-            Icon(
-              icon,
-              size: AppSpacing.xl,
-              color: Theme.of(context).colorScheme.primary,
+            Container(
+              width: AppSpacing.xxxl,
+              height: AppSpacing.xxxl,
+              decoration: BoxDecoration(
+                color: tokens.surface,
+                borderRadius: radius,
+                border: Border.all(color: tokens.borderHairline),
+              ),
+              child: Icon(
+                icon,
+                size: AppSpacing.xl,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
-            const SizedBox(width: AppSpacing.m),
-            Expanded(
-              child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.s),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelLarge,
             ),
           ],
         ),

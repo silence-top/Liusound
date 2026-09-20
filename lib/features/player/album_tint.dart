@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 import '../../core/api/server_adapter.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/cover_cache.dart';
 import '../../shared/widgets/glass_quality.dart';
 import '../auth/auth_controller.dart';
 import 'player_controller.dart';
@@ -18,19 +22,42 @@ final albumDominantColorProvider = FutureProvider.autoDispose
       if (albumId.isEmpty) return null;
       final adapter = ref.watch(serverAdapterProvider);
       if (adapter == null) return null;
+      var disposed = false;
+      Timer? expiry;
+      ref.onDispose(() {
+        disposed = true;
+        expiry?.cancel();
+      });
       try {
-        final ImageSource? cover = adapter.coverImage(albumId, size: 64);
+        final ImageSource? cover = adapter.coverImage(albumId);
         if (cover == null) return null;
+        // size 仅是布局提示；ResizeImage 才会把取色解码实际限制在 64px。
+        final provider = ResizeImage(
+          kIsWeb
+              ? NetworkImage(cover.url, headers: cover.headers)
+              : CachedNetworkImageProvider(
+                  cover.url,
+                  headers: cover.headers,
+                  cacheManager: CoverCacheManager(),
+                ),
+          width: 64,
+          height: 64,
+          policy: ResizeImagePolicy.fit,
+        );
         final palette = await PaletteGenerator.fromImageProvider(
-          // 带 header 鉴权的后端（fnOS/MediaBrowser 系）必须透传，否则 401 恒回退
-          NetworkImage(cover.url, headers: cover.headers),
-          size: const Size(64, 64),
+          provider,
           maximumColorCount: 16,
         );
-        return (palette.vibrantColor ??
-                palette.mutedColor ??
-                palette.dominantColor)
-            ?.color;
+        final color =
+            (palette.vibrantColor ??
+                    palette.mutedColor ??
+                    palette.dominantColor)
+                ?.color;
+        if (!disposed && color != null) {
+          final link = ref.keepAlive();
+          expiry = Timer(const Duration(minutes: 3), link.close);
+        }
+        return color;
       } catch (_) {
         return null;
       }
