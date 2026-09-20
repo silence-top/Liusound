@@ -10,11 +10,12 @@ import '../navidrome_client.dart';
 import '../adapter_log.dart';
 import '../server_adapter.dart';
 import '../server_type.dart';
+import 'reauth_interceptor.dart';
 import 'subsonic_protocol.dart';
 
 /// Navidrome 适配器：REST API 为主，Subsonic 兼容层（媒体直链/资料库扩展/
 /// 转码探测）与纯 Subsonic 适配器共用 [SubsonicProtocolAdapter]。
-class NavidromeAdapter extends SubsonicProtocolAdapter {
+class NavidromeAdapter extends SubsonicProtocolAdapter with SecretsUpdatable {
   NavidromeAdapter({
     required ServerConfig config,
     required Map<String, String> secrets,
@@ -32,11 +33,42 @@ class NavidromeAdapter extends SubsonicProtocolAdapter {
         subsonicSalt: secrets['subsonicSalt'] ?? '',
       ),
     );
+    // JWT 过期（/api/* 401）：静默重登一次并换新 Bearer 重放原请求；
+    // 重登失败回落原始 401。Subsonic /rest 走 token+salt 不过期，不受影响
+    _client.dio.interceptors.add(
+      ReauthInterceptor(
+        dio: _client.dio,
+        reauthenticate: _reauthenticate,
+        applyFreshCredentials: (opts) {
+          final token = _client.session?.token ?? '';
+          opts.headers['Authorization'] = 'Bearer $token';
+          opts.headers['x-nd-authorization'] = 'Bearer $token';
+        },
+      ),
+    );
   }
 
   final ServerConfig _config;
   final Map<String, String> _secrets;
   late final NavidromeClient _client;
+
+  Future<void>? _reloginInFlight;
+
+  Future<void> _reauthenticate() {
+    return _reloginInFlight ??= _doReauthenticate().whenComplete(() {
+      _reloginInFlight = null;
+    });
+  }
+
+  Future<void> _doReauthenticate() async {
+    final fresh = await _client.relogin(_secrets['password'] ?? '');
+    _secrets
+      ..['token'] = fresh.token
+      ..['subsonicToken'] = fresh.subsonicToken
+      ..['subsonicSalt'] = fresh.subsonicSalt;
+    // 新凭证上报持久化，下次冷启动直接可用
+    onSecretsUpdated?.call(Map.of(_secrets));
+  }
 
   SubsonicAuth get _subsonicAuth => SubsonicAuth(
     serverUrl: _config.serverUrl,

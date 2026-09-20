@@ -168,15 +168,15 @@ abstract class SubsonicProtocolAdapter implements ServerAdapter {
 
   /// 歌手是否真有图（无图时 Navidrome 的 getCoverArt 返回 200 生成的占位
   /// 头像而非 404，不能靠加载失败触发兜底，须跳过直连）：
-  /// - artistImageUrl 仅在真有图时非空（新版 Navidrome 按 ImageAbsent 填，
-  ///   旧版恒缺）→ 可信的正向信号；
-  /// - coverArt 在旧版 Navidrome 对无图歌手也恒非空（无 ImageAbsent 概念），
-  ///   不可信，仅用于纯 Subsonic 正向判断；
-  /// - Navidrome 且无 artistImageUrl → 无图；纯 Subsonic 无字段约定 → null
-  ///   （未知，保持原 404 兜底行为）。
+  /// - Navidrome：artistImageUrl 一律不可信——pre-0.55 无条件填充；
+  ///   0.55-0.58 按 ImageAbsent 门控；0.59+ 新艺术图管线后台异步解析，
+  ///   解析未完成时也非空（实际下发 LQIP 灰星占位，0.64.0 实测）。
+  ///   字段本身无法区分真假图，统一按无图走「插件头像→专辑封面」兜底链；
+  /// - 纯 Subsonic：artistImageUrl/coverArt 非空作为正向信号，
+  ///   全空返回 null（未知，保持原 404 兜底行为）。
   bool? artistHasCover(Map<String, dynamic> a) {
-    if (_str(a, 'artistImageUrl').isNotEmpty) return true;
     if (type == ServerType.navidrome) return false;
+    if (_str(a, 'artistImageUrl').isNotEmpty) return true;
     if (_str(a, 'coverArt').isNotEmpty) return true;
     return null;
   }

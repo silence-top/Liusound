@@ -23,9 +23,14 @@
 
 ## 2026-09-20 — 歌手封面兜底修复
 
-- **问题**：专辑艺术家/歌手列表全部显示服务端占位头像。Navidrome（含旧版）对无图歌手的 `getCoverArt` 返回 **200 生成的占位头像**而非 404，导致"加载失败回退第一张专辑封面"的兜底永不触发。
-- **修复**：`getIndexes`/`getArtists`/`search3` 响应解析 `Artist.hasCover` —— `artistImageUrl` 仅在歌手真有图时非空（新版 Navidrome 按 `ImageAbsent` 填写），作为可信正向信号；旧版 Navidrome 的 `coverArt` 对无图歌手也恒非空，不作为依据，Navidrome 无 `artistImageUrl` 一律按无图处理；纯 Subsonic 服务端无字段约定保持原 404 兜底行为。
-- **覆盖面**：歌手/专辑艺术家列表行、搜索结果歌手行、歌手歌曲页头部（无图时回退第一首歌的专辑封面）；其他后端行为不变。
+- **问题**：专辑艺术家/歌手列表全部显示服务端灰星占位头像。Navidrome 对无图歌手的 `getCoverArt` 返回 **200 生成的占位头像**而非 404，导致"加载失败回退第一张专辑封面"的兜底永不触发。
+- **修复**：Navidrome 的 `artistImageUrl` 经真机（服务器 0.64.0）证伪为不可信信号——pre-0.55 无条件填充、0.59+ 新艺术图管线后台解析未完成时也非空且实际下发 LQIP 灰星占位。`getIndexes`/`getArtists`/`search3` 对 Navidrome 一律按无图处理，直接走「插件外部头像 → 专辑封面」兜底链；纯 Subsonic 服务端按 `artistImageUrl`/`coverArt` 正向判断，无字段约定保持原 404 兜底行为。
+- **覆盖面**：歌手/专辑艺术家列表行、搜索结果歌手行、歌手歌曲页头部；其他后端行为不变。
+
+## 2026-09-20 — Navidrome 登录失效静默重登
+
+- **问题**：Navidrome REST（`/api/*`）使用登录 JWT 鉴权，过期后全部 401 且被各处静默降级吞掉——首页/资料库/歌单等悄悄退化为空数据，无任何重登或提示（fnOS/Audio Station/MediaBrowser/Plex 均有静默重登，唯独 Navidrome 缺失）。
+- **修复**：适配器挂 401 静默重登拦截器——用本地保存的账密经独立 Dio 请求 `/auth/login`（不经拦截器，避免递归），成功后更新内存会话、换新 Bearer 重放原请求、新 secrets 回写持久化（冷启动直接可用）；并发 401 串行处理；重登失败（密码也失效）如实回落原始 401。Subsonic `/rest` 走 token+salt 不过期，行为不变。
 
 ## 2026-09-20 — 首页横向封面与性能优化
 

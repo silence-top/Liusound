@@ -103,6 +103,54 @@ class NavidromeClient {
     }
   }
 
+  /// JWT 过期后的静默重登：独立 Dio 实例发登录请求（不经过本客户端
+  /// 拦截器，避免 401 重试递归，对齐 MediaBrowser authenticateByName 模式），
+  /// 成功后更新内存会话并返回新会话（含新鲜 subsonic 要素）供持久化。
+  /// 并发去重：token 失效时几十个并发 401 只发一次重登，其余共享结果
+  Future<StoredSession>? _reloginInFlight;
+  Future<StoredSession> relogin(String password) {
+    return _reloginInFlight ??= _doRelogin(password).whenComplete(() {
+      _reloginInFlight = null;
+    });
+  }
+
+  Future<StoredSession> _doRelogin(String password) async {
+    final session = _session;
+    if (session == null) throw AuthError('未登录');
+    if (password.isEmpty) {
+      throw const AuthError('缺少本地登录凭证，无法静默重新登录');
+    }
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 20),
+      ),
+    );
+    try {
+      final res = await dio.post<Map<String, dynamic>>(
+        '${session.serverUrl}/auth/login',
+        data: {'username': session.username, 'password': password},
+      );
+      final result = LoginResult.fromJson(res.data ?? const {});
+      if (result.token.isEmpty ||
+          result.subsonicToken.isEmpty ||
+          result.subsonicSalt.isEmpty) {
+        throw AuthError('Navidrome 重新登录失败');
+      }
+      final fresh = StoredSession(
+        serverUrl: session.serverUrl,
+        username: session.username,
+        token: result.token,
+        subsonicToken: result.subsonicToken,
+        subsonicSalt: result.subsonicSalt,
+      );
+      setSession(fresh);
+      return fresh;
+    } finally {
+      dio.close();
+    }
+  }
+
   // ---------- 专辑 ----------
   Future<List<Album>> getAlbums(Map<String, Object?> query) async {
     final res = await dio.get<List<dynamic>>(
@@ -334,8 +382,8 @@ class NavidromeClient {
     return SearchResult(
       songs: Song.listFromJson(s3['song'] ?? const []),
       albums: Album.listFromJson(s3['album'] ?? const []),
-      // Navidrome search3 走 toArtistID3：coverArt/artistImageUrl 缺席即无图
-      //（getCoverArt 会返回 200 占位头像），未知一律按无图走专辑封面兜底。
+      // artistImageUrl/coverArt 对无图歌手也可能非空（200 占位头像），
+      // 一律按无图走「插件头像→专辑封面」兜底，避免灰星占位图。
       artists: Artist.listFromJson(s3['artist'] ?? const [])
           .map(
             (a) => Artist(
@@ -343,7 +391,7 @@ class NavidromeClient {
               name: a.name,
               albumCount: a.albumCount,
               songCount: a.songCount,
-              hasCover: a.hasCover ?? false,
+              hasCover: false,
             ),
           )
           .toList(),

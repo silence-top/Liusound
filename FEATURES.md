@@ -129,7 +129,7 @@ lib/
 **共享实现层**：
 - `SubsonicProtocolAdapter`（P1-A）：Subsonic 与 Navidrome 的媒体直链（stream/download/封面）、资料库六扩展、版本号与转码探测（含 TranscodeProbeCache 持久化）全部上提，子类只提供 `dio/auth/api/parseSong` 四钩子。
 - `MediaBrowserAdapter`：Jellyfin 与 Emby 共用；`authenticateByName(client:, md5Password:)` 统一 `/Users/AuthenticateByName` 登录与静默重登。
-- `ReauthInterceptor`（P1-C）：MediaBrowser 系（header 重写）与 Plex（query token 重写）共用同一 QueuedInterceptor 实现。
+- `ReauthInterceptor`（P1-C）：MediaBrowser 系（header 重写）、Plex（query token 重写）与 Navidrome（Bearer 重写）共用同一 QueuedInterceptor 实现；Navidrome JWT 过期（`/api/*` 401）经此静默重登（独立 Dio 发 `/auth/login`，重放换新 Bearer，新 secrets 回写持久化）。
 - 异常统一抛 `AppError` 子类；吞错路径必须走 `adapterSwallowLog` 留痕。
 
 ### 2.2 ServerType 枚举
@@ -3330,6 +3330,8 @@ schema 硬约束：所有端点强制 https；`id` 限 `[a-z0-9_-]{1,64}`；描�
 | 相似歌曲 | `similarSongsProvider`：原生非空直用；空/无能力走插件映射 |
 | 简介 | `artistBioProvider`：原生 `fetchArtistBio` 非空直用；空/无能力走 `pluginArtistBioProvider`（按当前歌歌手名） |
 | 设置 | settings_sub_plugins.dart（`_PluginsSettingsPage`）：官方启停 / key 编辑（glassDialog）/ 导入 / 删除；主页入口副标题展示生效能力 |
+
+> Navidrome 歌手头像一律走兜底链（`artistHasCover` 对 navidrome 恒 false、search3 映射 `hasCover: false`）：其 `artistImageUrl` 三代版本都不可信——pre-0.55 无条件填充、0.55-0.58 按 ImageAbsent 门控、0.59+ 新艺术图管线后台解析未完成时也非空且实际下发 LQIP 灰星占位（0.64.0 实测）。跳过直连，插件头像→专辑封面不落空。
 
 ### 16.6 官方插件
 
