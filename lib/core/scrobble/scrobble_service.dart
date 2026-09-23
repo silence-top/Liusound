@@ -30,7 +30,7 @@ class ScrobbleService {
 
   final RefReader _read;
   final List<StreamSubscription<dynamic>> _subs = [];
-  String? _songId;
+  LoadedPlayback? _session;
   bool _submitted = false;
 
   void dispose() {
@@ -42,32 +42,40 @@ class ScrobbleService {
   Future<void> _onPosition(Duration pos) async {
     // 冷启动恢复（RESTORING）期间的 position 事件不是真实播放，必须忽略
     if (!_read(playerReadyProvider)) return;
-    final song = _read(currentSongProvider);
-    if (song == null) return;
-    if (song.id != _songId) {
-      _songId = song.id;
+    final loaded = _read(loadedPlaybackProvider);
+    final player = _read(audioPlayerProvider);
+    if (loaded == null ||
+        !loaded.ownsPlayer(player) ||
+        !player.playing ||
+        loaded.serverId != _read(activeServerIdProvider)) {
+      return;
+    }
+    if (!identical(loaded, _session)) {
+      _session = loaded;
       _submitted = false;
     }
     if (_submitted) return;
-    final dur = _read(audioPlayerProvider).duration;
-    if (dur == null || dur <= Duration.zero) return;
-    if (pos < dur * 0.5 && pos < const Duration(minutes: 2)) return;
+    final dur = loaded.effectiveDuration(player);
+    if (dur == null) return;
+    final position = player.position; // 不把排队的旧源 position 计给新会话
+    if (position < dur * 0.5 && position < const Duration(minutes: 2)) return;
     _submitted = true;
-    await _report(song.id);
+    await _report(loaded);
   }
 
-  Future<void> _report(String songId) async {
+  Future<void> _report(LoadedPlayback loaded) async {
     final adapter = _read(serverAdapterProvider);
-    final serverId = _read(activeServerIdProvider);
+    final serverId = loaded.serverId;
     if (adapter == null ||
         serverId.isEmpty ||
+        serverId != _read(activeServerIdProvider) ||
         !adapter.capabilities.scrobbling) {
       return;
     }
     try {
-      if (await adapter.scrobble(songId)) return;
+      if (await adapter.scrobble(loaded.song.id)) return;
     } catch (_) {}
-    await _enqueue(serverId, songId);
+    await _enqueue(serverId, loaded.song.id);
   }
 
   Future<void> _enqueue(String serverId, String songId) async {

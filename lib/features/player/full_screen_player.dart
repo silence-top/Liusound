@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:lpinyin/lpinyin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,91 +38,196 @@ part 'full_screen_player_now_playing.dart';
 part 'full_screen_player_lyrics.dart';
 part 'full_screen_player_bottom.dart';
 
-/// 相似歌曲推荐（按歌曲 id 缓存，对标 1.x getSimilarSongs）。
-/// autoDispose：切歌后旧歌曲的推荐缓存自动释放，避免长会话内存累积。
-/// 编排：服务端原生相似歌曲优先；为空或后端无能力时走元数据插件——
-/// 插件给相似歌手名列表，按名字映射回本地曲库歌手后取其热门曲，
-/// 结果全部是本地可播 Song（外部曲库引用不可直接播放）。
-///
-/// 会话内 memo（按歌曲 id 的插入序 LRU，上限 32）：切歌释放 provider 后
-/// 重进同曲可即时复用，不重打插件/服务器；只记非空结果，避免插件开关
-/// 刚切换时被空结果钉死。
-final _similarSongsMemo = <String, List<Song>>{};
+final _similarSongsCacheProvider = Provider((ref) {
+  ref.watch(serverAdapterProvider);
+  ref.watch(activeServerIdProvider);
+  ref.watch(metadataEnabledProvider);
+  ref.watch(pluginRegistryProvider.future);
+  ref.watch(pluginKeysProvider.future);
+  if (ref.watch(pluginCapsProvider).similar) {
+    ref.watch(artistsProvider.future);
+  }
+  return <String, ({List<Song> songs, DateTime expires})>{};
+});
 
-final similarSongsProvider = FutureProvider.autoDispose
-    .family<List<Song>, String>((ref, songId) async {
-      final memo = _similarSongsMemo.remove(songId);
-      if (memo != null) {
-        _similarSongsMemo[songId] = memo;
-        return memo;
-      }
-      List<Song> done(List<Song> v) {
-        _similarSongsMemo[songId] = v;
-        while (_similarSongsMemo.length > 32) {
-          _similarSongsMemo.remove(_similarSongsMemo.keys.first);
-        }
-        return v;
-      }
-
+final similarSongsProvider = StreamProvider.autoDispose
+    .family<List<Song>, String>((ref, songId) {
       final adapter = ref.watch(serverAdapterProvider);
-      final native = adapter == null
-          ? const <Song>[]
-          : await adapter.fetchSimilarSongs(songId).catchError((_) => <Song>[]);
-      if (native.isNotEmpty) return done(native);
-
-      final song = ref.watch(currentSongProvider);
-      if (song == null || song.id != songId || song.artist.isEmpty) {
-        return const <Song>[];
-      }
-      if (!ref.watch(pluginCapsProvider).similar) return const <Song>[];
-      final names = await ref.watch(
-        pluginSimilarNamesProvider(song.artist).future,
+      final identity = ref.watch(
+        currentSongProvider.select(
+          (song) => (song?.id, song?.artist, song?.artistId),
+        ),
       );
-      if (names.isEmpty) return const <Song>[];
-      final localArtists =
-          await ref.watch(artistsProvider.future) ?? const <Artist>[];
-      if (localArtists.isEmpty || adapter == null) return const <Song>[];
-
-      // 精确键 + 拼音键双层匹配：外部源常给繁体变体（林俊傑/薛之謙），
-      // 拼音归一后可与本地简体名对上
-      final byKey = {
-        for (final a in localArtists) _normalizeArtistName(a.name): a,
-      };
-      final byPinyin = {for (final a in localArtists) _pinyinKey(a.name): a};
-      final currentKey = _normalizeArtistName(song.artist);
-      final currentPinyin = _pinyinKey(song.artist);
-      final matched = <Artist>[];
-      for (final name in names) {
-        final key = _normalizeArtistName(name);
-        final pinyin = _pinyinKey(name);
-        if (key == currentKey ||
-            (pinyin.isNotEmpty && pinyin == currentPinyin)) {
-          continue;
-        }
-        final artist = byKey[key] ?? (pinyin.isEmpty ? null : byPinyin[pinyin]);
-        if (artist == null) continue;
-        matched.add(artist);
-        if (matched.length >= 8) break;
+      final cache = ref.watch(_similarSongsCacheProvider);
+      final canPlugin =
+          ref.watch(pluginCapsProvider).similar &&
+          identity.$2 != null &&
+          identity.$2!.isNotEmpty;
+      if (adapter == null || identity.$1 != songId) {
+        return Stream.value(const <Song>[]);
       }
-      // 并行取各歌手热门曲（此前串行 await，N 个歌手就串 N 趟自家服务器）
-      final batches = await Future.wait([
-        for (final a in matched)
-          adapter
-              .fetchArtistSongs(a.id, limit: 3)
-              .catchError((_) => const <Song>[]),
-      ]);
-      final out = [for (final batch in batches) ...batch.take(3)]
-          .take(12)
-          .toList();
-      return out.isEmpty ? out : done(out);
+      final memo = cache.remove(songId);
+      if (memo != null) {
+        cache[songId] = memo;
+        if (DateTime.now().isBefore(memo.expires)) {
+          return Stream.value(memo.songs);
+        }
+      }
+
+      final output = StreamController<List<Song>>();
+      final songs = <Song>[];
+      final ids = <String>{songId};
+      var closed = false;
+      var failed = false;
+      var emitted = false;
+      var nativeDone = !adapter.capabilities.similarSongs;
+      var pluginDone = !canPlugin;
+      Timer? deadline;
+      void finish({bool timedOut = false}) {
+        if (closed) return;
+        closed = true;
+        deadline?.cancel();
+        if (songs.isNotEmpty) {
+          cache[songId] = (
+            songs: List.unmodifiable(songs),
+            expires: DateTime.now().add(
+              failed || timedOut
+                  ? const Duration(seconds: 30)
+                  : const Duration(minutes: 10),
+            ),
+          );
+          while (cache.length > 32) {
+            cache.remove(cache.keys.first);
+          }
+        }
+        if (!emitted) {
+          if (failed || timedOut) {
+            output.addError(StateError('相似歌曲暂时无法加载'));
+          } else {
+            output.add(const []);
+          }
+        } else if (songs.isEmpty && !failed && !timedOut) {
+          cache.remove(songId);
+          output.add(const []);
+        }
+        unawaited(output.close());
+      }
+
+      void append(List<Song> batch) {
+        if (closed) return;
+        final before = songs.length;
+        for (final song in batch) {
+          if (songs.length >= 12) break;
+          if (ids.add(song.id)) songs.add(song);
+        }
+        if (songs.length != before) {
+          emitted = true;
+          output.add(List.unmodifiable(songs));
+        }
+        if (songs.length >= 12) finish();
+      }
+
+      void completeIfReady() {
+        if (nativeDone && pluginDone) finish();
+      }
+
+      ref.onDispose(() {
+        closed = true;
+        deadline?.cancel();
+        unawaited(output.close());
+      });
+      deadline = Timer(
+        const Duration(seconds: 8),
+        () => finish(timedOut: true),
+      );
+      if (memo != null) {
+        emitted = true;
+        output.add(memo.songs);
+      }
+
+      Future<void> loadNative() async {
+        try {
+          final result = await adapter
+              .fetchSimilarSongs(songId)
+              .timeout(const Duration(seconds: 3));
+          append(result);
+          // 原生结果先到时无需继续等待插件；已有插件结果则只追加，避免列表跳动。
+          if (result.any((song) => song.id != songId)) finish();
+        } catch (_) {
+          failed = true;
+        } finally {
+          nativeDone = true;
+          completeIfReady();
+        }
+      }
+
+      if (canPlugin) {
+        final namesFuture = ref.watch(
+          pluginSimilarNamesProvider(identity.$2!).future,
+        );
+        final artistsFuture = ref.watch(artistsProvider.future);
+        Future<void> loadPlugin() async {
+          try {
+            final results = await Future.wait<Object?>([
+              namesFuture,
+              artistsFuture,
+            ]);
+            if (closed) return;
+            final names = results[0] as List<String>;
+            final artists = results[1] as List<Artist>? ?? const <Artist>[];
+            final byName = <String, List<Artist>>{};
+            final byPinyin = <String, List<Artist>>{};
+            for (final artist in artists) {
+              (byName[_normalizeArtistName(artist.name)] ??= []).add(artist);
+              final pinyin = _pinyinKey(artist.name);
+              if (pinyin.isNotEmpty) (byPinyin[pinyin] ??= []).add(artist);
+            }
+            final matched = <Artist>[];
+            final artistIds = <String>{if (identity.$3 != null) identity.$3!};
+            final currentArtistName = _normalizeArtistName(identity.$2!);
+            for (final name in names) {
+              final key = _normalizeArtistName(name);
+              if (key == currentArtistName) continue;
+              final candidates = byName[key] ?? byPinyin[_pinyinKey(name)];
+              if (candidates == null || candidates.length != 1) continue;
+              final artist = candidates.single;
+              if (_normalizeArtistName(artist.name) == currentArtistName) {
+                continue;
+              }
+              if (artistIds.add(artist.id)) matched.add(artist);
+              if (matched.length >= 8) break;
+            }
+            await Future.wait([
+              for (final artist in matched)
+                () async {
+                  try {
+                    final batch = await adapter
+                        .fetchArtistSongs(artist.id, limit: 3)
+                        .timeout(const Duration(seconds: 4));
+                    append(batch.take(3).toList());
+                  } catch (_) {
+                    failed = true;
+                  }
+                }(),
+            ]);
+          } catch (_) {
+            failed = true;
+          } finally {
+            pluginDone = true;
+            completeIfReady();
+          }
+        }
+
+        unawaited(loadPlugin());
+      }
+      if (!nativeDone) unawaited(loadNative());
+      completeIfReady();
+      return output.stream;
     });
 
-/// 歌手名归一化（本地匹配用）：去空白 + 小写
 String _normalizeArtistName(String name) =>
     name.replaceAll(RegExp(r'\s+'), '').toLowerCase();
 
-/// 拼音键（繁简同形）：lpinyin 对繁体同样出拼（林俊傑→linjunjie），
-/// 纯西文原样透传（"Jay Chou"→"jaychou"），与中文名天然对不上
 String _pinyinKey(String name) => PinyinHelper.getPinyin(
   _normalizeArtistName(name),
   separator: '',

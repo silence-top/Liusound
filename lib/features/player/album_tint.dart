@@ -108,11 +108,7 @@ Color? albumFrostedTint(Color? dominant) => dominant == null
     ? null
     : Color.lerp(dominant, Colors.black, 0.55)!.withValues(alpha: 0.90);
 
-/// 播放页弹层毛玻璃面板：高斯模糊垫底 + alpha 0.90 的封面取色底——透出的只是
-/// 模糊色斑，背后内容不可辨，白字可读性不受影响；取色失败回退主题表面色。
-/// 底色透明度统一乘全局「面板透明度」系数（设置页滑杆联动，无组件私有硬编码）。
-/// [opaque]=true 时默认全实色（去模糊层，反正也不可见）：歌曲上下文弹层
-/// （歌曲更多/添加到歌单）用——滑杆降到 100% 以下时同样随之变透明。
+/// 播放弹层保留最低底色浓度，避免低透明度下背景文字穿透干扰阅读。
 class AlbumFrostedPanel extends ConsumerWidget {
   const AlbumFrostedPanel({
     super.key,
@@ -129,28 +125,34 @@ class AlbumFrostedPanel extends ConsumerWidget {
   final Widget child;
   final bool opaque;
 
+  static const _minimumTintAlpha = 0.80;
+  static const _frostedTintAlpha = 0.90;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final base = albumSolidTint(dominant) ?? AppTheme.surfaceOf(context);
+    final opacity = ref.watch(glassTintOpacityProvider);
+    final progress =
+        (opacity - GlassTintOpacityController.min) /
+        (1.0 - GlassTintOpacityController.min);
+    final tint = base.withValues(
+      alpha: lerpDouble(
+        _minimumTintAlpha,
+        opaque ? 1.0 : _frostedTintAlpha,
+        progress,
+      )!,
+    );
     if (opaque) {
       return ClipRRect(
         borderRadius: borderRadius,
-        child: Container(
-          color: withGlassTintOpacity(ref, base),
-          padding: padding,
-          child: child,
-        ),
+        child: Container(color: tint, padding: padding, child: child),
       );
     }
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-        child: Container(
-          color: withGlassTintOpacity(ref, base.withValues(alpha: 0.90)),
-          padding: padding,
-          child: child,
-        ),
+        child: Container(color: tint, padding: padding, child: child),
       ),
     );
   }

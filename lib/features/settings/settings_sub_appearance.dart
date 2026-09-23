@@ -6,9 +6,9 @@ class _AppearanceSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final glassLevel = ref.watch(glassQualityProvider);
-    final tintOpacity = ref.watch(glassTintOpacityProvider);
     final accent = ref.watch(appAccentProvider);
     final cardsOn = ref.watch(cardDisplayProvider);
+    final tintOpacity = ref.watch(glassTintOpacityProvider);
     final bgConfig = ref.watch(backgroundProvider);
     final skin = ref.watch(appSkinProvider);
     final textTheme = Theme.of(context).textTheme;
@@ -67,6 +67,13 @@ class _AppearanceSettingsPage extends ConsumerWidget {
                       onChanged: (v) =>
                           ref.read(cardDisplayProvider.notifier).setEnabled(v),
                     ),
+                    _divider,
+                    _ActionTile(
+                      icon: Icons.opacity,
+                      title: '面板透明度',
+                      subtitle: '${(tintOpacity * 100).round()}% · 点击在弹层中调节',
+                      onTap: () => _showGlassOpacitySheet(context),
+                    ),
                     if (skin == AppSkin.liquidGlass) ...[
                       _divider,
                       _ActionTile(
@@ -76,13 +83,6 @@ class _AppearanceSettingsPage extends ConsumerWidget {
                         onTap: () => _showGlassLevelPicker(context, ref),
                       ),
                     ],
-                    _divider,
-                    _ActionTile(
-                      icon: Icons.opacity_outlined,
-                      title: '面板透明度',
-                      subtitle: '${(tintOpacity * 100).round()}% · 100% 为主题默认',
-                      onTap: () => _showGlassOpacitySheet(context, ref),
-                    ),
                   ],
                 ),
                 Semantics(
@@ -91,15 +91,13 @@ class _AppearanceSettingsPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  cardsOn ? '卡片承载 · 跟随当前主题、背景与面板设置' : '无卡片承载 · 弹层等面板仍受透明度影响',
+                  cardsOn ? '分组卡片示意 · 跟随当前主题与背景' : '弹层示意 · 关闭卡片不影响弹窗与菜单',
                   style: textTheme.bodySmall?.copyWith(
                     color: AppTheme.textDimOf(context),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.m),
                 _PanelMaterialPreview(showCard: cardsOn),
-                const SizedBox(height: AppSpacing.m),
-                const _GlassOpacityControl(),
               ]),
             ),
           ),

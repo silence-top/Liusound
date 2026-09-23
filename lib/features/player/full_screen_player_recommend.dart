@@ -39,7 +39,8 @@ class _RecommendTabState extends ConsumerState<_RecommendTab>
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        if (canSimilar) _SongSection(title: '相似歌曲', async: similar),
+        if (similar?.valueOrNull?.isNotEmpty ?? false)
+          _SongSection(title: '相似歌曲', async: similar),
         if (canBio) _BioSection(async: bio, dominant: bioDominant),
         _SongSection(title: '热门歌曲', async: hot),
       ],
@@ -169,6 +170,18 @@ class _SongSection extends StatelessWidget {
                     ),
                   ]
                 : [for (final s in valueOrNull) _SongRow(song: s)],
+          AsyncError() => [
+            Padding(
+              padding: const EdgeInsets.only(
+                left: AppSpacing.xl,
+                bottom: AppSpacing.l,
+              ),
+              child: const Text(
+                '暂时无法加载',
+                style: TextStyle(color: _RecordTokens.textSecondary),
+              ),
+            ),
+          ],
           _ => const [
             SizedBox(
               height: 80,

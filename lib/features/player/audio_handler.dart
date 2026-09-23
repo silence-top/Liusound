@@ -112,13 +112,16 @@ class AppAudioHandler extends BaseAudioHandler {
   // ---------- 系统控制回调 → 全局播放器 ----------
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    if (!_player.playing) await _ref.read(playerActionsProvider).toggle();
+  }
 
   @override
   Future<void> pause() => _player.pause();
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) =>
+      _ref.read(playerActionsProvider).seek(position);
 
   @override
   Future<void> skipToNext() => _ref.read(playerActionsProvider).playNext();
@@ -129,7 +132,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
-    await _player.stop();
+    await _ref.read(playerActionsProvider).stop(clearState: false);
     await super.stop();
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/adapter_provider.dart' show activeServerIdProvider;
 import '../../core/models/models.dart';
 import '../../core/settings/streaming_prefs.dart';
 import '../../core/settings/prefs.dart';
@@ -18,8 +19,54 @@ final audioPlayerProvider = Provider<AudioPlayer>((ref) {
   return player;
 });
 
-/// 当前歌曲 —— 仅切歌时变化，依赖它的组件才重建
+/// UI 选中的歌曲（装源之前就更新，不代表正在播放的音源）。
 final currentSongProvider = StateProvider<Song?>((ref) => null);
+
+/// 成功装载的音源会话。source 使用对象身份而非 URL/id：同曲重播也属于新会话。
+class LoadedPlayback {
+  const LoadedPlayback({
+    required this.song,
+    required this.serverId,
+    required this.generation,
+    required this.source,
+  });
+
+  final Song song;
+  final String serverId;
+  final int generation;
+  final AudioSource source;
+
+  bool ownsPlayer(AudioPlayer player) =>
+      identical(source, player.audioSource) &&
+      player.processingState != ProcessingState.idle &&
+      player.processingState != ProcessingState.loading;
+
+  Duration? nativeDuration(AudioPlayer player) {
+    if (!ownsPlayer(player)) return null;
+    final duration = player.duration;
+    return duration != null && duration > Duration.zero ? duration : null;
+  }
+
+  Duration? effectiveDuration(AudioPlayer player) =>
+      resolvePlaybackDuration(song, nativeDuration: nativeDuration(player));
+}
+
+/// 新请求/stop 时清空，只有成功装源且代数仍有效时才发布。
+final loadedPlaybackProvider = StateProvider<LoadedPlayback?>((ref) => null);
+
+/// 统一时长规则。调用方只能传入已核对音源身份的原生时长；元数据须有限且为正。
+Duration? resolvePlaybackDuration(Song? song, {Duration? nativeDuration}) {
+  if (nativeDuration != null && nativeDuration > Duration.zero) {
+    return nativeDuration;
+  }
+  if (song == null || !song.duration.isFinite || song.duration <= 0) {
+    return null;
+  }
+  final milliseconds = song.duration * 1000;
+  if (!milliseconds.isFinite) return null;
+  final duration = Duration(milliseconds: milliseconds.round());
+  return duration > Duration.zero ? duration : null;
+}
 
 /// 播放队列
 class QueueNotifier extends Notifier<List<Song>> {
@@ -237,17 +284,21 @@ final positionProvider = StreamProvider<Duration>(
   (ref) => ref.watch(audioPlayerProvider).positionStream,
 );
 
-/// 播放总时长。转码分块流首播时播放器解不出容器时长（进度条恒 0:00，
-/// 重放才有缓存文件可解），回退当前歌的服务端元数据时长兜底
-final durationProvider = StreamProvider<Duration?>((ref) {
+final _nativeDurationProvider = StreamProvider<Duration?>(
+  (ref) => ref.watch(audioPlayerProvider).durationStream,
+);
+
+// 元数据同步兜底；原生流仅触发刷新，以当前音源 getter 避免重放旧时长。
+final durationProvider = Provider<AsyncValue<Duration?>>((ref) {
+  ref.watch(_nativeDurationProvider);
   final song = ref.watch(currentSongProvider);
-  final fallback = song == null || song.duration <= 0
-      ? null
-      : Duration(milliseconds: (song.duration * 1000).round());
-  return ref
-      .watch(audioPlayerProvider)
-      .durationStream
-      .map((d) => (d == null || d <= Duration.zero) ? (fallback ?? d) : d);
+  final loaded = ref.watch(loadedPlaybackProvider);
+  final serverId = ref.watch(activeServerIdProvider);
+  final player = ref.watch(audioPlayerProvider);
+  final native = loaded?.song.id == song?.id && loaded?.serverId == serverId
+      ? loaded?.nativeDuration(player)
+      : null;
+  return AsyncData(resolvePlaybackDuration(song, nativeDuration: native));
 });
 
 /// 缓冲位置（已缓冲到的进度；进度条缓冲条用，体现边放边加载）

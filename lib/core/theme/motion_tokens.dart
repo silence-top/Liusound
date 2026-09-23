@@ -39,6 +39,9 @@ abstract final class MotionTokens {
   /// 播放键呼吸光环循环周期
   static const Duration durationHalo = Duration(milliseconds: 2400);
 
+  static const Duration durationVinylTurn = Duration(seconds: 18);
+  static const Duration durationCdTurn = Duration(seconds: 12);
+
   /// 背景光斑漂移循环周期（Lissajous 一整圈）
   static const Duration durationAmbientLoop = Duration(seconds: 26);
 

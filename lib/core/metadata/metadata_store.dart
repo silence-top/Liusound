@@ -8,8 +8,13 @@ import 'plugin_descriptor.dart';
 /// 插件系统持久化：非敏感状态（全局开关 / 官方模板停用项 / 导入的描述 /
 /// 结果缓存）走 shared_preferences，插件 API key 走 flutter_secure_storage。
 class MetadataStore {
+  MetadataStore({DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+
   static const _stateKey = 'metadata_plugin_state_v1';
-  static const _cacheKey = 'metadata_cache_v1';
+  // v1 未区分配置和请求失败，不迁移其中的结果。
+  static const _cacheKey = 'metadata_cache_v2';
   static const _globalKey = 'metadata_plugins_enabled';
   static const _keyPrefix = 'metadata_plugin_key_';
   static const _secure = FlutterSecureStorage();
@@ -100,50 +105,91 @@ class MetadataStore {
   /// 相似歌手名有效期（歌手间关联基本稳定，与简介同级）
   static const _similarPositiveTtl = Duration(days: 7);
 
-  /// 「确认无结果」负缓存有效期，避免对源反复打必败请求
-  static const _negativeTtl = Duration(days: 7);
+  /// 仅缓存确认的空结果；网络、鉴权或解析失败不得写入。
+  static const negativeTtl = Duration(minutes: 15);
 
-  /// 读缓存；过期或不存在返回 null。value 为空串表示负缓存命中（确认无结果），
-  /// 与「未缓存」null 区分开。
-  Future<String?> readCacheEntry(String kind, String name) async {
+  /// scope 仅接收配置摘要，不能传入 API key 明文。
+  /// 空串表示负缓存；null 表示未缓存或已过期。
+  Future<String?> readCacheEntry(
+    String kind,
+    String name, {
+    String scope = '',
+  }) async {
     final all = await _readCache();
-    final entry = all[kind]?[name] as Map<String, Object?>?;
-    if (entry == null) return null;
-    final saved = (entry['t'] as num?)?.toInt() ?? 0;
-    final negative = (entry['v'] as String? ?? '').isEmpty;
-    final ttl = negative
-        ? _negativeTtl
+    final entry = all[kind]?[jsonEncode([scope, name])];
+    if (entry is! Map || entry['t'] is! num || entry['v'] is! String) {
+      return null;
+    }
+    final saved = (entry['t'] as num).toInt();
+    final value = _normalizeValue(kind, entry['v'] as String);
+    final ttl = value.isEmpty
+        ? negativeTtl
         : switch (kind) {
             'avatar' => _avatarPositiveTtl,
             'similar' => _similarPositiveTtl,
             _ => _bioPositiveTtl,
           };
-    if (DateTime.now().millisecondsSinceEpoch - saved > ttl.inMilliseconds) {
-      return null;
-    }
-    return entry['v'] as String? ?? '';
+    final age = _now().millisecondsSinceEpoch - saved;
+    if (age < 0 || age >= ttl.inMilliseconds) return null;
+    return value;
   }
 
-  Future<void> writeCacheEntry(String kind, String name, String value) {
+  Future<void> writeCacheEntry(
+    String kind,
+    String name,
+    String value, {
+    String scope = '',
+    bool Function()? shouldWrite,
+  }) {
     return _enqueueWrite(() async {
+      if (shouldWrite != null && !shouldWrite()) return;
       final all = await _readCache();
+      final prefs = await SharedPreferences.getInstance();
+      // 排队期间可能已超时或 dispose，不能让过期查询补写缓存。
+      if (shouldWrite != null && !shouldWrite()) return;
       final bucket = Map<String, Object?>.of(all[kind] ?? const {});
-      bucket[name] = {'v': value, 't': DateTime.now().millisecondsSinceEpoch};
+      bucket[jsonEncode([scope, name])] = {
+        'v': _normalizeValue(kind, value),
+        't': _now().millisecondsSinceEpoch,
+      };
       all[kind] = bucket;
-      (await SharedPreferences.getInstance()).setString(
-        _cacheKey,
-        jsonEncode(all),
-      );
+      final saved = await prefs.setString(_cacheKey, jsonEncode(all));
+      if (!saved) throw StateError('Metadata cache persistence failed');
     });
   }
 
-  /// 序列化写队列：并发写同一 JSON 文件会互相覆盖，串行保安全
-  Future<void> _enqueueWrite(Future<void> Function() task) async {
-    _pending = _pending.then((_) => task());
-    await _pending;
+  static String _normalizeValue(String kind, String value) {
+    if (kind == 'similar' && value.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List && decoded.isEmpty) return '';
+      } on FormatException {
+        // 损坏的正缓存由读取方忽略，不冒充确认的空结果。
+      }
+    }
+    return value;
   }
 
-  Future<void> _pending = Future.value();
+  /// 多个 store 实例也共享同一份 JSON；一次失败只通知该次调用者，
+  /// 不阻断后续写入。
+  Future<void> _enqueueWrite(Future<void> Function() task) {
+    final write = _pending == null
+        ? Future<void>.sync(task)
+        : _pending!.then((_) => task());
+    late final Future<void> settled;
+    void clear() {
+      if (identical(_pending, settled)) _pending = null;
+    }
+
+    settled = write.then<void>(
+      (_) => clear(),
+      onError: (Object _, StackTrace _) => clear(),
+    );
+    _pending = settled;
+    return write;
+  }
+
+  static Future<void>? _pending;
 
   Future<Map<String, Map<String, Object?>>> _readCache() async {
     final raw =
@@ -151,7 +197,9 @@ class MetadataStore {
     if (raw.isEmpty) return <String, Map<String, Object?>>{};
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return const {};
+      if (decoded is! Map<String, dynamic>) {
+        return <String, Map<String, Object?>>{};
+      }
       return decoded.map(
         (k, v) => MapEntry<String, Map<String, Object?>>(k, _castBucket(v)),
       );

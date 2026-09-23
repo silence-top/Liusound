@@ -13,26 +13,37 @@ mixin PlayerSourceResolver
   /// 不消耗流量；否则按当前网络（Wi-Fi / 蜂窝）解析音质档位，
   /// 蜂窝下关闭传输开关则拒播
   Future<int> play(Song song) async {
+    // 先刷新服务器依赖，再领取代数，避免切服监听把本次新请求也作废。
+    final serverId = _ref.read(activeServerIdProvider);
+    final adapter = _adapter;
+    final breakpoint = _captureLongTrackBreakpoint();
     final gen = ++_playGeneration;
     // 冷启动恢复的待播进度一次性消费：装源完成后、起播前 seek。
     // 播放失败时该进度丢失——重试走正常起播（长音频仍有独立断点），可接受
     final pendingResumeMs = _pendingResumeMs;
     _pendingResumeMs = 0;
+    _resumePositionMs = 0;
+    _ref.read(loadedPlaybackProvider.notifier).state = null;
+    _ref.read(currentQualityProvider.notifier).state = null;
+    _ref.read(resumeNoticeProvider.notifier).state = null;
     _ref.read(currentSongProvider.notifier).state = song;
-    unawaited(_backfillLyrics(song, gen));
-    final serverId = _ref.read(activeServerIdProvider);
+    unawaited(_backfillLyrics(song, gen, serverId));
+    // 暂停旧源，失败/门禁拒播时也不会继续播放旧歌。保存只使用切换前快照。
+    final paused = _player.pause();
+    await _saveLongTrackBreakpoint(breakpoint);
+    await paused;
+    if (!_isCurrentRequest(gen, serverId)) return gen;
     final localPath =
         localSongPath(song) ?? await findDownloadedSong(song, serverId);
-    if (gen != _playGeneration) return gen;
+    if (!_isCurrentRequest(gen, serverId)) return gen;
     if (localPath != null && localFs.fileExists(localPath)) {
-      await _playLocal(song, localPath, gen, pendingResumeMs);
+      await _playLocal(song, serverId, localPath, gen, pendingResumeMs);
       return gen;
     }
-    final adapter = _adapter;
     if (adapter == null) return gen;
     final settings = _ref.read(streamingSettingsProvider);
     final quality = await resolveCurrentQuality(settings);
-    if (gen != _playGeneration) return gen;
+    if (!_isCurrentRequest(gen, serverId)) return gen;
     if (quality == null) {
       _notify('移动网络下传输开关已关闭，播放被阻止');
       return gen;
@@ -43,26 +54,25 @@ mixin PlayerSourceResolver
         : (await adapter.supportsTranscode()
               ? quality
               : StreamQuality.lossless);
-    if (gen != _playGeneration) return gen;
+    if (!_isCurrentRequest(gen, serverId)) return gen;
     final hint = QualityHint(
       quality: effectiveQuality,
       format: settings.transcodeFormat,
     );
-    await _saveLongTrackBreakpoint();
     try {
       final source = await adapter.resolveStream(song, quality: hint);
       // 写音源前先验代数：连点时旧请求晚到会把旧音源覆写到播放器上，
       // 打断新一轮加载（连点必炸的根源）
-      if (gen != _playGeneration) return gen;
-      await _setStreamSource(source);
-      if (gen != _playGeneration) return gen;
+      if (!_isCurrentRequest(gen, serverId)) return gen;
+      final audioSource = await _setStreamSource(source);
+      if (!_isCurrentRequest(gen, serverId)) return gen;
       _ref.read(currentQualityProvider.notifier).state = hint.quality;
-      await _startLoaded(song, pendingResumeMs);
+      await _startLoaded(song, serverId, gen, audioSource, pendingResumeMs);
     } catch (e) {
       _debugLog('play(${song.id}) quality=${quality.name} failed: $e');
       // 本次已是旧代数：新一轮播放正在跑，旧失败必须静默，
       // 也不能再发起无损回退去和新请求竞争
-      if (gen != _playGeneration) return gen;
+      if (!_isCurrentRequest(gen, serverId)) return gen;
       // 转码流失败（服务端缺转码器/参数不受支持等）自动回退无损原文件；
       // 原文件流也失败才是真正的网络/鉴权问题
       if (!hint.transcode) {
@@ -71,15 +81,15 @@ mixin PlayerSourceResolver
       }
       try {
         final source = await adapter.resolveStream(song);
-        if (gen != _playGeneration) return gen;
-        await _setStreamSource(source);
-        if (gen != _playGeneration) return gen;
+        if (!_isCurrentRequest(gen, serverId)) return gen;
+        final audioSource = await _setStreamSource(source);
+        if (!_isCurrentRequest(gen, serverId)) return gen;
         _ref.read(currentQualityProvider.notifier).state =
             StreamQuality.lossless;
-        await _startLoaded(song, pendingResumeMs);
+        await _startLoaded(song, serverId, gen, audioSource, pendingResumeMs);
       } catch (fallbackError) {
         _debugLog('play(${song.id}) lossless fallback failed: $fallbackError');
-        if (gen == _playGeneration) _notify('播放失败，请检查服务器连接');
+        if (_isCurrentRequest(gen, serverId)) _notify('播放失败，请检查服务器连接');
       }
     }
     return gen;
@@ -90,20 +100,39 @@ mixin PlayerSourceResolver
   /// 只发起不等待，否则调用方（恢复续播/FM start/交叉淡化）会被拖住直到暂停；
   /// 无待播进度时长音频命中断点则起播前跳过去（此前 await play 挡到暂停，
   /// 该分支几乎永不执行——顺带修复）
-  Future<void> _startLoaded(Song song, int pendingResumeMs) async {
+  Future<void> _startLoaded(
+    Song song,
+    String serverId,
+    int gen,
+    AudioSource source,
+    int pendingResumeMs,
+  ) async {
+    if (!_isCurrentRequest(gen, serverId)) return;
+    final loaded = LoadedPlayback(
+      song: song,
+      serverId: serverId,
+      generation: gen,
+      source: source,
+    );
+    if (!loaded.ownsPlayer(_player)) return;
+    _ref.read(loadedPlaybackProvider.notifier).state = loaded;
     if (pendingResumeMs > 0) {
-      await _seekOrIgnore(pendingResumeMs);
+      await _seekOrIgnore(pendingResumeMs, loaded);
     } else {
-      unawaited(_resumeLongTrack(song));
+      await _resumeLongTrack(loaded);
     }
+    if (!_isCurrentPlayback(loaded)) return;
     _applyReplayGain(song);
     unawaited(_player.play());
     unawaited(AudioCache.enforceLimit(_ref.read(cacheSettingsProvider).limit));
   }
 
-  /// 静默 seek：流未就绪/加载中断导致的失败保持可重试，不向调用方抛出
-  Future<void> _seekOrIgnore(int ms) async {
+  /// 冷启动进度也须属于本次音源且在有效范围内；未知时长不盲目 seek。
+  Future<void> _seekOrIgnore(int ms, LoadedPlayback loaded) async {
     try {
+      if (!_isCurrentPlayback(loaded)) return;
+      final duration = loaded.effectiveDuration(_player);
+      if (duration == null || ms <= 0 || ms >= duration.inMilliseconds) return;
       await _player.seek(Duration(milliseconds: ms));
     } catch (_) {}
   }
@@ -111,14 +140,14 @@ mixin PlayerSourceResolver
   /// 播放时按需补拉歌词：曲库快照与队列持久化的 JSON 往返会剥离内嵌歌词，
   /// 命中这类来源的歌曲在播放时向服务端重新请求一次并回填当前歌状态。
   /// 已有歌词（含本地导入）不重复请求；拉取期间切歌/换代则作废
-  Future<void> _backfillLyrics(Song song, int gen) async {
+  Future<void> _backfillLyrics(Song song, int gen, String serverId) async {
     if (song.id.startsWith('local:')) return;
     if (parseLyricsData(song.lyrics).lines.isNotEmpty) return;
     final adapter = _adapter;
     if (adapter == null) return;
     final lyrics = await adapter.fetchLyrics(song.id);
     if (lyrics == null || parseLyricsData(lyrics).lines.isEmpty) return;
-    if (gen != _playGeneration) return;
+    if (!_isCurrentRequest(gen, serverId)) return;
     if (_ref.read(currentSongProvider)?.id != song.id) return;
     _ref.read(currentSongProvider.notifier).state = song.copyWith(
       lyrics: lyrics,
@@ -126,40 +155,44 @@ mixin PlayerSourceResolver
   }
 
   /// 按边听边存开关选择磁盘缓存源或直连源（web 无磁盘缓存，恒直连）
-  Future<void> _setStreamSource(PlaybackSource source) async {
+  Future<AudioSource> _setStreamSource(PlaybackSource source) async {
     final cache = _ref.read(cacheSettingsProvider);
+    final AudioSource audioSource;
     if (cache.cacheWhileListen && !AppPlatform.isWeb) {
-      // 边听边存：走磁盘缓存源，断网可续播已缓存段落
-      // LockCachingAudioSource 在 0.10 仍标记 experimental，API 或随版本变动
-      await _player.setAudioSource(
-        // ignore: experimental_member_use
-        LockCachingAudioSource(
-          Uri.parse(source.url),
-          headers: source.headers.isNotEmpty ? source.headers : null,
-        ),
+      // 边听边存：保留原缓存/鉴权策略，每次创建独立音源身份。
+      // ignore: experimental_member_use
+      audioSource = LockCachingAudioSource(
+        Uri.parse(source.url),
+        headers: source.headers.isNotEmpty ? source.headers : null,
       );
     } else {
-      await _player.setUrl(source.url, headers: source.headers);
+      audioSource = AudioSource.uri(
+        Uri.parse(source.url),
+        headers: source.headers,
+      );
     }
+    await _player.setAudioSource(audioSource, initialPosition: Duration.zero);
+    return audioSource;
   }
 
   /// 本地文件播放（本地扫描歌曲 / 已离线下载歌曲）
   Future<void> _playLocal(
     Song song,
+    String serverId,
     String path,
     int gen,
     int pendingResumeMs,
   ) async {
+    if (!_isCurrentRequest(gen, serverId)) return;
     _ref.read(currentQualityProvider.notifier).state = null;
-    await _saveLongTrackBreakpoint();
-    if (gen != _playGeneration) return;
     try {
-      await _player.setAudioSource(AudioSource.file(path));
-      if (gen != _playGeneration) return;
-      await _startLoaded(song, pendingResumeMs);
+      final source = AudioSource.file(path);
+      await _player.setAudioSource(source, initialPosition: Duration.zero);
+      if (!_isCurrentRequest(gen, serverId)) return;
+      await _startLoaded(song, serverId, gen, source, pendingResumeMs);
     } catch (_) {
       // 文件被移动/删除等场景给出提示，状态保持可重试
-      if (gen == _playGeneration) _notify('本地文件播放失败：文件不可读');
+      if (_isCurrentRequest(gen, serverId)) _notify('本地文件播放失败：文件不可读');
     }
   }
 

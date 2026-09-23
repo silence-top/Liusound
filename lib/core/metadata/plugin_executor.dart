@@ -1,32 +1,68 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 import 'metadata_plugin.dart';
 import 'plugin_descriptor.dart';
 
-/// JSON 拉取抽象：生产实现走 Dio（复用 NetworkRuntime 的代理/超时/证书
-/// 配置），测试注入 fake。返回已解码的 Map/List；任何失败返回 null。
+/// JSON 拉取抽象：返回已解码的 Map/List；失败必须抛出，不能伪装成空结果。
 typedef JsonFetcher = Future<Object?> Function(
   Uri uri,
   Map<String, String> headers,
 );
 
-JsonFetcher dioJsonFetcher(Dio dio) => (uri, headers) async {
-  try {
-    final res = await dio.get<dynamic>(
-      uri.toString(),
-      options: Options(
-        headers: headers,
-        responseType: ResponseType.json,
-        // 外部源内容各异，非 2xx/非 JSON 一律按无数据处理
-        validateStatus: (code) => code != null && code >= 200 && code < 300,
-      ),
-    );
-    final data = res.data;
-    return (data is Map || data is List) ? data : null;
-  } catch (_) {
-    return null;
+/// 不携带原始异常、URL、响应或请求头，防止 query/header 中的 key 泄漏。
+class MetadataFetchException implements Exception {
+  const MetadataFetchException();
+
+  @override
+  String toString() => 'Metadata plugin request failed';
+}
+
+JsonFetcher dioJsonFetcher(Dio dio, {CancelToken? cancelToken}) =>
+    (uri, headers) async {
+      try {
+        final res = await dio
+            .get<dynamic>(
+              uri.toString(),
+              cancelToken: cancelToken,
+              options: Options(
+                headers: headers,
+                responseType: ResponseType.json,
+                validateStatus: (code) =>
+                    code != null && code >= 200 && code < 300,
+              ),
+            )
+            .timeout(const Duration(seconds: 3));
+        // 204 是明确的空响应；200 的非 JSON 响应是解析失败。
+        if (res.statusCode == 204) return <String, Object?>{};
+        return _validateResponse(res.data);
+      } catch (_) {
+        throw const MetadataFetchException();
+      }
+    };
+
+Object _validateResponse(Object? data) {
+  if (data is! Map && data is! List) throw const MetadataFetchException();
+  if (data is Map) {
+    bool hasError(Object? value) =>
+        value != null &&
+        value != false &&
+        value != 0 &&
+        value != '' &&
+        !(value is Iterable && value.isEmpty) &&
+        !(value is Map && value.isEmpty);
+    // Last.fm / Deezer 等会用 HTTP 200 携带鉴权或上游错误。
+    if (hasError(data['error']) ||
+        hasError(data['errors']) ||
+        data['success'] == false ||
+        data['status'] == 'failed' ||
+        data['status'] == 'error') {
+      throw const MetadataFetchException();
+    }
   }
-};
+  return data!;
+}
 
 /// 执行声明式描述的插件实现：官方模板与用户导入的第三方描述共用此类。
 class DescriptorPlugin implements MetadataPlugin {
@@ -39,6 +75,28 @@ class DescriptorPlugin implements MetadataPlugin {
   final PluginDescriptor descriptor;
   final JsonFetcher fetch;
   final Future<String?> Function() readKey;
+
+  Future<Object> _fetch(Uri uri, Map<String, String> headers) async {
+    try {
+      return _validateResponse(await fetch(uri, headers));
+    } catch (_) {
+      throw const MetadataFetchException();
+    }
+  }
+
+  String _text(Object? value) {
+    if (value == null) return '';
+    if (value is! String) throw const MetadataFetchException();
+    return value.trim();
+  }
+
+  String _id(Object? value) {
+    if (value == null) return '';
+    if (value is! String && value is! num) {
+      throw const MetadataFetchException();
+    }
+    return value.toString().trim();
+  }
 
   @override
   String get id => descriptor.id;
@@ -53,11 +111,16 @@ class DescriptorPlugin implements MetadataPlugin {
     final prepared = await _prepare(step.url, artistName);
     if (prepared == null) return null;
     final value = extractJsonPath(
-      await fetch(prepared.uri, prepared.headers),
+      await _fetch(prepared.uri, prepared.headers),
       step.path,
     );
-    final url = value?.toString() ?? '';
-    return url.startsWith('https://') ? url : null;
+    final url = _text(value);
+    if (url.isEmpty) return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      throw const MetadataFetchException();
+    }
+    return url;
   }
 
   @override
@@ -66,32 +129,32 @@ class DescriptorPlugin implements MetadataPlugin {
     if (step == null) return const [];
     final first = await _prepare(step.url, artistName);
     if (first == null) return const [];
-    final searchRoot = await fetch(first.uri, first.headers);
-    final idValue = extractJsonPath(searchRoot, step.idPath)?.toString() ?? '';
+    final searchRoot = await _fetch(first.uri, first.headers);
+    final idValue = _id(extractJsonPath(searchRoot, step.idPath));
     if (idValue.isEmpty) return const [];
-    // 搜索首个候选常是重名占位条目（related 为空，如 Deezer），
-    // 把 idPath 数字下标换成 * 取全部候选 id，依次尝试直到出数
-    final candidates = <String>[
+    // 搜索首个候选常是重名占位条目，最多尝试三个候选。
+    final candidates = <String>{
       idValue,
-      ..._siblingIds(searchRoot, step.idPath).where((id) => id != idValue),
-    ];
-    var tries = 0;
-    for (final id in candidates) {
-      if (tries >= 3) break;
-      tries++;
-      final second = await _prepare(step.fetchUrl, artistName, idValue: id);
-      if (second == null) continue;
-      final value = extractJsonPath(
-        await fetch(second.uri, second.headers),
-        step.path,
-      );
-      if (value is! List) continue;
-      final names = [
-        for (final item in value)
-          if (item != null && item.toString().isNotEmpty) item.toString(),
-      ];
-      if (names.isNotEmpty) return names.take(step.limit).toList();
+      ..._siblingIds(searchRoot, step.idPath),
+    };
+    var failed = false;
+    for (final id in candidates.take(3)) {
+      try {
+        final second = await _prepare(step.fetchUrl, artistName, idValue: id);
+        if (second == null) continue;
+        final value = extractJsonPath(
+          await _fetch(second.uri, second.headers),
+          step.path,
+        );
+        if (value == null) continue;
+        if (value is! List) throw const MetadataFetchException();
+        final names = value.map(_text).where((name) => name.isNotEmpty);
+        if (names.isNotEmpty) return names.take(step.limit).toList();
+      } catch (_) {
+        failed = true;
+      }
     }
+    if (failed) throw const MetadataFetchException();
     return const [];
   }
 
@@ -110,10 +173,7 @@ class DescriptorPlugin implements MetadataPlugin {
     if (wildcard == idPath) return const [];
     final value = extractJsonPath(searchRoot, wildcard);
     if (value is! List) return const [];
-    return [
-      for (final v in value)
-        if (v != null && v.toString().isNotEmpty) v.toString(),
-    ];
+    return value.map(_id).where((id) => id.isNotEmpty).toList();
   }
 
   @override
@@ -122,9 +182,9 @@ class DescriptorPlugin implements MetadataPlugin {
     if (step == null) return null;
     final prepared = await _prepare(step.url, artistName);
     if (prepared == null) return null;
-    var root = await fetch(prepared.uri, prepared.headers);
+    var root = await _fetch(prepared.uri, prepared.headers);
     if (step.idPath != null && step.fetchUrl != null) {
-      final idValue = extractJsonPath(root, step.idPath!)?.toString() ?? '';
+      final idValue = _id(extractJsonPath(root, step.idPath!));
       if (idValue.isEmpty) return null;
       final second = await _prepare(
         step.fetchUrl!,
@@ -132,10 +192,10 @@ class DescriptorPlugin implements MetadataPlugin {
         idValue: idValue,
       );
       if (second == null) return null;
-      root = await fetch(second.uri, second.headers);
+      root = await _fetch(second.uri, second.headers);
     }
     final value = extractJsonPath(root, step.path);
-    var text = _stripHtml(value?.toString() ?? '').trim();
+    var text = _stripHtml(_text(value)).trim();
     if (text.isEmpty) return null;
     if (text.length > step.maxLength) {
       text = '${text.substring(0, step.maxLength)}…';
@@ -153,7 +213,7 @@ class DescriptorPlugin implements MetadataPlugin {
     var url = template.replaceAll('{artist}', Uri.encodeComponent(artistName));
     if (url.contains('{id}')) {
       if (idValue == null || idValue.isEmpty) return null;
-      url = url.replaceAll('{id}', idValue);
+      url = url.replaceAll('{id}', Uri.encodeComponent(idValue));
     }
     final headers = Map.of(descriptor.headers);
     final auth = descriptor.auth;

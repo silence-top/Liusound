@@ -199,7 +199,7 @@ class PlayHistoryService {
 
   final RefReader _read;
   final List<StreamSubscription<dynamic>> _subs = [];
-  String? _songId;
+  LoadedPlayback? _session;
   bool _recorded = false;
 
   void dispose() {
@@ -211,20 +211,27 @@ class PlayHistoryService {
   Future<void> _onPosition(Duration pos) async {
     // 冷启动恢复（RESTORING）期间的 position 事件不是真实播放
     if (!_read(playerReadyProvider)) return;
-    final song = _read(currentSongProvider);
-    if (song == null) return;
-    if (song.id != _songId) {
-      _songId = song.id;
+    final loaded = _read(loadedPlaybackProvider);
+    final player = _read(audioPlayerProvider);
+    if (loaded == null ||
+        !loaded.ownsPlayer(player) ||
+        !player.playing ||
+        loaded.serverId != _read(activeServerIdProvider)) {
+      return;
+    }
+    if (!identical(loaded, _session)) {
+      _session = loaded;
       _recorded = false;
     }
     if (_recorded) return;
-    final dur = _read(audioPlayerProvider).duration;
-    if (dur == null || dur <= Duration.zero) return;
-    if (pos < PlayHistory._threshold(dur)) return;
+    final dur = loaded.effectiveDuration(player);
+    if (dur == null) return;
+    // 回调参数可能是上个音源排队的 position；只采样当前已加载源。
+    if (player.position < PlayHistory._threshold(dur)) return;
     _recorded = true;
     await PlayHistory.record(
-      serverId: _read(activeServerIdProvider),
-      song: song,
+      serverId: loaded.serverId,
+      song: loaded.song,
       durationMs: dur.inMilliseconds,
     );
   }

@@ -12,11 +12,16 @@ mixin PlayerCrossfade on PlayerActionsBase, PlayerSourceResolver {
     final seconds = _ref.read(crossfadeSecondsProvider);
     if (seconds <= 0) return;
     final player = _player;
-    if (!player.playing) return;
-    final duration = player.duration;
+    final loaded = _loadedPlayback;
+    if (!player.playing || loaded == null) return;
+    if (_ref.read(currentSongProvider)?.id != loaded.song.id) return;
+    final duration = loaded.effectiveDuration(player);
+    // 元数据时长可能偏短，无原生时长时须等待 completed，避免提前截断音频。
     if (duration == null ||
+        loaded.nativeDuration(player) == null ||
         duration <= Duration(seconds: seconds * 2) ||
-        duration - pos > Duration(seconds: seconds)) {
+        player.position >= duration ||
+        duration - player.position > Duration(seconds: seconds)) {
       return;
     }
     final next = _ref.read(nextSongProvider);
@@ -59,6 +64,10 @@ mixin PlayerCrossfade on PlayerActionsBase, PlayerSourceResolver {
       // 认领本次 play() 创建的代数：若装源期间用户手动切歌产生了更新代数，
       // play() 返回值就是过期代数——放弃淡化并恢复音量
       final fadeGen = await play(next);
+      if (fadeGen != _playGeneration || _loadedPlayback == null) {
+        await restoreVolume();
+        return;
+      }
       final target = _replayGainTargetVolume(next);
       for (var i = 1; i <= steps; i++) {
         await Future<void>.delayed(const Duration(milliseconds: stepMs));

@@ -16,22 +16,29 @@ mixin PlayerPersistence on PlayerActionsBase {
   Future<void> _persistNow() async {
     if (_disposed) return;
     try {
+      final gen = _playGeneration;
+      final song = _ref.read(currentSongProvider);
+      final loaded = _loadedPlayback;
+      final positionMs = loaded != null && loaded.song.id == song?.id
+          ? _player.position.inMilliseconds
+          : _resumePositionMs;
       final payload = <String, dynamic>{
         'queue': _ref
             .read(queueProvider)
             .take(100)
             .map((s) => s.toJson())
             .toList(),
-        'currentSong': _ref.read(currentSongProvider)?.toJson(),
+        'currentSong': song?.toJson(),
         'playMode': _ref.read(playModeProvider).name,
         'speed': _ref.read(playbackSpeedProvider),
         'replayGainMode': _ref.read(replayGainModeProvider).name,
         'loopPlayback': _ref.read(loopPlaybackProvider),
         'shuffleOrder': _ref.read(shuffleOrderProvider).order,
         'shufflePos': _ref.read(shuffleOrderProvider).pos,
-        'currentTime': _player.position.inMilliseconds / 1000.0,
+        'currentTime': positionMs / 1000.0,
       };
       final prefs = await SharedPreferences.getInstance();
+      if (_disposed || gen != _playGeneration) return;
       await prefs.setString(_playerStateKey, jsonEncode(payload));
     } catch (_) {
       // 持久化失败静默（存储异常不应影响播放）
@@ -41,7 +48,7 @@ mixin PlayerPersistence on PlayerActionsBase {
   /// positionStream 节流落盘：播放中每 [_positionPersistInterval] 写一次进度
   void _tickPositionPersist(Duration pos) {
     if (!_restored || _disposed) return;
-    if (_ref.read(currentSongProvider) == null) return;
+    if (_loadedPlayback == null) return;
     // positionStream 是种子流：绑定瞬间吐出 Duration.zero，音源未就绪时也报零。
     // 此时落盘会把零进度写回，覆盖长音频断点与冷启动恢复进度
     if (pos <= Duration.zero) return;
@@ -57,7 +64,7 @@ mixin PlayerPersistence on PlayerActionsBase {
   /// 暂停瞬间立即落盘（playingStream 由真转假触发）
   void _tickPausePersist() {
     if (_disposed) return;
-    if (_ref.read(currentSongProvider) == null) return;
+    if (_loadedPlayback == null) return;
     _lastPositionPersistAt = DateTime.now();
     unawaited(_persistNow());
   }

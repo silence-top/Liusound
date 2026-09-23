@@ -47,27 +47,12 @@ Future<void> _showGlassLevelPicker(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 与内联预览共用控制器：拖动只更新内存，松手保存原有偏好键。
-Future<void> _showGlassOpacitySheet(BuildContext context, WidgetRef ref) {
+Future<void> _showGlassOpacitySheet(BuildContext context) {
   return glassBottomSheet<void>(
     context,
-    Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
-          child: Text(
-            '面板透明度',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        // 弹层始终演示面板；卡片关闭时仍可看见透明度的实际作用。
-        const _PanelMaterialPreview(),
-        const SizedBox(height: AppSpacing.l),
-        const _GlassOpacityControl(),
-      ],
+    const Padding(
+      padding: EdgeInsets.all(AppSpacing.s),
+      child: _GlassOpacityControl(),
     ),
     scrollable: true,
   );
@@ -86,6 +71,13 @@ class _GlassOpacityControl extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('面板透明度 · $percent%', style: textTheme.titleSmall),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '拖动滑杆，直接查看此弹层的透明效果。',
+          style: textTheme.bodySmall?.copyWith(
+            color: AppTheme.textDimOf(context),
+          ),
+        ),
         Semantics(
           label: '面板透明度，100% 为主题默认，数值越小越通透',
           child: Slider(
@@ -102,8 +94,23 @@ class _GlassOpacityControl extends ConsumerWidget {
                 ref.read(glassTintOpacityProvider.notifier).commit(),
           ),
         ),
+        Row(
+          children: [
+            Expanded(child: Text('更通透', style: textTheme.bodySmall)),
+            Expanded(
+              child: Text(
+                '主题默认',
+                textAlign: TextAlign.end,
+                style: textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.m),
         Text(
-          '100% 为主题默认；数值越小越通透。松手保存。',
+          '只调节底色，文字与图标不变淡；100% 保留主题原始效果，松手保存。\n'
+          '影响分组卡片、通用弹窗、菜单、提示和播放页弹层；播放页弹层保留底色下限，避免背景干扰阅读。\n'
+          '不影响页面背景、迷你播放条、播放器封面和底部控制栏；模糊强度单独调节。',
           style: textTheme.bodySmall?.copyWith(
             color: AppTheme.textDimOf(context),
           ),
@@ -113,7 +120,6 @@ class _GlassOpacityControl extends ConsumerWidget {
   }
 }
 
-/// 画布不是卡片容器；其上只放一个真实面板，使用 GlassContainer 同源参数。
 class _PanelMaterialPreview extends ConsumerWidget {
   const _PanelMaterialPreview({this.showCard = true});
 
@@ -138,10 +144,13 @@ class _PanelMaterialPreview extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('一段好时光', style: theme.textTheme.titleSmall),
+              Text(
+                showCard ? '我的音乐' : '操作面板',
+                style: theme.textTheme.titleSmall,
+              ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '音乐条 · 样式示意',
+                showCard ? '收藏的歌曲与本地音乐' : '弹窗与菜单仍可调节',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: tokens.textDim,
                 ),
@@ -150,16 +159,12 @@ class _PanelMaterialPreview extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.s),
-        Icon(
-          Icons.play_circle_filled,
-          color: theme.colorScheme.primary,
-          size: AppSpacing.xxl,
-        ),
+        Icon(Icons.chevron_right, color: tokens.textDim, size: AppSpacing.xxl),
       ],
     );
     return Semantics(
       image: true,
-      label: showCard ? '当前主题、背景与透明度下的面板示意' : '关闭卡片后的音乐条示意',
+      label: showCard ? '当前主题、背景与透明度下的分组卡片示意' : '关闭卡片后的弹层示意',
       child: ExcludeSemantics(
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.m),
@@ -178,15 +183,16 @@ class _PanelMaterialPreview extends ConsumerWidget {
                     heightFactor: 1,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 520),
-                      child: showCard
-                          ? GlassSurface(
-                              radius: AppRadius.l,
-                              blur: GlassTokens.blurContainer,
-                              tint: tint,
-                              padding: inset,
-                              child: musicRow,
-                            )
-                          : Padding(padding: inset, child: musicRow),
+                      child: GlassSurface(
+                        radius: showCard
+                            ? AppRadius.l
+                            : GlassTokens.radiusSheet,
+                        blur: showCard ? 0 : GlassTokens.blurHeavy,
+                        tint: tint,
+                        shadow: !showCard,
+                        padding: inset,
+                        child: musicRow,
+                      ),
                     ),
                   ),
                 ),
@@ -242,8 +248,8 @@ Future<void> _showCoverStylePicker(BuildContext context, WidgetRef ref) {
         Padding(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
           child: Text(
-            '黑胶与 CD 随播放旋转，黑胶带唱针升降动画；'
-            '方形卡片与全屏大图保持静态，模糊强度跟随液态玻璃档位',
+            '黑胶呈现沟槽与唱针，CD 搭配银色光盘与专辑封套；'
+            '玻璃卡片装裱完整封面，全屏大图无边框铺开。省电模式下关闭旋转与模糊。',
             style: TextStyle(
               color: AppTheme.textFaintOf(context),
               fontSize: 12,

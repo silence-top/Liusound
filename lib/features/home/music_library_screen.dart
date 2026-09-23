@@ -71,8 +71,9 @@ class _ServerPanelState extends ConsumerState<_ServerPanel> {
     final tokens = SkinTokens.of(context);
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+        GlassCard(
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
           child: InkWell(
             borderRadius: BorderRadius.circular(AppRadius.s),
             onTap: config == null
@@ -302,102 +303,111 @@ class _EntryGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                ),
-                if (onToggle != null)
-                  TextButton.icon(
-                    onPressed: onToggle,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.textDimOf(context),
-                      backgroundColor: Colors.transparent,
-                      textStyle: Theme.of(context).textTheme.labelLarge,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.m,
+    return GlassCard(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: AppSpacing.xxxl),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    iconAlignment: IconAlignment.end,
-                    icon: AnimatedRotation(
-                      turns: expanded ? 0.5 : 0,
-                      duration: AppMotion.reduceMotion(context)
-                          ? Duration.zero
-                          : AppMotion.duration(
-                              context,
-                              MotionTokens.durationSnappy,
-                            ),
-                      child: const Icon(Icons.expand_more, size: 20),
-                    ),
-                    label: Text(expanded ? '收起' : '展开'),
                   ),
-              ],
+                  if (onToggle != null)
+                    TextButton.icon(
+                      onPressed: onToggle,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.textDimOf(context),
+                        backgroundColor: Colors.transparent,
+                        textStyle: Theme.of(context).textTheme.labelLarge,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.m,
+                        ),
+                      ),
+                      iconAlignment: IconAlignment.end,
+                      icon: AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: AppMotion.reduceMotion(context)
+                            ? Duration.zero
+                            : AppMotion.duration(
+                                context,
+                                MotionTokens.durationSnappy,
+                              ),
+                        child: const Icon(Icons.expand_more, size: 20),
+                      ),
+                      label: Text(expanded ? '收起' : '展开'),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        ClipRect(
-          child: AnimatedAlign(
-            alignment: Alignment.topCenter,
-            heightFactor: expanded ? 1 : 0,
-            duration: AppMotion.reduceMotion(context)
-                ? Duration.zero
-                : AppMotion.duration(context, MotionTokens.durationTransition),
-            curve: MotionTokens.curveEmphasized,
-            child: ExcludeFocus(
-              excluding: !expanded,
-              child: ExcludeSemantics(
-                excluding: !expanded,
-                child: IgnorePointer(
-                  ignoring: !expanded,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xl,
+          ClipRect(
+            child: AnimatedAlign(
+              alignment: Alignment.topCenter,
+              heightFactor: expanded ? 1 : 0,
+              duration: AppMotion.reduceMotion(context)
+                  ? Duration.zero
+                  : AppMotion.duration(
+                      context,
+                      MotionTokens.durationTransition,
                     ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final scale =
-                            MediaQuery.textScalerOf(context).scale(14) / 14;
-                        final columns = constraints.maxWidth >= 600 * scale
-                            ? 6
-                            : constraints.maxWidth >= 270 * scale
-                            ? 3
-                            : 2;
-                        final width =
-                            (constraints.maxWidth -
-                                AppSpacing.m * (columns - 1)) /
-                            columns;
-                        return Wrap(
-                          spacing: AppSpacing.m,
-                          children: [
-                            for (var i = 0; i < entries.length; i++)
-                              SizedBox(
-                                width: width,
-                                child: FadeSlideIn(index: i, child: entries[i]),
-                              ),
-                          ],
-                        );
-                      },
+              curve: MotionTokens.curveEmphasized,
+              child: ExcludeFocus(
+                excluding: !expanded,
+                child: ExcludeSemantics(
+                  excluding: !expanded,
+                  child: IgnorePointer(
+                    ignoring: !expanded,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s,
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final scale =
+                              MediaQuery.textScalerOf(context).scale(14) / 14;
+                          final columns = constraints.maxWidth >= 600 * scale
+                              ? 6
+                              : constraints.maxWidth >= 270 * scale
+                              ? 3
+                              : 2;
+                          final width =
+                              (constraints.maxWidth -
+                                  AppSpacing.m * (columns - 1)) /
+                              columns;
+                          return Wrap(
+                            spacing: AppSpacing.m,
+                            children: [
+                              for (var i = 0; i < entries.length; i++)
+                                SizedBox(
+                                  width: width,
+                                  child: FadeSlideIn(
+                                    index: i,
+                                    child: entries[i],
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
